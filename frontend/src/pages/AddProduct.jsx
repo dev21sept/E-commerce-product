@@ -42,7 +42,8 @@ const AddProduct = () => {
                 ebay_url: data.ebayUrl || ebayUrl
             });
         } catch (err) {
-            setError('Failed to fetch product data. Please check the URL and try again.');
+            const errorMessage = err.response?.data?.details || err.response?.data?.error || 'Failed to fetch product data. Please check the URL and try again.';
+            setError(errorMessage);
             console.error(err);
         } finally {
             setIsFetching(false);

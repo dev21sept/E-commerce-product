@@ -10,7 +10,8 @@
         "start": "node backend/index.js",
         "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
         "dev:backend": "cd backend && npm run dev",
-        "dev:frontend": "cd frontend && npm run dev"
+        "dev:frontend": "cd frontend && npm run dev",
+        "postinstall": "cd backend && npx puppeteer browsers install chrome"
     },
     "devDependencies": {
         "concurrently": "^8.2.2"
