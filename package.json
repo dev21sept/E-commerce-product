@@ -1,0 +1,18 @@
+{
+    "name": "ebay-product-management-system",
+    "version": "1.0.0",
+    "description": "Monorepo for eBay Product Management Admin Panel",
+    "private": true,
+    "scripts": {
+        "install:backend": "cd backend && npm install",
+        "install:frontend": "cd frontend && npm install",
+        "build:frontend": "cd frontend && npm run build",
+        "start": "node backend/index.js",
+        "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+        "dev:backend": "cd backend && npm run dev",
+        "dev:frontend": "cd frontend && npm run dev"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
