@@ -151,30 +151,74 @@ const fetchEbayProduct = async (url) => {
             // ---- VARIATIONS (Size, Color, etc.) ----
             const variationsMap = {};
 
-            // 1. Look for select boxes
-            const selectBoxes = document.querySelectorAll('select.x-msku__select-box, select.msku-sel, .x-msku__select-box');
-            selectBoxes.forEach(select => {
-                let name = '';
-                const nameNode = select.closest('.x-msku__select-box-wrapper')?.querySelector('.x-msku__label-text') ||
-                    select.parentElement?.parentElement?.querySelector('label') ||
-                    select.closest('.msku-sel-cont')?.querySelector('label');
-
-                if (nameNode) {
-                    name = nameNode.innerText.trim().replace(':', '').replace('*', '');
-                } else {
-                    name = select.getAttribute('name') || select.id;
-                }
-
-                if (name && name.toLowerCase() !== 'quantity') {
-                    const options = Array.from(select.querySelectorAll('option'))
-                        .map(opt => opt.innerText.trim())
-                        .filter(val => val && val.toLowerCase() !== '- select -' && !val.includes('Out of stock'));
-
-                    if (options.length > 0) {
-                        variationsMap[name] = options;
+            // 1. Look for select boxes or custom listboxes
+            const selectWrappers = document.querySelectorAll('.x-msku__select-box-wrapper, .msku-sel-cont');
+            if (selectWrappers.length > 0) {
+                selectWrappers.forEach(wrapper => {
+                    let name = '';
+                    const nameNode = wrapper.querySelector('.x-msku__label-text, label');
+                    if (nameNode) {
+                        name = nameNode.innerText.trim().replace(':', '').replace('*', '');
                     }
-                }
-            });
+
+                    if (name && name.toLowerCase() !== 'quantity') {
+                        let options = [];
+
+                        // Try native select first
+                        const select = wrapper.querySelector('select');
+                        if (select) {
+                            options = Array.from(select.querySelectorAll('option'))
+                                .map(opt => opt.innerText.trim().split('\n')[0].trim())
+                                .filter(val => val && val.toLowerCase() !== '- select -' && val.toLowerCase() !== 'select' && !val.includes('Out of stock'));
+                        } else {
+                            // Try custom listbox
+                            const optionNodes = wrapper.querySelectorAll('[role="option"], .listbox__option, .x-msku__listbox-option, .listbox-option, option');
+                            if (optionNodes.length > 0) {
+                                options = Array.from(optionNodes)
+                                    .map(opt => opt.innerText.trim().split('\n')[0].trim()) // Extract just the first line (e.g. "Graphite" from "Graphite\nMost popular")
+                                    .filter(val => val && val.toLowerCase() !== '- select -' && val.toLowerCase() !== 'select' && !val.includes('Out of stock'));
+                            }
+                        }
+
+                        if (options.length > 0) {
+                            variationsMap[name] = options;
+                        }
+                    }
+                });
+            } else {
+                // Fallback basic select matching
+                const selectBoxes = document.querySelectorAll('select.x-msku__select-box, select.msku-sel, .x-msku__select-box:not(div)');
+                selectBoxes.forEach(select => {
+                    let name = '';
+                    const nameNode = select.closest('.x-msku__select-box-wrapper')?.querySelector('.x-msku__label-text') ||
+                        select.parentElement?.parentElement?.querySelector('label') ||
+                        select.closest('.msku-sel-cont')?.querySelector('label');
+
+                    if (nameNode) {
+                        name = nameNode.innerText.trim().replace(':', '').replace('*', '');
+                    } else {
+                        name = select.getAttribute('name') || select.id;
+                    }
+
+                    if (name && name.toLowerCase() !== 'quantity') {
+                        let options = [];
+                        if (select.tagName === 'SELECT') {
+                            options = Array.from(select.querySelectorAll('option'))
+                                .map(opt => opt.innerText.trim().split('\n')[0].trim())
+                                .filter(val => val && val.toLowerCase() !== '- select -' && val.toLowerCase() !== 'select' && !val.includes('Out of stock'));
+                        } else {
+                            const optionNodes = select.querySelectorAll('[role="option"]');
+                            options = Array.from(optionNodes)
+                                .map(opt => opt.innerText.trim().split('\n')[0].trim())
+                                .filter(val => val && val.toLowerCase() !== '- select -' && val.toLowerCase() !== 'select' && !val.includes('Out of stock'));
+                        }
+
+                        if (options.length > 0) {
+                            variationsMap[name] = options;
+                        }
+                    }
+                });
+            }
 
             // 2. Look for button-style variations
             if (Object.keys(variationsMap).length === 0) {
