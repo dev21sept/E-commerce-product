@@ -15,6 +15,5 @@ coverage/
 .parcel-cache/
 .eslintcache/
 .stylelintcache/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
