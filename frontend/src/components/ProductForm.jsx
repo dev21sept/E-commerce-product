@@ -131,25 +131,33 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                         </div>
                     </div>
 
-                    {/* Item description UI Section */}
+                    {/* Item description UI Section (Visual Editor) */}
                     <div className="card p-8">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">
-                            Item description from the seller
-                        </h3>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-gray-900">
+                                Product Description
+                            </h3>
+                            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold bg-green-50 text-green-600 uppercase tracking-wider border border-green-100">
+                                <Sparkles className="w-3 h-3" /> Visual Editor
+                            </span>
+                        </div>
 
-                        {formData?.description && formData.description.length > 10 ? (
-                            <div
-                                className="border border-gray-200 rounded-lg p-6 bg-white max-h-[500px] overflow-y-auto"
-                                dangerouslySetInnerHTML={{
-                                    __html: formData.description
-                                }}
-                            />
-                        ) : (
-                            <p className="text-sm text-gray-400 italic">
-                                No description available
-                            </p>
-                        )}
+                        <div
+                            contentEditable={true}
+                            className="form-input min-h-[300px] p-6 bg-white overflow-y-auto focus:ring-2 focus:ring-[#4F46E5]/20 focus:outline-none cursor-text prose prose-sm max-w-none"
+                            onBlur={(e) => {
+                                setFormData(prev => ({ ...prev, description: e.target.innerHTML }));
+                            }}
+                            dangerouslySetInnerHTML={{ __html: formData.description }}
+                        />
+
+                        <p className="mt-4 text-[11px] text-gray-400 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            Click anywhere inside the box above to edit the text directly. Changes are saved when you click outside.
+                        </p>
                     </div>
+
+
 
 
                     {/* Item Specifics */}

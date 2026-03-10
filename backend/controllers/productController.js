@@ -38,6 +38,7 @@ exports.scrapeEbayDescription = async (req, res) => {
 
 // Create a new product
 exports.createProduct = async (req, res) => {
+    console.log("[DB] Attempting to create a new product...");
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -48,6 +49,8 @@ exports.createProduct = async (req, res) => {
             discount_percentage, seller_name, seller_feedback,
             ebay_url, about_item, item_specifics, images, variations
         } = req.body;
+
+        console.log(`[DB] Saving product: ${title?.substring(0, 30)}...`);
 
         const [result] = await connection.execute(
             `INSERT INTO products (title, description, category, brand, condition_name, retail_price, selling_price, discount_percentage, seller_name, seller_feedback, ebay_url, about_item, item_specifics)
@@ -70,6 +73,7 @@ exports.createProduct = async (req, res) => {
         );
 
         const productId = result.insertId;
+        console.log(`[DB] Main product record created with ID: ${productId}`);
 
         // Insert images
         if (images && images.length > 0) {
@@ -79,6 +83,7 @@ exports.createProduct = async (req, res) => {
                     [productId, imgUrl]
                 );
             }
+            console.log(`[DB] Inserted ${images.length} images.`);
         }
 
         // Insert variations (e.g. Size, Color dropdowns)
@@ -94,17 +99,21 @@ exports.createProduct = async (req, res) => {
                     }
                 }
             }
+            console.log(`[DB] Inserted variations.`);
         }
 
         await connection.commit();
+        console.log("[DB] Transaction committed successfully.");
         res.status(201).json({ message: 'Product created successfully', productId });
     } catch (error) {
+        console.error("[DB] CRITICAL ERROR DURING SAVE:", error.message);
         await connection.rollback();
         res.status(500).json({ error: 'Failed to create product', details: error.message });
     } finally {
         connection.release();
     }
 };
+
 
 // Get all products
 exports.getAllProducts = async (req, res) => {
