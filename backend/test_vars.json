@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Size (Mens)",
+    "values": [
+      "Small",
+      "Medium",
+      "Large",
+      "XL"
+    ]
+  },
+  {
+    "name": "Color",
+    "values": [
+      "Black",
+      "Red",
+      "Navy",
+      "Grey",
+      "White",
+      "Green"
+    ]
+  }
+]

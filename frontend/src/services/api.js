@@ -5,10 +5,18 @@ const api = axios.create({
     timeout: 120000
 });
 
+
+
 export const fetchEbayProduct = async (url) => {
     const response = await api.post('/fetch-ebay-product', { url });
     return response.data;
 };
+
+export const scrapeEbayDescription = async (url) => {
+    const response = await api.post('/scrape-ebay', { url });
+    return response.data;
+};
+
 
 export const createProduct = async (productData) => {
     const response = await api.post('/products', productData);

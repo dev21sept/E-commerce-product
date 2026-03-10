@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import ProductForm from '../components/ProductForm';
-import { fetchEbayProduct, createProduct } from '../services/api';
+import { fetchEbayProduct, createProduct, scrapeEbayDescription } from '../services/api';
 
 const AddProduct = () => {
     const navigate = useNavigate();
@@ -10,6 +10,15 @@ const AddProduct = () => {
     const [isFetching, setIsFetching] = useState(false);
     const [error, setError] = useState('');
     const [scrapedData, setScrapedData] = useState(null);
+
+    const handleFetchEbayData = async (url) => {
+        try {
+            const data = await scrapeEbayDescription(url);
+            setScrapedData(prev => ({ ...prev, ...data }));
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    };
 
     const handleFetchEbay = async () => {
         if (!ebayUrl) return setError('Please paste an eBay product URL');
@@ -19,6 +28,7 @@ const AddProduct = () => {
         setIsFetching(true);
         try {
             const data = await fetchEbayProduct(ebayUrl);
+
 
             // Clean up price (remove symbols, convert to number)
             const cleanPrice = parseFloat(data.price?.replace(/[^0-9.]/g, '') || 0);

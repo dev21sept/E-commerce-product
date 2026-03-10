@@ -20,8 +20,6 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
         images: []
     });
 
-    const [showDescriptionPreview, setShowDescriptionPreview] = useState(true);
-
     useEffect(() => {
         if (initialData) {
             setFormData({
@@ -70,7 +68,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
     };
 
     const handleAddVariation = () => {
-        const name = prompt('Enter Variation Name (e.g. Size, Color, Bundle):');
+        const name = prompt('Enter Attribute Name (e.g. Size, Color, Bundle):');
         if (name && name.trim()) {
             setFormData(prev => ({
                 ...prev,
@@ -133,34 +131,26 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                         </div>
                     </div>
 
-                    {/* Item Description from Seller */}
+                    {/* Item description UI Section */}
                     <div className="card p-8">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Item Description from the Seller</h3>
-                            <button
-                                type="button"
-                                onClick={() => setShowDescriptionPreview(!showDescriptionPreview)}
-                                className="text-xs font-bold text-[#4F46E5] hover:underline"
-                            >
-                                {showDescriptionPreview ? 'Edit Raw HTML' : 'Preview'}
-                            </button>
-                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">
+                            Item description from the seller
+                        </h3>
 
-                        {showDescriptionPreview && formData.description ? (
+                        {formData?.description && formData.description.length > 10 ? (
                             <div
-                                className="border border-gray-200 rounded-lg p-4 bg-white min-h-[200px] max-h-[500px] overflow-y-auto prose prose-sm max-w-none"
-                                dangerouslySetInnerHTML={{ __html: formData.description }}
+                                className="border border-gray-200 rounded-lg p-6 bg-white max-h-[500px] overflow-y-auto"
+                                dangerouslySetInnerHTML={{
+                                    __html: formData.description
+                                }}
                             />
                         ) : (
-                            <textarea
-                                name="description"
-                                className="w-full p-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] min-h-[200px] font-mono text-xs"
-                                placeholder="Product description HTML..."
-                                value={formData.description}
-                                onChange={handleChange}
-                            ></textarea>
+                            <p className="text-sm text-gray-400 italic">
+                                No description available
+                            </p>
                         )}
                     </div>
+
 
                     {/* Item Specifics */}
                     <div className="card p-8">
@@ -316,14 +306,14 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     {/* Variations */}
                     <div className="card p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-900">Variations</h3>
+                            <h3 className="text-lg font-bold text-gray-900">Attributes</h3>
                             <button type="button" onClick={handleAddVariation} className="text-[#4F46E5] text-xs font-bold flex items-center gap-1 hover:underline">
                                 <Plus className="w-4 h-4" /> Add
                             </button>
                         </div>
 
                         {formData.variations.length === 0 ? (
-                            <p className="text-sm text-gray-400 italic">No variations (e.g., Size, Color)</p>
+                            <p className="text-sm text-gray-400 italic">No attributes (e.g., Size, Color)</p>
                         ) : (
                             <div className="space-y-4">
                                 {formData.variations.map((variation, vIndex) => (
@@ -406,20 +396,22 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                 </div>
             </div>
 
-            {isFetching && (
-                <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center transition-all animate-in fade-in">
-                    <div className="bg-white p-8 rounded-2xl shadow-2xl border border-gray-100 flex flex-col items-center text-center max-w-sm">
-                        <div className="w-16 h-16 bg-[#4F46E5]/10 rounded-full flex items-center justify-center mb-4 relative">
-                            <Loader2 className="w-8 h-8 text-[#4F46E5] animate-spin" />
+            {
+                isFetching && (
+                    <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center transition-all animate-in fade-in">
+                        <div className="bg-white p-8 rounded-2xl shadow-2xl border border-gray-100 flex flex-col items-center text-center max-w-sm">
+                            <div className="w-16 h-16 bg-[#4F46E5]/10 rounded-full flex items-center justify-center mb-4 relative">
+                                <Loader2 className="w-8 h-8 text-[#4F46E5] animate-spin" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Fetching eBay Data</h3>
+                            <p className="text-gray-500 text-sm leading-relaxed">
+                                Scraping the eBay page to extract all product details, images, attributes, and seller info...
+                            </p>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Fetching eBay Data</h3>
-                        <p className="text-gray-500 text-sm leading-relaxed">
-                            Scraping the eBay page to extract all product details, images, variations, and seller info...
-                        </p>
                     </div>
-                </div>
-            )}
-        </form>
+                )
+            }
+        </form >
     );
 };
 

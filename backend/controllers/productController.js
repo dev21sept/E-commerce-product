@@ -18,6 +18,24 @@ exports.fetchEbayData = async (req, res) => {
     }
 };
 
+// Standalone scrape for description (User request)
+exports.scrapeEbayDescription = async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: "URL is required" });
+
+    const { fetchDescriptionOnly } = require('../services/descriptionService');
+
+    try {
+        const description = await fetchDescriptionOnly(url);
+        res.json({ description });
+    } catch (error) {
+        console.log("Scraping error:", error);
+        res.status(500).json({ error: "Scraping failed", details: error.message });
+    }
+};
+
+
+
 // Create a new product
 exports.createProduct = async (req, res) => {
     const connection = await pool.getConnection();

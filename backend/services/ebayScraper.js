@@ -1,4 +1,7 @@
 const puppeteer = require('puppeteer');
+const axios = require('axios');
+const cheerio = require('cheerio');
+
 
 const fetchEbayProduct = async (url) => {
     let browser;
@@ -88,22 +91,9 @@ const fetchEbayProduct = async (url) => {
 
             const brand = item_specifics['Brand'] || '';
 
-            // ---- DESCRIPTION (from seller) ----
-            let description = document.querySelector('#ds_div')?.innerHTML ||
-                document.querySelector('.x-item-description-child')?.innerHTML ||
-                document.querySelector('.x-item-description')?.innerHTML || '';
-
-            if (!description || description.trim() === '') {
-                const iframe = document.querySelector('#desc_ifr');
-                if (iframe) {
-                    try {
-                        description = iframe.contentDocument?.querySelector('#ds_div')?.innerHTML ||
-                            iframe.contentDocument?.body?.innerHTML || '';
-                    } catch (e) {
-                        console.log('Iframe access error:', e.message);
-                    }
-                }
-            }
+            // ---- DESCRIPTION (placeholder) ----
+            let description = '';
+            // We will fetch this strictly from the iframe later to avoid contamination
 
             // ---- ABOUT THIS ITEM (sometimes a separate section) ----
             let aboutItem = '';
@@ -152,7 +142,7 @@ const fetchEbayProduct = async (url) => {
             const variationsMap = {};
 
             // Method 1: New modern eBay UI where labels and selects are grouped in rows
-            const rows = document.querySelectorAll('.x-msku__select-box-wrapper, .msku-sel-cont, .x-msku-row, .d-quantity__row, div[class*="msku"]');
+            const rows = document.querySelectorAll('.x-msku__select-box-wrapper, .msku-sel-cont, .x-msku-row, .d-quantity__row, .x-sku');
             rows.forEach(row => {
                 let name = '';
                 const nameNode = row.querySelector('label, .x-msku__label-text, .listbox__label, [class*="label"]');
@@ -162,7 +152,10 @@ const fetchEbayProduct = async (url) => {
                     const optionNodes = row.querySelectorAll('option, [role="option"], .listbox__option, .x-msku__listbox-option');
                     if (optionNodes.length > 0) {
                         const options = Array.from(optionNodes)
-                            .map(opt => opt.innerText.trim().split('\n')[0].trim())
+                            .map(opt => {
+                                let valText = opt.getAttribute('data-sku-value-name') || opt.querySelector('.listbox__value')?.innerText || opt.innerText;
+                                return valText.trim().split('\n')[0].replace('selected', '').trim();
+                            })
                             .filter(val => val && val.toLowerCase() !== '- select -' && val.toLowerCase() !== 'select' && !val.toLowerCase().includes('out of stock'));
                         if (options.length > 0) variationsMap[name] = options;
                     }
@@ -179,10 +172,10 @@ const fetchEbayProduct = async (url) => {
                     if (nameNode) name = nameNode.innerText.trim().replace(/:.*/g, '').replace('*', '');
                     else name = (el.getAttribute('aria-label') || el.name || el.id || '').replace(/:.*/g, '');
 
-                    if (name && name.toLowerCase() !== 'quantity' && !name.toLowerCase().includes('sort')) {
+                    if (name && name.toLowerCase() !== 'quantity' && !name.toLowerCase().includes('sort') && !name.toLowerCase().includes('category') && !name.toLowerCase().includes('search')) {
                         const optionNodes = el.querySelectorAll('option, [role="option"]');
                         const options = Array.from(optionNodes)
-                            .map(opt => opt.innerText.trim().split('\n')[0].trim())
+                            .map(opt => opt.innerText.trim().split('\n')[0].replace('selected', '').trim())
                             .filter(val => val && val.toLowerCase() !== '- select -' && val.toLowerCase() !== 'select' && !val.toLowerCase().includes('out of stock'));
                         if (options.length > 0) variationsMap[name] = options;
                     }
@@ -200,8 +193,8 @@ const fetchEbayProduct = async (url) => {
                     if (nameNode) {
                         const name = nameNode.innerText.trim().replace(/:.*/g, '').replace('*', '');
                         const options = Array.from(container.querySelectorAll('button, .x-msku__box-text'))
-                            .map(btn => btn.innerText.trim())
-                            .filter(val => val && !val.toLowerCase().includes('out of stock'));
+                            .map(btn => btn.innerText.trim().replace('selected', '').trim())
+                            .filter(val => val && val.toLowerCase() !== '- select -' && val.toLowerCase() !== 'select' && !val.toLowerCase().includes('out of stock'));
 
                         if (name && options.length > 0) {
                             variationsMap[name] = options;
@@ -254,29 +247,20 @@ const fetchEbayProduct = async (url) => {
             };
         });
 
-        // If description is empty, try to get it from the iframe using Puppeteer's frame API
-        if (!productData.description || productData.description.trim() === '') {
-            try {
-                const frames = page.frames();
-                for (const frame of frames) {
-                    const frameUrl = frame.url();
-                    if (frameUrl.includes('vi/description') || frameUrl.includes('desc_ifr') || frameUrl.includes('ebay.com/itm/')) {
-                        const iframeDescription = await frame.evaluate(() => {
-                            return document.querySelector('#ds_div')?.innerHTML ||
-                                document.body?.innerHTML || '';
-                        }).catch(() => '');
-                        if (iframeDescription && iframeDescription.trim()) {
-                            productData.description = iframeDescription;
-                            break;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.log('Iframe description extraction error:', e.message);
-            }
-        }
+        // ---- 2. DESCRIPTION EXTRACTION (USING DEDICATED SERVICE) ----
+        // Extract iframe src while we are already on the page to avoid double navigation
+        const iframeSrc = await page.evaluate(() => {
+            const ifr = document.getElementById('desc_ifr') || document.querySelector('iframe[src*="ebaydesc.com"]');
+            return ifr ? ifr.src : null;
+        });
+
+        const { fetchDescriptionOnly } = require('./descriptionService');
+        productData.description = await fetchDescriptionOnly(url, iframeSrc);
+
 
         return productData;
+
+
     } catch (error) {
         console.error('Scraping error:', error);
         throw error;
