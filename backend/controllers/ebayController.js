@@ -67,12 +67,19 @@ exports.handleCallback = async (req, res) => {
 // Function to ensure we have a valid token
 async function getValidToken() {
     try {
+        console.log('Fetching tokens from DB...');
         let accessToken = await getSetting('ebay_access_token');
         let refreshToken = await getSetting('ebay_refresh_token');
         let expiresAt = await getSetting('ebay_token_expiry');
 
+        console.log('DB Check:', { 
+            hasAccessToken: !!accessToken, 
+            hasRefreshToken: !!refreshToken, 
+            expiresAt 
+        });
+
         if (!refreshToken) {
-            console.error('No refresh token found in DB');
+            console.error('CRITICAL: No refresh token found. User MUST login again.');
             return null;
         }
         
