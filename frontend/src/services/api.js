@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: import.meta.env.MODE === 'production' 
-        ? 'https://e-commerce-product-3.onrender.com/api'
+        ? 'https://capable-mercy-production-8c90.up.railway.app/api'
         : 'http://localhost:5000/api',
     timeout: 120000
 });
