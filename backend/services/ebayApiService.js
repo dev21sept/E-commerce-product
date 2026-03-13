@@ -230,15 +230,15 @@ async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
 async function initDefaultFulfillmentPolicy(token) {
     const policy = {
         name: 'Automation_Ship_' + Date.now(),
-        description: 'Automated shipping policy for sandbox',
+        description: 'Automated shipping policy for US Sandbox',
         marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
-        handlingTime: { value: 3, unit: 'DAY' },
+        handlingTime: { value: 1, unit: 'DAY' },
         shippingOptions: [{
             optionType: 'DOMESTIC',
             costType: 'FLAT_RATE',
             shippingServices: [{
-                shippingServiceCode: 'USPSStandard',
+                shippingServiceCode: 'USPSPriority', // Most stable code for US Sandbox
                 shippingCost: { value: '0.00', currency: 'USD' }
             }]
         }],
