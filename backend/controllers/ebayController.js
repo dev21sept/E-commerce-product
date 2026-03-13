@@ -29,7 +29,8 @@ exports.handleCallback = async (req, res) => {
         userTokens.expiresAt = Date.now() + (tokens.expires_in * 1000);
         
         // Redirect back to frontend with a success message
-        res.redirect('http://localhost:5173/?ebay_auth=success');
+        const frontendUrl = process.env.FRONTEND_URL || 'https://fascinating-longma-3fed25.netlify.app';
+        res.redirect(`${frontendUrl}/?ebay_auth=success`);
     } catch (error) {
         console.error('Callback Error:', error.response?.data || error.message);
         res.status(500).send('Authentication failed check server logs');
