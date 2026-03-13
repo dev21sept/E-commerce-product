@@ -170,13 +170,36 @@ exports.listProduct = async (req, res) => {
         } catch (locationErr) {
             const ebayError = locationErr.response?.data?.errors?.[0];
             const errorMsg = ebayError?.message || locationErr.message || "";
-            // If it's "already exists", we can safely continue
             if (ebayError?.errorId === 25002 || errorMsg.toLowerCase().includes("already exists")) {
                 console.log('Merchant location already exists, proceeding...');
             } else {
                 locationErr.step = 'Create Location';
                 throw locationErr;
             }
+        }
+
+        // 3.5 Fetch Business Policies
+        console.log('Step 1.7: Fetching Business Policies...');
+        let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
+        try {
+            const [fPolicies, pPolicies, rPolicies] = await Promise.all([
+                ebayService.getFulfillmentPolicies(token),
+                ebayService.getPaymentPolicies(token),
+                ebayService.getReturnPolicies(token)
+            ]);
+
+            fulfillmentPolicyId = fPolicies[0]?.fulfillmentPolicyId;
+            paymentPolicyId = pPolicies[0]?.paymentPolicyId;
+            returnPolicyId = rPolicies[0]?.returnPolicyId;
+
+            console.log('Policies found:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
+
+            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
+                throw new Error('Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies set up in your eBay account.');
+            }
+        } catch (policyErr) {
+            policyErr.step = 'Fetch Policies';
+            throw policyErr;
         }
 
         // 4. Create Offer
@@ -197,7 +220,12 @@ exports.listProduct = async (req, res) => {
                     }
                 },
                 merchantLocationKey: 'default', 
-                tax: { vatPercentage: 0 }
+                tax: { vatPercentage: 0 },
+                listingPolicies: {
+                    fulfillmentPolicyId,
+                    paymentPolicyId,
+                    returnPolicyId
+                }
             };
             const offerResponse = await ebayService.createOffer(token, offer);
             offerId = offerResponse.offerId;
