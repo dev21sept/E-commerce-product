@@ -198,34 +198,35 @@ exports.listProduct = async (req, res) => {
                 ebayService.getReturnPolicies(token)
             ]);
 
-            fulfillmentPolicyId = fPolicies[0]?.fulfillmentPolicyId;
-            paymentPolicyId = pPolicies[0]?.paymentPolicyId;
-            returnPolicyId = rPolicies[0]?.returnPolicyId;
+            // Filter for our specific automated policies or use the first valid one
+            fulfillmentPolicyId = fPolicies.find(p => p.name.includes('Standard_Automated'))?.fulfillmentPolicyId || fPolicies[0]?.fulfillmentPolicyId;
+            paymentPolicyId = pPolicies.find(p => p.name.includes('Standard_Automated'))?.paymentPolicyId || pPolicies[0]?.paymentPolicyId;
+            returnPolicyId = rPolicies.find(p => p.name.includes('Standard_Automated'))?.returnPolicyId || rPolicies[0]?.returnPolicyId;
 
             // AUTO-CREATE FALLBACK
             let newlyCreated = false;
             if (!fulfillmentPolicyId) {
-                console.log('Creating default fulfillment policy...');
+                console.log('Creating unique fulfillment policy...');
                 const res = await ebayService.initDefaultFulfillmentPolicy(token);
                 fulfillmentPolicyId = res.fulfillmentPolicyId;
                 newlyCreated = true;
             }
             if (!paymentPolicyId) {
-                console.log('Creating default payment policy...');
+                console.log('Creating unique payment policy...');
                 const res = await ebayService.initDefaultPaymentPolicy(token);
                 paymentPolicyId = res.paymentPolicyId;
                 newlyCreated = true;
             }
             if (!returnPolicyId) {
-                console.log('Creating default return policy...');
+                console.log('Creating unique return policy...');
                 const res = await ebayService.initDefaultReturnPolicy(token);
                 returnPolicyId = res.returnPolicyId;
                 newlyCreated = true;
             }
 
             if (newlyCreated) {
-                console.log('Policies created, waiting 5 seconds for eBay indexing...');
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                console.log('New Policies created, waiting 10 seconds for eBay indexing...');
+                await new Promise(resolve => setTimeout(resolve, 10000));
             }
 
             console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
