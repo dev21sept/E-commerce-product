@@ -198,10 +198,14 @@ exports.listProduct = async (req, res) => {
                 ebayService.getReturnPolicies(token)
             ]);
 
-            // Filter for our specific automated policies or use the first valid one
-            fulfillmentPolicyId = fPolicies.find(p => p.name.includes('Standard_Automated'))?.fulfillmentPolicyId || fPolicies[0]?.fulfillmentPolicyId;
-            paymentPolicyId = pPolicies.find(p => p.name.includes('Standard_Automated'))?.paymentPolicyId || pPolicies[0]?.paymentPolicyId;
-            returnPolicyId = rPolicies.find(p => p.name.includes('Standard_Automated'))?.returnPolicyId || rPolicies[0]?.returnPolicyId;
+            // STRICT FILTER: Only use our custom automation policies
+            const ourFulfillment = fPolicies.find(p => p.name === 'Ebay_Automation_Ship_v1');
+            const ourPayment = pPolicies.find(p => p.name === 'Ebay_Automation_Pay_v1');
+            const ourReturn = rPolicies.find(p => p.name === 'Ebay_Automation_Ret_v1');
+
+            fulfillmentPolicyId = ourFulfillment?.fulfillmentPolicyId;
+            paymentPolicyId = ourPayment?.paymentPolicyId;
+            returnPolicyId = ourReturn?.returnPolicyId;
 
             // AUTO-CREATE FALLBACK
             let newlyCreated = false;
@@ -225,14 +229,22 @@ exports.listProduct = async (req, res) => {
             }
 
             if (newlyCreated) {
-                console.log('New Policies created, waiting 10 seconds for eBay indexing...');
-                await new Promise(resolve => setTimeout(resolve, 10000));
+                console.log('New Policies created, waiting 15 seconds for eBay indexing...');
+                await new Promise(resolve => setTimeout(resolve, 15000));
             }
 
             console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
-
         } catch (policyErr) {
-            console.error('Policy flow failed, trying to continue but listing may fail:', policyErr.message);
+            console.error('Policy flow failed:', policyErr.message);
+            // Fallback to first available if our strict check failed
+            const [fP, pP, rP] = await Promise.all([
+                ebayService.getFulfillmentPolicies(token),
+                ebayService.getPaymentPolicies(token),
+                ebayService.getReturnPolicies(token)
+            ]);
+            fulfillmentPolicyId = fulfillmentPolicyId || fP[0]?.fulfillmentPolicyId;
+            paymentPolicyId = paymentPolicyId || pP[0]?.paymentPolicyId;
+            returnPolicyId = returnPolicyId || rP[0]?.returnPolicyId;
         }
 
         // 4. Create Offer
