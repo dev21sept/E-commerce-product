@@ -5,6 +5,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const productRoutes = require('./routes/productRoutes');
+const ebayRoutes = require('./routes/ebayRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,6 +18,7 @@ app.use(morgan('dev'));
 
 // Routes
 app.use('/api', productRoutes);
+app.use('/api/ebay', ebayRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

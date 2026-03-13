@@ -44,21 +44,22 @@ exports.createProduct = async (req, res) => {
         await connection.beginTransaction();
 
         const {
-            title, description, category, brand,
+            title, description, category, categoryId, brand,
             condition_name, retail_price, selling_price,
             discount_percentage, seller_name, seller_feedback,
-            ebay_url, about_item, item_specifics, images, variations
+            ebay_url, about_item, item_specifics, images, variations, video_url
         } = req.body;
 
         console.log(`[DB] Saving product: ${title?.substring(0, 30)}...`);
 
         const [result] = await connection.execute(
-            `INSERT INTO products (title, description, category, brand, condition_name, retail_price, selling_price, discount_percentage, seller_name, seller_feedback, ebay_url, about_item, item_specifics)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO products (title, description, category, category_id, brand, condition_name, retail_price, selling_price, discount_percentage, seller_name, seller_feedback, ebay_url, about_item, item_specifics, video_url)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 title || null,
                 description || null,
                 category || null,
+                categoryId || null,
                 brand || null,
                 condition_name || null,
                 retail_price || null,
@@ -68,7 +69,8 @@ exports.createProduct = async (req, res) => {
                 seller_feedback || null,
                 ebay_url || null,
                 about_item || null,
-                item_specifics ? JSON.stringify(item_specifics) : null
+                item_specifics ? JSON.stringify(item_specifics) : null,
+                video_url || null
             ]
         );
 
@@ -179,19 +181,20 @@ exports.updateProduct = async (req, res) => {
         await connection.beginTransaction();
 
         const {
-            title, description, category, brand,
+            title, description, category, categoryId, brand,
             condition_name, retail_price, selling_price,
             discount_percentage, seller_name, seller_feedback,
-            ebay_url, about_item, item_specifics, images, variations
+            ebay_url, about_item, item_specifics, images, variations, video_url
         } = req.body;
 
         await connection.execute(
-            `UPDATE products SET title=?, description=?, category=?, brand=?, condition_name=?, retail_price=?, selling_price=?, discount_percentage=?, seller_name=?, seller_feedback=?, ebay_url=?, about_item=?, item_specifics=?
+            `UPDATE products SET title=?, description=?, category=?, category_id=?, brand=?, condition_name=?, retail_price=?, selling_price=?, discount_percentage=?, seller_name=?, seller_feedback=?, ebay_url=?, about_item=?, item_specifics=?, video_url=?
              WHERE id = ?`,
             [
                 title || null,
                 description || null,
                 category || null,
+                categoryId || null,
                 brand || null,
                 condition_name || null,
                 retail_price || null,
@@ -202,6 +205,7 @@ exports.updateProduct = async (req, res) => {
                 ebay_url || null,
                 about_item || null,
                 item_specifics ? JSON.stringify(item_specifics) : null,
+                video_url || null,
                 req.params.id
             ]
         );
