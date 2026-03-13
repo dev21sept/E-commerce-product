@@ -188,34 +188,59 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Always create fresh policies for Sandbox due to corruption/latency issues
-        console.log('Step 1.7: Creating/Refreshing Business Policies...');
+        // 3.5 Managing Business Policies (Smart Way)
+        console.log('Step 1.7: Finding/Creating Business Policies...');
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
-        
+
         try {
-            console.log('--- Creating Fulfillment Policy ---');
-            const fRes = await ebayService.initDefaultFulfillmentPolicy(token);
-            fulfillmentPolicyId = fRes.fulfillmentPolicyId;
+            // First, try to fetch ANY existing policies
+            const [fList, pList, rList] = await Promise.all([
+                ebayService.getFulfillmentPolicies(token),
+                ebayService.getPaymentPolicies(token),
+                ebayService.getReturnPolicies(token)
+            ]);
 
-            console.log('--- Creating Payment Policy ---');
-            const pRes = await ebayService.initDefaultPaymentPolicy(token);
-            paymentPolicyId = pRes.paymentPolicyId;
+            // If we found any, use the first one as default
+            fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
+            paymentPolicyId = pList[0]?.paymentPolicyId;
+            returnPolicyId = rList[0]?.returnPolicyId;
 
-            console.log('--- Creating Return Policy ---');
-            const rRes = await ebayService.initDefaultReturnPolicy(token);
-            returnPolicyId = rRes.returnPolicyId;
+            console.log('Initially found policies:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
 
-            console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
-            console.log('Waiting 20 seconds for eBay indexing...');
-            await new Promise(resolve => setTimeout(resolve, 20000));
+            // Only attempt creation if missing
+            if (!fulfillmentPolicyId) {
+                console.log('Creating fresh Fulfillment Policy...');
+                const res = await ebayService.initDefaultFulfillmentPolicy(token);
+                fulfillmentPolicyId = res.fulfillmentPolicyId;
+            }
+            if (!paymentPolicyId) {
+                console.log('Creating fresh Payment Policy...');
+                const res = await ebayService.initDefaultPaymentPolicy(token);
+                paymentPolicyId = res.paymentPolicyId;
+            }
+            if (!returnPolicyId) {
+                console.log('Creating fresh Return Policy...');
+                const res = await ebayService.initDefaultReturnPolicy(token);
+                returnPolicyId = res.returnPolicyId;
+            }
+
+            console.log('Final policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
+            
+            // Short delay only if we created something
+            if (!fList[0] || !pList[0] || !rList[0]) {
+                console.log('New policy created, waiting 10s...');
+                await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+
         } catch (policyErr) {
             const ebayError = policyErr.response?.data?.errors?.[0];
             const detail = ebayError ? `${ebayError.message} (ID: ${ebayError.errorId})` : policyErr.message;
-            const fullError = JSON.stringify(policyErr.response?.data, null, 2);
-            console.error('Policy Setup Error Detail:', fullError);
+            console.error('Policy Flow Error:', detail);
             
-            // We throw a more descriptive error back to the frontend
-            throw new Error(`Policy Creation Failed: ${detail}. Details: ${fullError}`);
+            // If we have at least one ID from a previous fetch, we try to proceed
+            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
+                throw new Error(`Business Policy Error: ${detail}. Most likely your Sandbox account needs to opt-in to Business Policies on the eBay website.`);
+            }
         }
 
         // 4. Create Offer
