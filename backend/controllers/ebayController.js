@@ -132,12 +132,22 @@ exports.listProduct = async (req, res) => {
             product: {
                 title: product.title.substring(0, 80), // eBay limit
                 description: (product.description || product.title).substring(0, 4000),
-                imageUrls: imageList.slice(0, 5),
+                imageUrls: imageList.slice(0, 12),
                 aspects: {
                     Brand: [product.brand || 'Unbranded'],
                 }
             }
         };
+
+        // If specific data exists in our DB, add more aspects
+        try {
+            if (product.item_specifics) {
+                const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : product.item_specifics;
+                Object.entries(specs).forEach(([k, v]) => {
+                    inventoryItem.product.aspects[k] = [Array.isArray(v) ? v[0] : v];
+                });
+            }
+        } catch (e) {}
 
         console.log('Step 1: Creating/Updating Inventory Item...');
         try {
@@ -178,8 +188,8 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Fetch Business Policies
-        console.log('Step 1.7: Fetching Business Policies...');
+        // 3.5 Fetch or Create Business Policies
+        console.log('Step 1.7: Managing Business Policies...');
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
         try {
             const [fPolicies, pPolicies, rPolicies] = await Promise.all([
@@ -192,13 +202,27 @@ exports.listProduct = async (req, res) => {
             paymentPolicyId = pPolicies[0]?.paymentPolicyId;
             returnPolicyId = rPolicies[0]?.returnPolicyId;
 
-            console.log('Policies found:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
-
-            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
-                console.warn('One or more business policies are missing. Attempting to list with null policies to see if eBay provides defaults.');
+            // AUTO-CREATE FALLBACK
+            if (!fulfillmentPolicyId) {
+                console.log('Creating default fulfillment policy...');
+                const res = await ebayService.initDefaultFulfillmentPolicy(token);
+                fulfillmentPolicyId = res.fulfillmentPolicyId;
             }
+            if (!paymentPolicyId) {
+                console.log('Creating default payment policy...');
+                const res = await ebayService.initDefaultPaymentPolicy(token);
+                paymentPolicyId = res.paymentPolicyId;
+            }
+            if (!returnPolicyId) {
+                console.log('Creating default return policy...');
+                const res = await ebayService.initDefaultReturnPolicy(token);
+                returnPolicyId = res.returnPolicyId;
+            }
+
+            console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
+
         } catch (policyErr) {
-            console.error('Error fetching policies, proceeding without them:', policyErr.message);
+            console.error('Policy flow failed, trying to continue but listing may fail:', policyErr.message);
         }
 
         // 4. Create Offer

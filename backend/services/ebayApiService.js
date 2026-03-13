@@ -227,6 +227,58 @@ async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
     }
 }
 
+async function initDefaultFulfillmentPolicy(token) {
+    const policy = {
+        name: 'Default Shipping (Auto-Created)',
+        description: 'Auto-created standard shipping policy',
+        marketplaceId: 'EBAY_US',
+        categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
+        handlingTime: { value: 3, unit: 'DAY' },
+        shippingOptions: [{
+            optionType: 'DOMESTIC',
+            costType: 'FLAT_RATE',
+            shippingServices: [{
+                shippingServiceCode: 'USPSStandardPost',
+                shippingCost: { value: '0.00', currency: 'USD' }
+            }]
+        }]
+    };
+    const res = await axios.post(`${API_BASE_URL}/sell/account/v1/fulfillment_policy`, policy, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+    return res.data;
+}
+
+async function initDefaultPaymentPolicy(token) {
+    const policy = {
+        name: 'Default Payment (Auto-Created)',
+        description: 'Auto-created payment policy',
+        marketplaceId: 'EBAY_US',
+        categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
+        paymentMethods: [{ paymentMethodType: 'PAYPAL', recipientAccountReference: { value: 'ebay@example.com' } }]
+    };
+    const res = await axios.post(`${API_BASE_URL}/sell/account/v1/payment_policy`, policy, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+    return res.data;
+}
+
+async function initDefaultReturnPolicy(token) {
+    const policy = {
+        name: 'Default Return (Auto-Created)',
+        description: 'Auto-created return policy',
+        marketplaceId: 'EBAY_US',
+        categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
+        returnsAccepted: true,
+        returnPeriod: { value: 30, unit: 'DAY' },
+        returnShippingCostPayer: 'BUYER'
+    };
+    const res = await axios.post(`${API_BASE_URL}/sell/account/v1/return_policy`, policy, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+    return res.data;
+}
+
 module.exports = {
     getAppToken,
     getUserConsentUrl,
@@ -238,5 +290,8 @@ module.exports = {
     createOrUpdateLocation,
     getFulfillmentPolicies,
     getPaymentPolicies,
-    getReturnPolicies
+    getReturnPolicies,
+    initDefaultFulfillmentPolicy,
+    initDefaultPaymentPolicy,
+    initDefaultReturnPolicy
 };
