@@ -289,27 +289,66 @@ const ProductList = () => {
                                 </div>
                             </div>
 
-                            {/* Item Specifics */}
-                            {previewProduct.item_specifics && (
-                                <div className="space-y-2">
-                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                        <Filter className="w-4 h-4 text-indigo-600" />
-                                        Item Specifics (Aspects)
-                                    </h4>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {Object.entries(
-                                            typeof previewProduct.item_specifics === 'string' 
-                                            ? JSON.parse(previewProduct.item_specifics) 
-                                            : previewProduct.item_specifics
-                                        ).map(([key, value]) => (
-                                            <div key={key} className="flex justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 text-[11px]">
-                                                <span className="text-gray-500 font-medium">{key}:</span>
-                                                <span className="text-gray-900 font-bold">{Array.isArray(value) ? value.join(', ') : value}</span>
+                            {/* Item Specifics vs Business Policies Logic */}
+                            {(() => {
+                                const specifics = typeof previewProduct.item_specifics === 'string' 
+                                    ? JSON.parse(previewProduct.item_specifics) 
+                                    : (previewProduct.item_specifics || {});
+                                
+                                const policyKeys = ['shipping', 'returns', 'delivery', 'import fees', 'payment', 'handling', 'postage'];
+                                
+                                const itemAspects = {};
+                                const businessPolicies = {};
+
+                                Object.entries(specifics).forEach(([key, value]) => {
+                                    const lowerKey = key.toLowerCase();
+                                    if (policyKeys.some(pk => lowerKey.includes(pk))) {
+                                        businessPolicies[key] = value;
+                                    } else {
+                                        itemAspects[key] = value;
+                                    }
+                                });
+
+                                return (
+                                    <>
+                                        {/* Pure Item Specifics */}
+                                        {Object.keys(itemAspects).length > 0 && (
+                                            <div className="space-y-2">
+                                                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                                    <Filter className="w-4 h-4 text-indigo-600" />
+                                                    Item Specifics (Aspects)
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {Object.entries(itemAspects).map(([key, value]) => (
+                                                        <div key={key} className="flex justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 text-[11px]">
+                                                            <span className="text-gray-500 font-medium capitalize">{key}:</span>
+                                                            <span className="text-gray-900 font-bold">{Array.isArray(value) ? value.join(', ') : value}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                        )}
+
+                                        {/* Business Policies Section */}
+                                        {Object.keys(businessPolicies).length > 0 && (
+                                            <div className="space-y-2">
+                                                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                                    <ShoppingBag className="w-4 h-4 text-green-600" />
+                                                    Business Policies (Shipping & Returns)
+                                                </h4>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {Object.entries(businessPolicies).map(([key, value]) => (
+                                                        <div key={key} className="p-3 bg-green-50/30 rounded-xl border border-green-100/50 text-[11px] flex items-start gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-400 mt-1"></div>
+                                                            <p><span className="text-green-700 font-bold capitalize">{key}:</span> <span className="text-gray-600">{value}</span></p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             {/* Variations Note replaced with actual Variations */}
                             {previewProduct.variations && previewProduct.variations.length > 0 && (
