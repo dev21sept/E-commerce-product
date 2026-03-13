@@ -188,7 +188,7 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Managing Business Policies (Smart Fetch)
+        // 3.5 Managing Business Policies (Smart Fetch with Deep Logging)
         console.log('Step 1.7: Fetching Business Policies from account...');
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
 
@@ -199,19 +199,25 @@ exports.listProduct = async (req, res) => {
                 ebayService.getReturnPolicies(token)
             ]);
 
+            console.log('API RESPONSE - Found:', {
+                shipping: fList.length,
+                payment: pList.length,
+                return: rList.length
+            });
+
             fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
             paymentPolicyId = pList[0]?.paymentPolicyId;
             returnPolicyId = rList[0]?.returnPolicyId;
-
-            console.log('Policies found in account:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
 
             if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
                 const missing = [];
                 if (!fulfillmentPolicyId) missing.push('Shipping');
                 if (!paymentPolicyId) missing.push('Payment');
                 if (!returnPolicyId) missing.push('Return');
-                throw new Error(`Missing Business Policies: ${missing.join(', ')}. Please create them at https://www.bizpolicy.sandbox.ebay.com/businesspolicy/manage`);
+                throw new Error(`Missing Business Policies in Sandbox account: ${missing.join(', ')}. Please ensure they are created at https://www.bizpolicy.sandbox.ebay.com/businesspolicy/manage`);
             }
+            
+            console.log('Final IDs secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
         } catch (policyErr) {
             policyErr.step = 'Fetch Policies';
             throw policyErr;
