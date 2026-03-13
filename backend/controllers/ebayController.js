@@ -24,14 +24,15 @@ async function saveSetting(key, value) {
 
 exports.getAuthUrl = (req, res) => {
     const ruName = req.query.ruName || process.env.EBAY_RU_NAME;
+    const state = req.query.state || 'dashboard'; // Pass the source page as state
     if (!ruName) return res.status(400).json({ error: 'RuName is required' });
     
-    const url = ebayService.getUserConsentUrl(ruName);
+    const url = ebayService.getUserConsentUrl(ruName, state);
     res.json({ url });
 };
 
 exports.handleCallback = async (req, res) => {
-    const { code } = req.query;
+    const { code, state } = req.query; // state will tell us where to go back
     const ruName = process.env.EBAY_RU_NAME;
     
     if (!code) return res.status(400).send('Authentication code missing');
@@ -39,13 +40,14 @@ exports.handleCallback = async (req, res) => {
     try {
         const tokens = await ebayService.getUserToken(code, ruName);
         
-        // Store tokens securely in DB
         await saveSetting('ebay_access_token', tokens.access_token);
         await saveSetting('ebay_refresh_token', tokens.refresh_token);
         await saveSetting('ebay_token_expiry', (Date.now() + (tokens.expires_in * 1000)).toString());
         
         const frontendUrl = process.env.FRONTEND_URL || 'https://fascinating-longma-3fed25.netlify.app';
-        res.redirect(`${frontendUrl}/?ebay_auth=success`);
+        // Redirect back to the originating page
+        const redirectPath = state === 'products' ? '/products' : '/';
+        res.redirect(`${frontendUrl}${redirectPath}?ebay_auth=success`);
     } catch (error) {
         console.error('Callback Error:', error.response?.data || error.message);
         res.status(500).send('Authentication failed check server logs');

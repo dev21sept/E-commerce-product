@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "eBay Auto Lister",
+  "version": "1.0",
+  "description": "Auto-fills eBay listing forms from Admin Panel data.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://localhost:5173/*",
+    "http://127.0.0.1:5173/*",
+    "*://*.ebay.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+         "<all_urls>"
+      ],
+      "js": ["admin_content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*.ebay.com/*"],
+      "js": ["ebay_content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

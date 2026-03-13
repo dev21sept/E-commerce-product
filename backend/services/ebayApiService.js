@@ -43,7 +43,7 @@ async function getAppToken() {
 /**
  * Generates the User Consent URL
  */
-function getUserConsentUrl(ruName) {
+function getUserConsentUrl(ruName, state = 'dashboard') {
     const scope = [
         'https://api.ebay.com/oauth/api_scope',
         'https://api.ebay.com/oauth/api_scope/sell.inventory',
@@ -52,7 +52,7 @@ function getUserConsentUrl(ruName) {
         'https://api.ebay.com/oauth/api_scope/sell.fulfillment'
     ].join(' ');
 
-    return `${AUTH_BASE_URL}/oauth2/authorize?client_id=${EBAY_APP_ID}&response_type=code&redirect_uri=${ruName}&scope=${encodeURIComponent(scope)}`;
+    return `${AUTH_BASE_URL}/oauth2/authorize?client_id=${EBAY_APP_ID}&response_type=code&redirect_uri=${ruName}&scope=${encodeURIComponent(scope)}&state=${state}`;
 }
 
 /**

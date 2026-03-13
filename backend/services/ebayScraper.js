@@ -229,6 +229,25 @@ const fetchEbayProduct = async (url) => {
                 if (fallbackImg) images.push(fallbackImg.replace(/s-l\d+/, 's-l1600'));
             }
 
+            // ---- CATEGORY ID ----
+            let categoryId = '';
+            try {
+                // Method 1: from window object or HTML string search
+                const html = document.documentElement.innerHTML;
+                const catMatch = html.match(/"category_id":"(\d+)"/i) || html.match(/"categoryId":"(\d+)"/i) || html.match(/categoryid:?\s*"?(\d+)"?/i) || html.match(/catId[:=]\s*"?'?(\d+)"?'?/i);
+                if (catMatch) {
+                    categoryId = catMatch[1];
+                } else {
+                    // Method 2: breadcrumb link ID
+                    const breadcrumbs = document.querySelectorAll('.seo-breadcrumb-text a, .breadcrumbs a');
+                    for (let i = breadcrumbs.length - 1; i >= 0; i--) {
+                        const href = breadcrumbs[i].href;
+                        const hm = href.match(/bn_(\d+)/) || href.match(/\/(?:category|sch|b)\/[^\/]+\/(\d+)\//);
+                        if (hm) { categoryId = hm[1]; break; }
+                    }
+                }
+            } catch (e) { }
+
             return {
                 title,
                 price,
@@ -241,6 +260,7 @@ const fetchEbayProduct = async (url) => {
                 variations,
                 item_specifics,
                 category: getText('.seo-breadcrumb-text span') || '',
+                categoryId: categoryId || '',
                 sellerName,
                 sellerFeedback,
                 discountPercentage: discountPercentage

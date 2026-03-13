@@ -22,7 +22,7 @@ const ProductList = () => {
 
     const handleEbayConnect = async () => {
         try {
-            const { url } = await getEbayAuthUrl();
+            const { url } = await getEbayAuthUrl('products'); // Tell eBay we are coming from products page
             window.location.href = url;
         } catch (error) {
             alert('Failed to get eBay Auth URL. Check backend.');

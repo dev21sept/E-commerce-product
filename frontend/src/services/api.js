@@ -7,8 +7,8 @@ const api = axios.create({
     timeout: 120000
 });
 
-export const getEbayAuthUrl = async () => {
-    const response = await api.get('/ebay/auth-url');
+export const getEbayAuthUrl = async (state = 'dashboard') => {
+    const response = await api.get(`/ebay/auth-url?state=${state}`);
     return response.data;
 };
 
