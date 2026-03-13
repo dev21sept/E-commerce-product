@@ -229,8 +229,8 @@ async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
 
 async function initDefaultFulfillmentPolicy(token) {
     const policy = {
-        name: 'Default Shipping (Auto-Created)',
-        description: 'Auto-created standard shipping policy',
+        name: 'Automation_Ship_' + Date.now(),
+        description: 'Automated policy',
         marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         handlingTime: { value: 3, unit: 'DAY' },
@@ -238,10 +238,13 @@ async function initDefaultFulfillmentPolicy(token) {
             optionType: 'DOMESTIC',
             costType: 'FLAT_RATE',
             shippingServices: [{
-                shippingServiceCode: 'USPSStandardPost',
+                shippingServiceCode: 'USPSPriorityMail',
                 shippingCost: { value: '0.00', currency: 'USD' }
             }]
-        }]
+        }],
+        shipToLocations: {
+            regionIncluded: [{ regionName: 'WORLDWIDE' }]
+        }
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/fulfillment_policy`, policy, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -251,11 +254,11 @@ async function initDefaultFulfillmentPolicy(token) {
 
 async function initDefaultPaymentPolicy(token) {
     const policy = {
-        name: 'Default Payment (Auto-Created)',
-        description: 'Auto-created payment policy',
+        name: 'Automation_Pay_' + Date.now(),
+        description: 'Automated payment policy',
         marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
-        paymentMethods: [{ paymentMethodType: 'PAYPAL', recipientAccountReference: { value: 'ebay@example.com' } }]
+        paymentMethods: [{ paymentMethodType: 'INTEGRATED_MERCHANT_PAYMENTS' }]
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/payment_policy`, policy, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -265,8 +268,8 @@ async function initDefaultPaymentPolicy(token) {
 
 async function initDefaultReturnPolicy(token) {
     const policy = {
-        name: 'Default Return (Auto-Created)',
-        description: 'Auto-created return policy',
+        name: 'Automation_Ret_' + Date.now(),
+        description: 'Automated return policy',
         marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         returnsAccepted: true,

@@ -188,63 +188,26 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Fetch or Create Business Policies
-        console.log('Step 1.7: Managing Business Policies...');
+        // 3.5 Always create fresh policies for Sandbox due to corruption/latency issues
+        console.log('Step 1.7: Creating/Refreshing Business Policies...');
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
         try {
-            const [fPolicies, pPolicies, rPolicies] = await Promise.all([
-                ebayService.getFulfillmentPolicies(token),
-                ebayService.getPaymentPolicies(token),
-                ebayService.getReturnPolicies(token)
+            const [fRes, pRes, rRes] = await Promise.all([
+                ebayService.initDefaultFulfillmentPolicy(token),
+                ebayService.initDefaultPaymentPolicy(token),
+                ebayService.initDefaultReturnPolicy(token)
             ]);
 
-            // STRICT FILTER: Only use our custom automation policies
-            const ourFulfillment = fPolicies.find(p => p.name === 'Ebay_Automation_Ship_v1');
-            const ourPayment = pPolicies.find(p => p.name === 'Ebay_Automation_Pay_v1');
-            const ourReturn = rPolicies.find(p => p.name === 'Ebay_Automation_Ret_v1');
-
-            fulfillmentPolicyId = ourFulfillment?.fulfillmentPolicyId;
-            paymentPolicyId = ourPayment?.paymentPolicyId;
-            returnPolicyId = ourReturn?.returnPolicyId;
-
-            // AUTO-CREATE FALLBACK
-            let newlyCreated = false;
-            if (!fulfillmentPolicyId) {
-                console.log('Creating unique fulfillment policy...');
-                const res = await ebayService.initDefaultFulfillmentPolicy(token);
-                fulfillmentPolicyId = res.fulfillmentPolicyId;
-                newlyCreated = true;
-            }
-            if (!paymentPolicyId) {
-                console.log('Creating unique payment policy...');
-                const res = await ebayService.initDefaultPaymentPolicy(token);
-                paymentPolicyId = res.paymentPolicyId;
-                newlyCreated = true;
-            }
-            if (!returnPolicyId) {
-                console.log('Creating unique return policy...');
-                const res = await ebayService.initDefaultReturnPolicy(token);
-                returnPolicyId = res.returnPolicyId;
-                newlyCreated = true;
-            }
-
-            if (newlyCreated) {
-                console.log('New Policies created, waiting 15 seconds for eBay indexing...');
-                await new Promise(resolve => setTimeout(resolve, 15000));
-            }
+            fulfillmentPolicyId = fRes.fulfillmentPolicyId;
+            paymentPolicyId = pRes.paymentPolicyId;
+            returnPolicyId = rRes.returnPolicyId;
 
             console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
+            console.log('Waiting 20 seconds for eBay indexing...');
+            await new Promise(resolve => setTimeout(resolve, 20000));
         } catch (policyErr) {
-            console.error('Policy flow failed:', policyErr.message);
-            // Fallback to first available if our strict check failed
-            const [fP, pP, rP] = await Promise.all([
-                ebayService.getFulfillmentPolicies(token),
-                ebayService.getPaymentPolicies(token),
-                ebayService.getReturnPolicies(token)
-            ]);
-            fulfillmentPolicyId = fulfillmentPolicyId || fP[0]?.fulfillmentPolicyId;
-            paymentPolicyId = paymentPolicyId || pP[0]?.paymentPolicyId;
-            returnPolicyId = returnPolicyId || rP[0]?.returnPolicyId;
+            console.error('Policy Setup Error:', policyErr.response?.data || policyErr.message);
+            throw new Error('Failed to setup eBay Policies. Check server logs.');
         }
 
         // 4. Create Offer
