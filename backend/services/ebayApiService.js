@@ -168,7 +168,8 @@ async function publishOffer(token, offerId) {
  */
 async function createOrUpdateLocation(token, locationKey, locationData) {
     try {
-        await axios.post(`${API_BASE_URL}/sell/inventory/v1/location/${locationKey}/create_inventory_location`, locationData, {
+        // Correct endpoint should be POST /sell/inventory/v1/location/{merchantLocationKey}
+        await axios.post(`${API_BASE_URL}/sell/inventory/v1/location/${locationKey}`, locationData, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
