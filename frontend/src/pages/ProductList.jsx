@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Briefcase, Link2, CheckCircle2 } from 'lucide-react';
 import { getProducts, deleteProduct, listProduct, getEbayAuthUrl } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
