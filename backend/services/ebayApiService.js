@@ -230,7 +230,7 @@ async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
 async function initDefaultFulfillmentPolicy(token) {
     const policy = {
         name: 'Automation_Ship_' + Date.now(),
-        description: 'Automated policy',
+        description: 'Automated shipping policy for sandbox',
         marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         handlingTime: { value: 3, unit: 'DAY' },
@@ -238,12 +238,12 @@ async function initDefaultFulfillmentPolicy(token) {
             optionType: 'DOMESTIC',
             costType: 'FLAT_RATE',
             shippingServices: [{
-                shippingServiceCode: 'USPSPriorityMail',
+                shippingServiceCode: 'USPSStandard',
                 shippingCost: { value: '0.00', currency: 'USD' }
             }]
         }],
         shipToLocations: {
-            regionIncluded: [{ regionName: 'WORLDWIDE' }]
+            regionIncluded: [{ regionName: 'US' }]
         }
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/fulfillment_policy`, policy, {
