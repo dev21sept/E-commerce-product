@@ -311,16 +311,42 @@ const ProductList = () => {
                                 </div>
                             )}
 
-                            {/* Variations Note */}
-                            <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-3">
-                                <Package className="w-5 h-5 text-orange-500 mt-0.5" />
-                                <div>
-                                    <p className="text-xs font-bold text-orange-900">Variations Sync</p>
-                                    <p className="text-[10px] text-orange-700 leading-relaxed">
-                                        If this product has variations (Size/Color), the API will automatically create an Inventory Item Group on eBay. This ensures all options are listed under a single product page.
-                                    </p>
+                            {/* Variations Note replaced with actual Variations */}
+                            {previewProduct.variations && previewProduct.variations.length > 0 && (
+                                <div className="space-y-2">
+                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                        <Package className="w-4 h-4 text-indigo-600" />
+                                        Available Variations (Attributes)
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {previewProduct.variations.map((v, i) => (
+                                            <div key={i} className="bg-orange-50 border border-orange-100 p-3 rounded-2xl flex-1 min-w-[140px]">
+                                                <p className="text-[10px] text-orange-600 font-bold uppercase tracking-widest mb-1">{v.name}</p>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {v.values.map((val, j) => (
+                                                        <span key={j} className="px-2 py-0.5 bg-white border border-orange-200 text-orange-800 text-[10px] font-bold rounded-md">
+                                                            {val}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-[9px] text-gray-400 italic mt-1">* Note: These will be listed as a multi-variation group on eBay.</p>
                                 </div>
-                            </div>
+                            )}
+
+                            {!previewProduct.variations || previewProduct.variations.length === 0 && (
+                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start gap-3">
+                                    <Package className="w-5 h-5 text-gray-400 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-700">Single Product</p>
+                                        <p className="text-[10px] text-gray-500 leading-relaxed">
+                                            This product does not have variations. It will be listed as a single item.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
