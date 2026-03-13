@@ -1,16 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Briefcase } from 'lucide-react';
-import { getProducts, deleteProduct, listProduct } from '../services/api';
-import { Link } from 'react-router-dom';
+import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Briefcase, Link2, CheckCircle2 } from 'lucide-react';
+import { getProducts, deleteProduct, listProduct, getEbayAuthUrl } from '../services/api';
+import { Link, useLocation } from 'react-router-dom';
 
 const ProductList = () => {
+    const location = useLocation();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [authStatus, setAuthStatus] = useState(null);
 
     useEffect(() => {
+        // Check for eBay auth status in URL
+        const params = new URLSearchParams(location.search);
+        if (params.get('ebay_auth') === 'success') {
+            setAuthStatus('Successfully connected to eBay!');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
         loadProducts();
-    }, []);
+    }, [location]);
+
+    const handleEbayConnect = async () => {
+        try {
+            const { url } = await getEbayAuthUrl();
+            window.location.href = url;
+        } catch (error) {
+            alert('Failed to get eBay Auth URL. Check backend.');
+        }
+    };
 
     const loadProducts = async () => {
         try {
@@ -57,15 +73,34 @@ const ProductList = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+            {authStatus && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-sm font-medium">{authStatus}</span>
+                    </div>
+                    <button onClick={() => setAuthStatus(null)} className="text-green-700 font-bold">×</button>
+                </div>
+            )}
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Products</h1>
                     <p className="text-gray-500 mt-1">Manage your eBay product inventory.</p>
                 </div>
-                <Link to="/products/add" className="btn-primary flex items-center gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add Product
-                </Link>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={handleEbayConnect}
+                        className="flex items-center gap-2 bg-[#0053a0] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#004080] transition-all shadow-md active:scale-95"
+                    >
+                        <Link2 className="w-3.5 h-3.5" />
+                        Connect eBay
+                    </button>
+                    <Link to="/products/add" className="btn-primary flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Add Product
+                    </Link>
+                </div>
             </div>
 
             <div className="card overflow-hidden">
