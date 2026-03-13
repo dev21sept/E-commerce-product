@@ -54,29 +54,46 @@ exports.handleCallback = async (req, res) => {
 
 // Function to ensure we have a valid token
 async function getValidToken() {
-    let accessToken = await getSetting('ebay_access_token');
-    let refreshToken = await getSetting('ebay_refresh_token');
-    let expiresAt = await getSetting('ebay_token_expiry');
+    try {
+        let accessToken = await getSetting('ebay_access_token');
+        let refreshToken = await getSetting('ebay_refresh_token');
+        let expiresAt = await getSetting('ebay_token_expiry');
 
-    if (!refreshToken) throw new Error('User not authenticated with eBay');
-    
-    if (!expiresAt || Date.now() > Number(expiresAt) - 60000) { 
-        console.log('Refreshing eBay token...');
-        const newTokenData = await ebayService.refreshUserToken(refreshToken);
-        accessToken = newTokenData;
-        expiresAt = Date.now() + (7200 * 1000); // 2 hours
+        if (!refreshToken) {
+            console.error('No refresh token found in DB');
+            return null;
+        }
         
-        await saveSetting('ebay_access_token', accessToken);
-        await saveSetting('ebay_token_expiry', expiresAt.toString());
+        // If expired or about to expire, refresh it
+        if (!expiresAt || Date.now() > Number(expiresAt) - 60000) { 
+            console.log('Refreshing eBay token using refresh token...');
+            const newTokenData = await ebayService.refreshUserToken(refreshToken);
+            accessToken = newTokenData;
+            expiresAt = Date.now() + (7200 * 1000); // 2 hours
+            
+            await saveSetting('ebay_access_token', accessToken);
+            await saveSetting('ebay_token_expiry', expiresAt.toString());
+        }
+        return accessToken;
+    } catch (error) {
+        console.error('Token Retrieval/Refresh Error:', error.message);
+        return null;
     }
-    return accessToken;
 }
 
 exports.listProduct = async (req, res) => {
     const { productId } = req.params;
+    console.log(`Attempting to list product ${productId} on eBay...`);
     
     try {
         const token = await getValidToken();
+        
+        if (!token) {
+            return res.status(401).json({ 
+                error: 'Authentication Required', 
+                details: 'Your eBay session has expired or not been established. Please click "Connect eBay" again.' 
+            });
+        }
         
         // 1. Fetch product from our DB
         const [rows] = await pool.execute('SELECT * FROM products WHERE id = ?', [productId]);
@@ -87,22 +104,23 @@ exports.listProduct = async (req, res) => {
         const [imgs] = await pool.execute('SELECT image_url FROM product_images WHERE product_id = ?', [productId]);
         const imageList = imgs.map(i => i.image_url);
 
-        const sku = `PROD-${product.id}`;
+        const sku = `PROD-${product.id}-${Date.now()}`; // Unique SKU to avoid conflicts
 
         // 3. Create/Update Inventory Item
         const inventoryItem = {
             availability: { shipToLocationAvailability: { quantity: 1 } },
             condition: 'NEW',
             product: {
-                title: product.title,
-                description: product.description || product.title,
-                imageUrls: imageList.slice(0, 5), // eBay permits up to 12, taking first 10 for safety
+                title: product.title.substring(0, 80), // eBay limit
+                description: (product.description || product.title).substring(0, 4000),
+                imageUrls: imageList.slice(0, 5),
                 aspects: {
                     Brand: [product.brand || 'Unbranded'],
                 }
             }
         };
 
+        console.log('Step 1: Creating/Updating Inventory Item...');
         await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
 
         // 4. Create Offer
@@ -111,38 +129,35 @@ exports.listProduct = async (req, res) => {
             marketplaceId: 'EBAY_US',
             format: 'FIXED_PRICE',
             availableQuantity: 1,
-            categoryId: product.category_id || '31387', // Default to a generic category if not found
-            listingDescription: product.description || product.title,
+            categoryId: product.category_id || '31387', 
+            listingDescription: (product.description || product.title).substring(0, 4000),
             pricingSummary: {
                 price: {
                     currency: 'USD',
                     value: product.selling_price || '10.00'
                 }
             },
-            merchantLocationKey: 'default', // You might need to configure this in eBay Account
+            merchantLocationKey: 'default', 
             tax: { vatPercentage: 0 }
         };
 
+        console.log('Step 2: Creating Offer...');
         const offerResponse = await ebayService.createOffer(token, offer);
         const offerId = offerResponse.offerId;
 
         // 5. Publish Offer
+        console.log('Step 3: Publishing Offer...');
         const publishResponse = await ebayService.publishOffer(token, offerId);
         
         res.json({ 
-            message: 'Product listed successfully on eBay Sandbox!', 
+            message: 'SUCCESS! Listed on eBay Sandbox!', 
             sku, 
             listingId: publishResponse.listingId 
         });
     } catch (error) {
         console.error('--- EBAY LISTING ERROR ---');
         const ebayError = error.response?.data?.errors?.[0];
-        if (ebayError) {
-            console.error('eBay says:', ebayError.message);
-            console.error('Category:', ebayError.category);
-        } else {
-            console.error('System Error:', error.message);
-        }
+        console.error('Full Error:', JSON.stringify(error.response?.data, null, 2));
         
         res.status(500).json({ 
             error: 'Listing failed', 
