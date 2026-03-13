@@ -140,69 +140,88 @@ exports.listProduct = async (req, res) => {
         };
 
         console.log('Step 1: Creating/Updating Inventory Item...');
-        await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
+        try {
+            await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
+        } catch (err) {
+            err.step = 'Create Inventory Item';
+            throw err;
+        }
 
-        // EXTRA STEP: Ensure Merchant Location exists (fixes "Location information not found")
-        const locationKey = 'default';
-        const locationInfo = {
-            location: {
-                address: {
-                    addressLine1: '123 Main St',
-                    city: 'San Jose',
-                    stateOrProvince: 'CA',
-                    postalCode: '95131',
-                    country: 'US'
-                }
-            },
-            locationInstructions: 'Main warehouse',
-            locationWebUrl: 'http://example.com',
-            name: 'Main Store',
-            merchantLocationStatus: 'ENABLED',
-            locationTypes: ['STORE']
-        };
-        
         console.log('Step 1.5: Verifying Merchant Location...');
-        await ebayService.createOrUpdateLocation(token, locationKey, locationInfo);
+        try {
+            const locationKey = 'default';
+            const locationInfo = {
+                location: {
+                    address: {
+                        addressLine1: '123 Main St',
+                        city: 'San Jose',
+                        stateOrProvince: 'CA',
+                        postalCode: '95131',
+                        country: 'US'
+                    }
+                },
+                locationInstructions: 'Main warehouse',
+                locationWebUrl: 'http://example.com',
+                name: 'Main Store',
+                merchantLocationStatus: 'ENABLED',
+                locationTypes: ['STORE']
+            };
+            await ebayService.createOrUpdateLocation(token, locationKey, locationInfo);
+        } catch (err) {
+            err.step = 'Create Location';
+            throw err;
+        }
 
         // 4. Create Offer
-        const offer = {
-            sku: sku,
-            marketplaceId: 'EBAY_US',
-            format: 'FIXED_PRICE',
-            availableQuantity: 1,
-            categoryId: product.category_id || '31387', 
-            listingDescription: (product.description || product.title).substring(0, 4000),
-            pricingSummary: {
-                price: {
-                    currency: 'USD',
-                    value: product.selling_price || '10.00'
-                }
-            },
-            merchantLocationKey: locationKey, 
-            tax: { vatPercentage: 0 }
-        };
-
         console.log('Step 2: Creating Offer...');
-        const offerResponse = await ebayService.createOffer(token, offer);
-        const offerId = offerResponse.offerId;
+        let offerId;
+        try {
+            const offer = {
+                sku: sku,
+                marketplaceId: 'EBAY_US',
+                format: 'FIXED_PRICE',
+                availableQuantity: 1,
+                categoryId: product.category_id || '31387', 
+                listingDescription: (product.description || product.title).substring(0, 4000),
+                pricingSummary: {
+                    price: {
+                        currency: 'USD',
+                        value: product.selling_price || '10.00'
+                    }
+                },
+                merchantLocationKey: 'default', 
+                tax: { vatPercentage: 0 }
+            };
+            const offerResponse = await ebayService.createOffer(token, offer);
+            offerId = offerResponse.offerId;
+        } catch (err) {
+            err.step = 'Create Offer';
+            throw err;
+        }
 
         // 5. Publish Offer
         console.log('Step 3: Publishing Offer...');
-        const publishResponse = await ebayService.publishOffer(token, offerId);
-        
-        res.json({ 
-            message: 'SUCCESS! Listed on eBay Sandbox!', 
-            sku, 
-            listingId: publishResponse.listingId 
-        });
+        try {
+            const publishResponse = await ebayService.publishOffer(token, offerId);
+            res.json({ 
+                message: 'SUCCESS! Listed on eBay Sandbox!', 
+                sku, 
+                listingId: publishResponse.listingId 
+            });
+        } catch (err) {
+            err.step = 'Publish Offer';
+            throw err;
+        }
     } catch (error) {
         console.error('--- EBAY LISTING ERROR ---');
         const ebayError = error.response?.data?.errors?.[0];
+        console.error('Error Step:', error.step || 'Unknown');
         console.error('Full Error:', JSON.stringify(error.response?.data, null, 2));
         
         res.status(500).json({ 
             error: 'Listing failed', 
-            details: ebayError?.message || error.message,
+            details: `[${error.step || 'eBay'}] ${ebayError?.message || error.message}`,
+            step: error.step,
             fullError: error.response?.data
         });
     }
