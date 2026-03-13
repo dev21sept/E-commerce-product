@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User } from 'lucide-react';
-import { getProducts, deleteProduct } from '../services/api';
+import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Briefcase } from 'lucide-react';
+import { getProducts, deleteProduct, listProduct } from '../services/api';
 import { Link } from 'react-router-dom';
 
 const ProductList = () => {
@@ -32,6 +32,21 @@ const ProductList = () => {
                 alert('Failed to delete product');
             }
         }
+    };
+
+    const handleApiList = async (productId) => {
+        try {
+            const result = await listProduct(productId);
+            alert(`Listing Request Sent! Response: ${result.message}`);
+        } catch (error) {
+            alert(`API Listing failed: ${error.message}. Make sure you've connected eBay on the Dashboard.`);
+        }
+    };
+
+    const handleSendToEbay = (product) => {
+        // Broadcast event for the Chrome Extension to pick up
+        window.postMessage({ type: 'EbayAutoLister_SendData', payload: product }, '*');
+        alert('Data sent to eBay Auto Lister. If you have the Chrome Extension installed, a new tab will open shortly.');
     };
 
     const filteredProducts = products.filter(p =>
@@ -143,7 +158,13 @@ const ProductList = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Link to={`/products/edit/${product.id}`} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
+                                                <button onClick={() => handleApiList(product.id)} className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="List via eBay API">
+                                                    <Briefcase className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => handleSendToEbay(product)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Fill via Extension">
+                                                    <ExternalLink className="w-4 h-4" />
+                                                </button>
+                                                <Link to={`/products/edit/${product.id}`} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Edit">
                                                     <Edit className="w-4 h-4" />
                                                 </Link>
                                                 <button onClick={() => handleDelete(product.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete">

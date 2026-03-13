@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, DollarSign, Package, Tag, ArrowUpRight } from 'lucide-react';
-import { getProducts } from '../services/api';
-import { Link } from 'react-router-dom';
+import { ShoppingBag, DollarSign, Package, Tag, ArrowUpRight, Link2 } from 'lucide-react';
+import { getProducts, getEbayAuthUrl } from '../services/api';
+import { Link, useLocation } from 'react-router-dom';
 
 const Dashboard = () => {
+    const location = useLocation();
     const [stats, setStats] = useState({
         totalProducts: 0,
         totalValue: 0,
         brands: 0,
         categories: 0
     });
+    const [authStatus, setAuthStatus] = useState(null);
 
     useEffect(() => {
+        // Check for eBay auth status in URL
+        const params = new URLSearchParams(location.search);
+        if (params.get('ebay_auth') === 'success') {
+            setAuthStatus('Successfully connected to eBay!');
+            // Clear the param from URL
+            window.history.replaceState({}, document.title, "/");
+        }
+
         const fetchData = async () => {
             try {
                 const products = await getProducts();
@@ -30,7 +40,16 @@ const Dashboard = () => {
             }
         };
         fetchData();
-    }, []);
+    }, [location]);
+
+    const handleEbayConnect = async () => {
+        try {
+            const { url } = await getEbayAuthUrl();
+            window.location.href = url;
+        } catch (error) {
+            alert('Failed to get eBay Auth URL. Is the backend running?');
+        }
+    };
 
     const cards = [
         { name: 'Total Products', value: stats.totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -41,9 +60,25 @@ const Dashboard = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-                <p className="text-gray-500 mt-1">Your eBay product inventory at a glance.</p>
+            {authStatus && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center justify-between">
+                    <span>{authStatus}</span>
+                    <button onClick={() => setAuthStatus(null)} className="text-green-700 font-bold">×</button>
+                </div>
+            )}
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+                    <p className="text-gray-500 mt-1">Your eBay product inventory at a glance.</p>
+                </div>
+                <button 
+                    onClick={handleEbayConnect}
+                    className="flex items-center gap-2 bg-[#0053a0] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#004080] transition-all shadow-md active:scale-95"
+                >
+                    <Link2 className="w-4 h-4" />
+                    Connect eBay Account
+                </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

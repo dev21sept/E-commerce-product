@@ -17,7 +17,8 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
         about_item: '',
         item_specifics: {},
         variations: [],
-        images: []
+        images: [],
+        video_url: ''
     });
 
     useEffect(() => {
@@ -28,7 +29,8 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     ? JSON.parse(initialData.item_specifics)
                     : initialData.item_specifics || {},
                 variations: initialData.variations || [],
-                images: initialData.images || []
+                images: initialData.images || [],
+                video_url: initialData.video_url || ''
             });
         }
     }, [initialData]);
@@ -217,6 +219,30 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                                     <span className="text-xs font-semibold">No images scraped</span>
                                 </div>
                             )}
+                        </div>
+                    </div>
+
+                    {/* YouTube/Video Link */}
+                    <div className="card p-8">
+                        <div className="flex items-center gap-2 mb-6">
+                            <Sparkles className="w-5 h-5 text-[#4F46E5]" />
+                            <h3 className="text-lg font-bold text-gray-900">Product Video</h3>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="form-label text-xs uppercase tracking-wider text-gray-400 font-bold mb-1">Video URL (YouTube/Drive)</label>
+                                <input
+                                    type="text"
+                                    name="video_url"
+                                    className="form-input"
+                                    placeholder="Paste YouTube or Video URL here"
+                                    value={formData.video_url}
+                                    onChange={handleChange}
+                                />
+                                <p className="mt-2 text-[11px] text-gray-400 italic">
+                                    The extension will highlight the video section on eBay and copy this URL to your clipboard.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>

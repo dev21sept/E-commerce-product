@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ProductForm from '../components/ProductForm';
 import { getProductById, updateProduct } from '../services/api';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ExternalLink } from 'lucide-react';
 
 const EditProduct = () => {
     const { id } = useParams();
@@ -25,6 +25,11 @@ const EditProduct = () => {
         loadProduct();
     }, [id]);
 
+    const handleListOnEbay = () => {
+        window.postMessage({ type: 'EbayAutoLister_SendData', payload: product }, '*');
+        alert('Data sent to eBay Auto Lister. If you have the Chrome Extension installed, a new tab will open shortly.');
+    };
+
     const handleUpdate = async (formData) => {
         try {
             await updateProduct(id, formData);
@@ -42,17 +47,26 @@ const EditProduct = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={() => navigate('/products')}
-                    className="p-2 bg-white border border-gray-100 rounded-lg hover:bg-gray-50 transition-all text-gray-500"
-                >
-                    <ChevronLeft className="w-5 h-5" />
-                </button>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
-                    <p className="text-gray-500 mt-1">Update details for SKU: <span className="font-mono text-[#4F46E5]">{product?.sku}</span></p>
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => navigate('/products')}
+                        className="p-2 bg-white border border-gray-100 rounded-lg hover:bg-gray-50 transition-all text-gray-500"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
+                        <p className="text-gray-500 mt-1">Update details for SKU: <span className="font-mono text-[#4F46E5]">{product?.sku}</span></p>
+                    </div>
                 </div>
+                <button 
+                    onClick={handleListOnEbay}
+                    className="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-medium transition-all border border-blue-200"
+                >
+                    <ExternalLink className="w-4 h-4" />
+                    List on eBay
+                </button>
             </div>
 
             <ProductForm

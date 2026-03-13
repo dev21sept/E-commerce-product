@@ -1,10 +1,21 @@
 import axios from 'axios';
 
 const api = axios.create({
-    //baseURL: 'http://localhost:5000/api',
-    baseURL: 'https://e-commerce-product-3.onrender.com/api',
+    baseURL: process.env.NODE_ENV === 'production' 
+        ? 'https://e-commerce-product-3.onrender.com/api'
+        : 'http://localhost:5000/api',
     timeout: 120000
 });
+
+export const getEbayAuthUrl = async () => {
+    const response = await api.get('/ebay/auth-url');
+    return response.data;
+};
+
+export const listProduct = async (productId) => {
+    const response = await api.post(`/ebay/list/${productId}`);
+    return response.data;
+};
 
 
 
