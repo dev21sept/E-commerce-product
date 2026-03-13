@@ -51,21 +51,26 @@ const ProductList = () => {
         }
     };
 
-    const handleApiList = async (productId) => {
+    const [previewProduct, setPreviewProduct] = useState(null);
+    const [listingLoading, setListingLoading] = useState(false);
+
+    const handlePreviewListing = (product) => {
+        setPreviewProduct(product);
+    };
+
+    const handleConfirmList = async () => {
+        if (!previewProduct) return;
+        
+        setListingLoading(true);
         try {
-            const result = await listProduct(productId);
+            const result = await listProduct(previewProduct.id);
             alert(`SUCCESS: ${result.message}\nListing ID: ${result.listingId}`);
+            setPreviewProduct(null);
         } catch (error) {
             const errorDetail = error.response?.data?.details || error.message;
-            const fullEbayError = error.response?.data?.fullError;
-            
-            console.error('Listing Error Details:', error.response?.data);
-            
-            if (fullEbayError) {
-                alert(`eBay Rejected Listing:\n${errorDetail}\n\nCheck console for full technical details.`);
-            } else {
-                alert(`System Error: ${errorDetail}\n\nTip: Try connecting eBay again if it says "Authentication Required".`);
-            }
+            alert(`Listing failed: ${errorDetail}`);
+        } finally {
+            setListingLoading(false);
         }
     };
 
@@ -203,7 +208,7 @@ const ProductList = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handleApiList(product.id)} className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="List via eBay API">
+                                                <button onClick={() => handlePreviewListing(product)} className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Preview & List via eBay API">
                                                     <Briefcase className="w-4 h-4" />
                                                 </button>
                                                 <button onClick={() => handleSendToEbay(product)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Fill via Extension">
@@ -230,6 +235,89 @@ const ProductList = () => {
                     </div>
                 )}
             </div>
+            {/* Preview Modal */}
+            {previewProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Preview eBay Listing</h2>
+                                <p className="text-xs text-gray-500 mt-1">Check details before publishing to eBay</p>
+                            </div>
+                            <button onClick={() => setPreviewProduct(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">&times;</button>
+                        </div>
+                        
+                        <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+                            <div className="flex gap-6">
+                                <div className="w-32 h-32 rounded-2xl bg-gray-100 overflow-hidden border border-gray-100 shrink-0">
+                                    {previewProduct.images?.[0] ? (
+                                        <img src={previewProduct.images[0]} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <Package className="w-10 h-10 text-gray-300" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="space-y-3">
+                                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{previewProduct.title}</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md uppercase tracking-wider">{previewProduct.brand || 'No Brand'}</span>
+                                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md uppercase tracking-wider">{previewProduct.category || 'General'}</span>
+                                    </div>
+                                    <div className="text-2xl font-black text-gray-900">${previewProduct.selling_price}</div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                    <Edit className="w-4 h-4 text-indigo-600" />
+                                    Description Preview
+                                </h4>
+                                <div className="bg-gray-50 rounded-2xl p-4 text-sm text-gray-600 line-clamp-6 leading-relaxed border border-gray-100">
+                                    {previewProduct.description || 'No description available.'}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-green-50/50 p-4 rounded-2xl border border-green-100">
+                                    <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest mb-1">eBay Marketplace</p>
+                                    <p className="text-sm font-bold text-gray-900">eBay US (ebay.com)</p>
+                                </div>
+                                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                                    <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest mb-1">Shipping Location</p>
+                                    <p className="text-sm font-bold text-gray-900">San Jose, CA (Default)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                            <button 
+                                onClick={() => setPreviewProduct(null)}
+                                className="flex-1 px-6 py-3 rounded-2xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-100 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleConfirmList}
+                                disabled={listingLoading}
+                                className={`flex-1 px-6 py-3 rounded-2xl font-bold text-white transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 ${listingLoading ? 'bg-gray-400' : 'bg-[#4F46E5] hover:bg-[#4338CA]'}`}
+                            >
+                                {listingLoading ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        Listing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        Confirm & List on eBay
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
