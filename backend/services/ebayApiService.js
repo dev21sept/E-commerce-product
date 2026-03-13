@@ -177,8 +177,9 @@ async function createOrUpdateLocation(token, locationKey, locationData) {
         return response.data;
     } catch (error) {
         const ebayError = error.response?.data?.errors?.[0];
-        // Error 25002: merchantLocationKey already exists
-        if (ebayError && ebayError.errorId === 25002) {
+        const errorMsg = ebayError?.message || error.message || "";
+        // Error 25002 or message contains "already exists"
+        if (ebayError?.errorId === 25002 || errorMsg.toLowerCase().includes("already exists")) {
             console.log(`Location ${locationKey} already exists, skipping creation.`);
             return { message: 'Location already exists' };
         }

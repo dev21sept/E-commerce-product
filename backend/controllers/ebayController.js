@@ -169,8 +169,9 @@ exports.listProduct = async (req, res) => {
             await ebayService.createOrUpdateLocation(token, locationKey, locationInfo);
         } catch (locationErr) {
             const ebayError = locationErr.response?.data?.errors?.[0];
-            // If it's just "already exists", we can safely continue
-            if (ebayError && ebayError.errorId === 25002) {
+            const errorMsg = ebayError?.message || locationErr.message || "";
+            // If it's "already exists", we can safely continue
+            if (ebayError?.errorId === 25002 || errorMsg.toLowerCase().includes("already exists")) {
                 console.log('Merchant location already exists, proceeding...');
             } else {
                 locationErr.step = 'Create Location';
@@ -221,6 +222,7 @@ exports.listProduct = async (req, res) => {
     } catch (error) {
         console.error('--- EBAY LISTING ERROR ---');
         const ebayError = error.response?.data?.errors?.[0];
+        const errorMsg = ebayError?.message || error.message || "";
         console.error('Error Step:', error.step || 'Unknown');
         console.error('Full Error:', JSON.stringify(error.response?.data, null, 2));
         
