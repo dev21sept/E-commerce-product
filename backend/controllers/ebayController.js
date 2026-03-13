@@ -188,48 +188,33 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Use Inline Policies instead of Business Policies (Alternative Way)
-        // This bypasses the "Access Denied" or "Invalid Request" errors when Business Policies aren't enabled.
-        console.log('Step 1.7: Using Inline Policies for listing...');
+        // 3.5 Managing Business Policies (Smart Fetch)
+        console.log('Step 1.7: Fetching Business Policies from account...');
+        let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
 
-        // 4. Create Offer
-        console.log('Step 2: Creating Offer...');
-        let offerId;
         try {
-            const offer = {
-                sku: sku,
-                marketplaceId: 'EBAY_US',
-                format: 'FIXED_PRICE',
-                availableQuantity: 1,
-                categoryId: product.category_id || '31387', 
-                listingDescription: (product.description || product.title).substring(0, 4000),
-                pricingSummary: {
-                    price: {
-                        currency: 'USD',
-                        value: product.selling_price || '10.00'
-                    }
-                },
-                merchantLocationKey: 'default', 
-                tax: { vatPercentage: 0 },
-                listingPolicies: {
-                    // We don't use Policy IDs here, we use descriptive fields
-                    fulfillmentPolicyId: null,
-                    paymentPolicyId: null,
-                    returnPolicyId: null,
-                    // Note: If eBay strictly requires Policy IDs even with Inventory API, 
-                    // we might need to use the Trading API instead. 
-                    // But for now, let's try removing the empty policy section.
-                }
-            };
+            const [fList, pList, rList] = await Promise.all([
+                ebayService.getFulfillmentPolicies(token),
+                ebayService.getPaymentPolicies(token),
+                ebayService.getReturnPolicies(token)
+            ]);
 
-            // Some categories allow the omission of policy IDs if defaults are set,
-            // but let's try a fallback: If common requests fail, we might need 
-            // to send the specific shipping/return details in the offer creation.
-            const offerResponse = await ebayService.createOffer(token, offer);
-            offerId = offerResponse.offerId;
-        } catch (err) {
-            err.step = 'Create Offer';
-            throw err;
+            fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
+            paymentPolicyId = pList[0]?.paymentPolicyId;
+            returnPolicyId = rList[0]?.returnPolicyId;
+
+            console.log('Policies found in account:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
+
+            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
+                const missing = [];
+                if (!fulfillmentPolicyId) missing.push('Shipping');
+                if (!paymentPolicyId) missing.push('Payment');
+                if (!returnPolicyId) missing.push('Return');
+                throw new Error(`Missing Business Policies: ${missing.join(', ')}. Please create them at https://www.bizpolicy.sandbox.ebay.com/businesspolicy/manage`);
+            }
+        } catch (policyErr) {
+            policyErr.step = 'Fetch Policies';
+            throw policyErr;
         }
 
         // 5. Publish Offer
