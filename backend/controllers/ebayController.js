@@ -191,15 +191,18 @@ exports.listProduct = async (req, res) => {
         // 3.5 Always create fresh policies for Sandbox due to corruption/latency issues
         console.log('Step 1.7: Creating/Refreshing Business Policies...');
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
+        
         try {
-            const [fRes, pRes, rRes] = await Promise.all([
-                ebayService.initDefaultFulfillmentPolicy(token),
-                ebayService.initDefaultPaymentPolicy(token),
-                ebayService.initDefaultReturnPolicy(token)
-            ]);
-
+            console.log('--- Creating Fulfillment Policy ---');
+            const fRes = await ebayService.initDefaultFulfillmentPolicy(token);
             fulfillmentPolicyId = fRes.fulfillmentPolicyId;
+
+            console.log('--- Creating Payment Policy ---');
+            const pRes = await ebayService.initDefaultPaymentPolicy(token);
             paymentPolicyId = pRes.paymentPolicyId;
+
+            console.log('--- Creating Return Policy ---');
+            const rRes = await ebayService.initDefaultReturnPolicy(token);
             returnPolicyId = rRes.returnPolicyId;
 
             console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
@@ -208,8 +211,11 @@ exports.listProduct = async (req, res) => {
         } catch (policyErr) {
             const ebayError = policyErr.response?.data?.errors?.[0];
             const detail = ebayError ? `${ebayError.message} (ID: ${ebayError.errorId})` : policyErr.message;
-            console.error('Policy Setup Error:', JSON.stringify(policyErr.response?.data, null, 2));
-            throw new Error(`Failed to setup eBay Policies: ${detail}`);
+            const fullError = JSON.stringify(policyErr.response?.data, null, 2);
+            console.error('Policy Setup Error Detail:', fullError);
+            
+            // We throw a more descriptive error back to the frontend
+            throw new Error(`Policy Creation Failed: ${detail}. Details: ${fullError}`);
         }
 
         // 4. Create Offer
