@@ -32,11 +32,21 @@ exports.getAuthUrl = (req, res) => {
 };
 
 exports.handleCallback = async (req, res) => {
-    const { code, state } = req.query; // state will tell us where to go back
-    const ruName = process.env.EBAY_RU_NAME;
-    
-    if (!code) return res.status(400).send('Authentication code missing');
+    const { code, state, error, error_description } = req.query;
+    console.log('--- EBAY CALLBACK RECEIVED ---');
+    console.log('Query:', req.query);
 
+    if (error) {
+        console.error('eBay Auth Error:', error, error_description);
+        return res.status(400).send(`eBay Login Error: ${error_description || error}. Please try again.`);
+    }
+    
+    if (!code) {
+        console.error('No code found in eBay redirect');
+        return res.status(400).send('Authentication code missing from eBay. Please try connecting again.');
+    }
+
+    const ruName = process.env.EBAY_RU_NAME;
     try {
         const tokens = await ebayService.getUserToken(code, ruName);
         
