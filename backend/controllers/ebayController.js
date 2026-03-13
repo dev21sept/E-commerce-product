@@ -112,10 +112,19 @@ exports.listProduct = async (req, res) => {
             listingId: publishResponse.listingId 
         });
     } catch (error) {
-        console.error('Full Listing Error:', error.response?.data || error.message);
+        console.error('--- EBAY LISTING ERROR ---');
+        const ebayError = error.response?.data?.errors?.[0];
+        if (ebayError) {
+            console.error('eBay says:', ebayError.message);
+            console.error('Category:', ebayError.category);
+        } else {
+            console.error('System Error:', error.message);
+        }
+        
         res.status(500).json({ 
             error: 'Listing failed', 
-            details: error.response?.data?.errors?.[0]?.message || error.message 
+            details: ebayError?.message || error.message,
+            fullError: error.response?.data
         });
     }
 };
