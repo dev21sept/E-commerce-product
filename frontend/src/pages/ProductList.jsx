@@ -288,6 +288,39 @@ const ProductList = () => {
                                     <p className="text-sm font-bold text-gray-900">San Jose, CA (Default)</p>
                                 </div>
                             </div>
+
+                            {/* Item Specifics */}
+                            {previewProduct.item_specifics && (
+                                <div className="space-y-2">
+                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                        <Filter className="w-4 h-4 text-indigo-600" />
+                                        Item Specifics (Aspects)
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {Object.entries(
+                                            typeof previewProduct.item_specifics === 'string' 
+                                            ? JSON.parse(previewProduct.item_specifics) 
+                                            : previewProduct.item_specifics
+                                        ).map(([key, value]) => (
+                                            <div key={key} className="flex justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 text-[11px]">
+                                                <span className="text-gray-500 font-medium">{key}:</span>
+                                                <span className="text-gray-900 font-bold">{Array.isArray(value) ? value.join(', ') : value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Variations Note */}
+                            <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-3">
+                                <Package className="w-5 h-5 text-orange-500 mt-0.5" />
+                                <div>
+                                    <p className="text-xs font-bold text-orange-900">Variations Sync</p>
+                                    <p className="text-[10px] text-orange-700 leading-relaxed">
+                                        If this product has variations (Size/Color), the API will automatically create an Inventory Item Group on eBay. This ensures all options are listed under a single product page.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
