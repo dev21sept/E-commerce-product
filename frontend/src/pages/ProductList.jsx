@@ -54,9 +54,18 @@ const ProductList = () => {
     const handleApiList = async (productId) => {
         try {
             const result = await listProduct(productId);
-            alert(`Listing Request Sent! Response: ${result.message}`);
+            alert(`SUCCESS: ${result.message}\nListing ID: ${result.listingId}`);
         } catch (error) {
-            alert(`API Listing failed: ${error.message}. Make sure you've connected eBay on the Dashboard.`);
+            const errorDetail = error.response?.data?.details || error.message;
+            const fullEbayError = error.response?.data?.fullError;
+            
+            console.error('Listing Error Details:', error.response?.data);
+            
+            if (fullEbayError) {
+                alert(`eBay Rejected Listing:\n${errorDetail}\n\nCheck console for full technical details.`);
+            } else {
+                alert(`System Error: ${errorDetail}\n\nTip: Try connecting eBay again if it says "Authentication Required".`);
+            }
         }
     };
 
