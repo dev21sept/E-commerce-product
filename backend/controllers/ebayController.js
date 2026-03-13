@@ -194,8 +194,13 @@ exports.listProduct = async (req, res) => {
 
             console.log('Policies found:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
 
-            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
-                throw new Error('Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies set up in your eBay account.');
+            const missing = [];
+            if (!fulfillmentPolicyId) missing.push('Shipping (Fulfillment)');
+            if (!paymentPolicyId) missing.push('Payment');
+            if (!returnPolicyId) missing.push('Return');
+
+            if (missing.length > 0) {
+                throw new Error(`Missing Business Policies: ${missing.join(', ')}. Please create these policies in your eBay account dashboard.`);
             }
         } catch (policyErr) {
             policyErr.step = 'Fetch Policies';
