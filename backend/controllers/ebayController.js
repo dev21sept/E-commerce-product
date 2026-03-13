@@ -194,17 +194,11 @@ exports.listProduct = async (req, res) => {
 
             console.log('Policies found:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
 
-            const missing = [];
-            if (!fulfillmentPolicyId) missing.push('Shipping (Fulfillment)');
-            if (!paymentPolicyId) missing.push('Payment');
-            if (!returnPolicyId) missing.push('Return');
-
-            if (missing.length > 0) {
-                throw new Error(`Missing Business Policies: ${missing.join(', ')}. Please create these policies in your eBay account dashboard.`);
+            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
+                console.warn('One or more business policies are missing. Attempting to list with null policies to see if eBay provides defaults.');
             }
         } catch (policyErr) {
-            policyErr.step = 'Fetch Policies';
-            throw policyErr;
+            console.error('Error fetching policies, proceeding without them:', policyErr.message);
         }
 
         // 4. Create Offer
