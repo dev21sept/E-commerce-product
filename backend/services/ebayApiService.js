@@ -163,6 +163,26 @@ async function publishOffer(token, offerId) {
     }
 }
 
+/**
+ * Step 0: Create or Update Location (Needed for Offers)
+ */
+async function createOrUpdateLocation(token, locationKey, locationData) {
+    try {
+        await axios.post(`${API_BASE_URL}/sell/inventory/v1/location/${locationKey}/create_inventory_location`, locationData, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        return true;
+    } catch (error) {
+        // If it already exists (409 conflict or 400 with duplicate message), just ignore
+        if (error.response?.status === 409) return true; 
+        console.error('Error creating location:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
 module.exports = {
     getAppToken,
     getUserConsentUrl,
@@ -170,5 +190,6 @@ module.exports = {
     refreshUserToken,
     createOrReplaceInventoryItem,
     createOffer,
-    publishOffer
+    publishOffer,
+    createOrUpdateLocation
 };

@@ -142,6 +142,28 @@ exports.listProduct = async (req, res) => {
         console.log('Step 1: Creating/Updating Inventory Item...');
         await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
 
+        // EXTRA STEP: Ensure Merchant Location exists (fixes "Location information not found")
+        const locationKey = 'default';
+        const locationInfo = {
+            location: {
+                address: {
+                    addressLine1: '123 Main St',
+                    city: 'San Jose',
+                    stateOrProvince: 'CA',
+                    postalCode: '95131',
+                    country: 'US'
+                }
+            },
+            locationInstructions: 'Main warehouse',
+            locationWebUrl: 'http://example.com',
+            name: 'Main Store',
+            merchantLocationStatus: 'ENABLED',
+            locationTypes: ['STORE']
+        };
+        
+        console.log('Step 1.5: Verifying Merchant Location...');
+        await ebayService.createOrUpdateLocation(token, locationKey, locationInfo);
+
         // 4. Create Offer
         const offer = {
             sku: sku,
@@ -156,7 +178,7 @@ exports.listProduct = async (req, res) => {
                     value: product.selling_price || '10.00'
                 }
             },
-            merchantLocationKey: 'default', 
+            merchantLocationKey: locationKey, 
             tax: { vatPercentage: 0 }
         };
 
