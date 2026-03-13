@@ -54,7 +54,7 @@ exports.handleCallback = async (req, res) => {
         await saveSetting('ebay_refresh_token', tokens.refresh_token);
         await saveSetting('ebay_token_expiry', (Date.now() + (tokens.expires_in * 1000)).toString());
         
-        const frontendUrl = process.env.FRONTEND_URL || 'https://fascinating-longma-3fed25.netlify.app';
+        const frontendUrl = (process.env.FRONTEND_URL || 'https://fascinating-longma-3fed25.netlify.app').trim().replace(/\/$/, '');
         // Redirect back to the originating page
         const redirectPath = state === 'products' ? '/products' : '/';
         res.redirect(`${frontendUrl}${redirectPath}?ebay_auth=success`);
