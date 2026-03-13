@@ -7,11 +7,10 @@
         "install:backend": "cd backend && npm install",
         "install:frontend": "cd frontend && npm install",
         "build:frontend": "cd frontend && npm run build",
-        "start": "node backend/index.js",
+        "start": "cd backend && node index.js",
         "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
         "dev:backend": "cd backend && npm run dev",
-        "dev:frontend": "cd frontend && npm run dev",
-        "postinstall": "cd backend && npx puppeteer browsers install chrome"
+        "dev:frontend": "cd frontend && npm run dev"
     },
     "devDependencies": {
         "concurrently": "^8.2.2"
