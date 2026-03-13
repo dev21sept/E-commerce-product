@@ -64,13 +64,58 @@ exports.listProduct = async (req, res) => {
         const [imgs] = await pool.execute('SELECT image_url FROM product_images WHERE product_id = ?', [productId]);
         const imageList = imgs.map(i => i.image_url);
 
-        // 3. Create Inventory Item (Simplified)
-        // Note: This is a complex JSON, showing the simplified version
         const sku = `PROD-${product.id}`;
-        // ... (API calls would go here)
+
+        // 3. Create/Update Inventory Item
+        const inventoryItem = {
+            availability: { shipToLocationAvailability: { quantity: 1 } },
+            condition: 'NEW',
+            product: {
+                title: product.title,
+                description: product.description || product.title,
+                imageUrls: imageList.slice(0, 5), // eBay permits up to 12, taking first 10 for safety
+                aspects: {
+                    Brand: [product.brand || 'Unbranded'],
+                }
+            }
+        };
+
+        await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
+
+        // 4. Create Offer
+        const offer = {
+            sku: sku,
+            marketplaceId: 'EBAY_US',
+            format: 'FIXED_PRICE',
+            availableQuantity: 1,
+            categoryId: product.category_id || '31387', // Default to a generic category if not found
+            listingDescription: product.description || product.title,
+            pricingSummary: {
+                price: {
+                    currency: 'USD',
+                    value: product.selling_price || '10.00'
+                }
+            },
+            merchantLocationKey: 'default', // You might need to configure this in eBay Account
+            tax: { vatPercentage: 0 }
+        };
+
+        const offerResponse = await ebayService.createOffer(token, offer);
+        const offerId = offerResponse.offerId;
+
+        // 5. Publish Offer
+        const publishResponse = await ebayService.publishOffer(token, offerId);
         
-        res.json({ message: 'Product listing started (logic pending)', sku });
+        res.json({ 
+            message: 'Product listed successfully on eBay Sandbox!', 
+            sku, 
+            listingId: publishResponse.listingId 
+        });
     } catch (error) {
-        res.status(500).json({ error: 'Listing failed', details: error.message });
+        console.error('Full Listing Error:', error.response?.data || error.message);
+        res.status(500).json({ 
+            error: 'Listing failed', 
+            details: error.response?.data?.errors?.[0]?.message || error.message 
+        });
     }
 };

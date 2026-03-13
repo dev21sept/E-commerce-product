@@ -108,10 +108,67 @@ async function refreshUserToken(refreshToken) {
         throw error;
     }
 }
+/**
+ * Step 1: Create or Replace Inventory Item
+ */
+async function createOrReplaceInventoryItem(token, sku, productData) {
+    try {
+        const response = await axios.put(`${API_BASE_URL}/sell/inventory/v1/inventory_item/${sku}`, productData, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Language': 'en-US',
+                'Content-Type': 'application/json'
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Error creating inventory item ${sku}:`, error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * Step 2: Create Offer
+ */
+async function createOffer(token, offerData) {
+    try {
+        const response = await axios.post(`${API_BASE_URL}/sell/inventory/v1/offer`, offerData, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Language': 'en-US',
+                'Content-Type': 'application/json'
+            }
+        });
+        return response.data; // Includes offerId
+    } catch (error) {
+        console.error('Error creating offer:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * Step 3: Publish Offer
+ */
+async function publishOffer(token, offerId) {
+    try {
+        const response = await axios.post(`${API_BASE_URL}/sell/inventory/v1/offer/${offerId}/publish`, {}, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return response.data; // Includes listingId
+    } catch (error) {
+        console.error(`Error publishing offer ${offerId}:`, error.response?.data || error.message);
+        throw error;
+    }
+}
 
 module.exports = {
     getAppToken,
     getUserConsentUrl,
     getUserToken,
-    refreshUserToken
+    refreshUserToken,
+    createOrReplaceInventoryItem,
+    createOffer,
+    publishOffer
 };
