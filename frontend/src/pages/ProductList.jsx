@@ -273,9 +273,10 @@ const ProductList = () => {
                                     <Edit className="w-4 h-4 text-indigo-600" />
                                     Description Preview
                                 </h4>
-                                <div className="bg-gray-50 rounded-2xl p-4 text-sm text-gray-600 line-clamp-6 leading-relaxed border border-gray-100">
-                                    {previewProduct.description || 'No description available.'}
-                                </div>
+                                <div 
+                                    className="bg-gray-50 rounded-2xl p-4 text-sm text-gray-600 overflow-y-auto max-h-60 leading-relaxed border border-gray-100 preview-description"
+                                    dangerouslySetInnerHTML={{ __html: previewProduct.description || 'No description available.' }}
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
