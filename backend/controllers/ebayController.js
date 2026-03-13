@@ -203,20 +203,29 @@ exports.listProduct = async (req, res) => {
             returnPolicyId = rPolicies[0]?.returnPolicyId;
 
             // AUTO-CREATE FALLBACK
+            let newlyCreated = false;
             if (!fulfillmentPolicyId) {
                 console.log('Creating default fulfillment policy...');
                 const res = await ebayService.initDefaultFulfillmentPolicy(token);
                 fulfillmentPolicyId = res.fulfillmentPolicyId;
+                newlyCreated = true;
             }
             if (!paymentPolicyId) {
                 console.log('Creating default payment policy...');
                 const res = await ebayService.initDefaultPaymentPolicy(token);
                 paymentPolicyId = res.paymentPolicyId;
+                newlyCreated = true;
             }
             if (!returnPolicyId) {
                 console.log('Creating default return policy...');
                 const res = await ebayService.initDefaultReturnPolicy(token);
                 returnPolicyId = res.returnPolicyId;
+                newlyCreated = true;
+            }
+
+            if (newlyCreated) {
+                console.log('Policies created, waiting 5 seconds for eBay indexing...');
+                await new Promise(resolve => setTimeout(resolve, 5000));
             }
 
             console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
