@@ -88,12 +88,20 @@ async function getUserToken(code, ruName) {
 async function refreshUserToken(refreshToken) {
     const authHeader = Buffer.from(`${EBAY_APP_ID}:${EBAY_CERT_ID}`).toString('base64');
 
+    const scope = [
+        'https://api.ebay.com/oauth/api_scope',
+        'https://api.ebay.com/oauth/api_scope/sell.inventory',
+        'https://api.ebay.com/oauth/api_scope/sell.marketing',
+        'https://api.ebay.com/oauth/api_scope/sell.account',
+        'https://api.ebay.com/oauth/api_scope/sell.fulfillment'
+    ].join(' ');
+
     try {
         const response = await axios.post(`${API_BASE_URL}/identity/v1/oauth2/token`,
             qs.stringify({
                 grant_type: 'refresh_token',
                 refresh_token: refreshToken,
-                scope: 'https://api.ebay.com/oauth/api_scope/sell.inventory'
+                scope: scope
             }),
             {
                 headers: {
