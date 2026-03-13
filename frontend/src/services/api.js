@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const isProduction = import.meta.env.MODE === 'production' || window.location.hostname.includes('hostingersite.com');
+
 const api = axios.create({
-    baseURL: import.meta.env.MODE === 'production' 
+    baseURL: isProduction 
         ? 'https://capable-mercy-production-8c90.up.railway.app/api'
         : 'http://localhost:5000/api',
     timeout: 120000
