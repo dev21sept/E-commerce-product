@@ -167,9 +167,15 @@ exports.listProduct = async (req, res) => {
                 locationTypes: ['STORE']
             };
             await ebayService.createOrUpdateLocation(token, locationKey, locationInfo);
-        } catch (err) {
-            err.step = 'Create Location';
-            throw err;
+        } catch (locationErr) {
+            const ebayError = locationErr.response?.data?.errors?.[0];
+            // If it's just "already exists", we can safely continue
+            if (ebayError && ebayError.errorId === 25002) {
+                console.log('Merchant location already exists, proceeding...');
+            } else {
+                locationErr.step = 'Create Location';
+                throw locationErr;
+            }
         }
 
         // 4. Create Offer

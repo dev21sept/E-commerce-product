@@ -164,23 +164,65 @@ async function publishOffer(token, offerId) {
 }
 
 /**
- * Step 0: Create or Update Location (Needed for Offers)
+ * Step 4: Create or Update Location
  */
 async function createOrUpdateLocation(token, locationKey, locationData) {
     try {
-        // Correct endpoint should be POST /sell/inventory/v1/location/{merchantLocationKey}
-        await axios.post(`${API_BASE_URL}/sell/inventory/v1/location/${locationKey}`, locationData, {
+        const response = await axios.post(`${API_BASE_URL}/sell/inventory/v1/location/${locationKey}`, locationData, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
-        return true;
+        return response.data;
     } catch (error) {
-        // If it already exists (409 conflict or 400 with duplicate message), just ignore
-        if (error.response?.status === 409) return true; 
-        console.error('Error creating location:', error.response?.data || error.message);
+        const ebayError = error.response?.data?.errors?.[0];
+        // Error 25002: merchantLocationKey already exists
+        if (ebayError && ebayError.errorId === 25002) {
+            console.log(`Location ${locationKey} already exists, skipping creation.`);
+            return { message: 'Location already exists' };
+        }
+        console.error(`Error with location ${locationKey}:`, error.response?.data || error.message);
         throw error;
+    }
+}
+
+/**
+ * Get Business Policies (Needed for Offers)
+ */
+async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_US') {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/account/v1/fulfillment_policy?marketplace_id=${marketplaceId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return response.data.fulfillmentPolicies || [];
+    } catch (error) {
+        console.error('Error fetching fulfillment policies:', error.response?.data || error.message);
+        return [];
+    }
+}
+
+async function getPaymentPolicies(token, marketplaceId = 'EBAY_US') {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/account/v1/payment_policy?marketplace_id=${marketplaceId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return response.data.paymentPolicies || [];
+    } catch (error) {
+        console.error('Error fetching payment policies:', error.response?.data || error.message);
+        return [];
+    }
+}
+
+async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/account/v1/return_policy?marketplace_id=${marketplaceId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return response.data.returnPolicies || [];
+    } catch (error) {
+        console.error('Error fetching return policies:', error.response?.data || error.message);
+        return [];
     }
 }
 
@@ -192,5 +234,8 @@ module.exports = {
     createOrReplaceInventoryItem,
     createOffer,
     publishOffer,
-    createOrUpdateLocation
+    createOrUpdateLocation,
+    getFulfillmentPolicies,
+    getPaymentPolicies,
+    getReturnPolicies
 };
