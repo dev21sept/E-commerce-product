@@ -188,42 +188,33 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Managing Business Policies (Smart Fetch with Deep Logging)
-        console.log('Step 1.7: Fetching Business Policies from account...');
+        // 3.5 Automated Policy Management for Sandbox
+        console.log('Step 1.7: Creating Automated Business Policies...');
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
 
         try {
-            const [fList, pList, rList] = await Promise.all([
-                ebayService.getFulfillmentPolicies(token),
-                ebayService.getPaymentPolicies(token),
-                ebayService.getReturnPolicies(token)
+            // We always create fresh unique policies for every listing attempt in Sandbox
+            // to bypass corruption or indexing issues common in test accounts.
+            const [fRes, pRes, rRes] = await Promise.all([
+                ebayService.initDefaultFulfillmentPolicy(token),
+                ebayService.initDefaultPaymentPolicy(token),
+                ebayService.initDefaultReturnPolicy(token)
             ]);
 
-            console.log('API RESPONSE - Found:', {
-                shipping: fList.length,
-                payment: pList.length,
-                return: rList.length
-            });
+            fulfillmentPolicyId = fRes.fulfillmentPolicyId;
+            paymentPolicyId = pRes.paymentPolicyId;
+            returnPolicyId = rRes.returnPolicyId;
 
-            fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
-            paymentPolicyId = pList[0]?.paymentPolicyId;
-            returnPolicyId = rList[0]?.returnPolicyId;
-
-            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
-                const missing = [];
-                if (!fulfillmentPolicyId) missing.push('Shipping');
-                if (!paymentPolicyId) missing.push('Payment');
-                if (!returnPolicyId) missing.push('Return');
-                const envUrl = process.env.EBAY_ENVIRONMENT === 'production' 
-                    ? 'https://www.ebay.com/bp/manage' 
-                    : 'https://www.bizpolicy.sandbox.ebay.com/businesspolicy/manage';
-                throw new Error(`Missing Business Policies in ${process.env.EBAY_ENVIRONMENT || 'sandbox'} account: ${missing.join(', ')}. Please ensure they are created at ${envUrl}`);
-            }
+            console.log('Automated policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
             
-            console.log('Final IDs secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
+            // Critical wait for eBay Sandbox to index these brand new policies
+            console.log('Waiting 20 seconds for eBay indexing...');
+            await new Promise(resolve => setTimeout(resolve, 20000));
         } catch (policyErr) {
-            policyErr.step = 'Fetch Policies';
-            throw policyErr;
+            const ebayError = policyErr.response?.data?.errors?.[0];
+            const detail = ebayError ? `${ebayError.message} (ID: ${ebayError.errorId})` : policyErr.message;
+            console.error('Automated Policy Error:', detail);
+            throw new Error(`Testing Setup Error: ${detail}. This often happens if the Sandbox account is blocked or not fully set up as a seller.`);
         }
 
         // 5. Publish Offer
