@@ -205,8 +205,10 @@ exports.listProduct = async (req, res) => {
             console.log('Waiting 20 seconds for eBay indexing...');
             await new Promise(resolve => setTimeout(resolve, 20000));
         } catch (policyErr) {
-            console.error('Policy Setup Error:', policyErr.response?.data || policyErr.message);
-            throw new Error('Failed to setup eBay Policies. Check server logs.');
+            const ebayError = policyErr.response?.data?.errors?.[0];
+            const detail = ebayError ? `${ebayError.message} (ID: ${ebayError.errorId})` : policyErr.message;
+            console.error('Detailed Policy Error:', detail);
+            throw new Error(`eBay Policy Error: ${detail}`);
         }
 
         // 4. Create Offer
