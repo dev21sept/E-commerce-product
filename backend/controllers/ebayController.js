@@ -188,59 +188,54 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Managing Business Policies (Smart Way)
-        console.log('Step 1.7: Finding/Creating Business Policies...');
+        // 3.5 Managing Business Policies (Production/Sandbox Hybrid)
+        console.log(`Step 1.7: Finding Business Policies in ${process.env.EBAY_ENVIRONMENT || 'sandbox'} account...`);
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
 
         try {
-            // First, try to fetch ANY existing policies
+            // Priority: Fetch existing policies first
             const [fList, pList, rList] = await Promise.all([
                 ebayService.getFulfillmentPolicies(token),
                 ebayService.getPaymentPolicies(token),
                 ebayService.getReturnPolicies(token)
             ]);
 
-            // If we found any, use the first one as default
             fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
             paymentPolicyId = pList[0]?.paymentPolicyId;
             returnPolicyId = rList[0]?.returnPolicyId;
 
-            console.log('Initially found policies:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
+            console.log('Existing policies found:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
 
-            // Only attempt creation if missing
-            if (!fulfillmentPolicyId) {
-                console.log('Creating fresh Fulfillment Policy...');
-                const res = await ebayService.initDefaultFulfillmentPolicy(token);
-                fulfillmentPolicyId = res.fulfillmentPolicyId;
-            }
-            if (!paymentPolicyId) {
-                console.log('Creating fresh Payment Policy...');
-                const res = await ebayService.initDefaultPaymentPolicy(token);
-                paymentPolicyId = res.paymentPolicyId;
-            }
-            if (!returnPolicyId) {
-                console.log('Creating fresh Return Policy...');
-                const res = await ebayService.initDefaultReturnPolicy(token);
-                returnPolicyId = res.returnPolicyId;
-            }
-
-            console.log('Final policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
-            
-            // Short delay only if we created something
-            if (!fList[0] || !pList[0] || !rList[0]) {
-                console.log('New policy created, waiting 10s...');
-                await new Promise(resolve => setTimeout(resolve, 10000));
-            }
-
-        } catch (policyErr) {
-            const ebayError = policyErr.response?.data?.errors?.[0];
-            const detail = ebayError ? `${ebayError.message} (ID: ${ebayError.errorId})` : policyErr.message;
-            console.error('Policy Flow Error:', detail);
-            
-            // If we have at least one ID from a previous fetch, we try to proceed
+            // In Production, if policies are missing, we show a clear error instead of creating random ones
             if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
-                throw new Error(`Business Policy Error: ${detail}. Most likely your Sandbox account needs to opt-in to Business Policies on the eBay website.`);
+                if (process.env.EBAY_ENVIRONMENT === 'production') {
+                    const missing = [];
+                    if (!fulfillmentPolicyId) missing.push('Shipping');
+                    if (!paymentPolicyId) missing.push('Payment');
+                    if (!returnPolicyId) missing.push('Return');
+                    throw new Error(`[Production] Missing Business Policies: ${missing.join(', ')}. Please ensure you have at least one active policy of each type on your eBay account.`);
+                } else {
+                    // Fallback for Sandbox: Try to create if missing
+                    console.log('Missing Sandbox policies, attempting automated creation...');
+                    if (!fulfillmentPolicyId) {
+                        const res = await ebayService.initDefaultFulfillmentPolicy(token);
+                        fulfillmentPolicyId = res.fulfillmentPolicyId;
+                    }
+                    if (!paymentPolicyId) {
+                        const res = await ebayService.initDefaultPaymentPolicy(token);
+                        paymentPolicyId = res.paymentPolicyId;
+                    }
+                    if (!returnPolicyId) {
+                        const res = await ebayService.initDefaultReturnPolicy(token);
+                        returnPolicyId = res.returnPolicyId;
+                    }
+                    // Delay only for Sandbox creation
+                    await new Promise(resolve => setTimeout(resolve, 10000));
+                }
             }
+        } catch (policyErr) {
+            console.error('Policy Flow Err:', policyErr.message);
+            throw new Error(`eBay Setup Error: ${policyErr.message}`);
         }
 
         // 4. Create Offer
