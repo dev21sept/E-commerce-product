@@ -214,7 +214,10 @@ exports.listProduct = async (req, res) => {
                 if (!fulfillmentPolicyId) missing.push('Shipping');
                 if (!paymentPolicyId) missing.push('Payment');
                 if (!returnPolicyId) missing.push('Return');
-                throw new Error(`Missing Business Policies in Sandbox account: ${missing.join(', ')}. Please ensure they are created at https://www.bizpolicy.sandbox.ebay.com/businesspolicy/manage`);
+                const envUrl = process.env.EBAY_ENVIRONMENT === 'production' 
+                    ? 'https://www.ebay.com/bp/manage' 
+                    : 'https://www.bizpolicy.sandbox.ebay.com/businesspolicy/manage';
+                throw new Error(`Missing Business Policies in ${process.env.EBAY_ENVIRONMENT || 'sandbox'} account: ${missing.join(', ')}. Please ensure they are created at ${envUrl}`);
             }
             
             console.log('Final IDs secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
