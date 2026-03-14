@@ -188,33 +188,57 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Automated Policy Management for Sandbox
-        console.log('Step 1.7: Creating Automated Business Policies...');
+        // 3.5 Automated Business Policies for Sandbox
+        console.log('Step 1.7: Creating/Refreshing Business Policies...');
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
-
         try {
-            // We always create fresh unique policies for every listing attempt in Sandbox
-            // to bypass corruption or indexing issues common in test accounts.
-            const [fRes, pRes, rRes] = await Promise.all([
-                ebayService.initDefaultFulfillmentPolicy(token),
-                ebayService.initDefaultPaymentPolicy(token),
-                ebayService.initDefaultReturnPolicy(token)
-            ]);
-
+            const fRes = await ebayService.initDefaultFulfillmentPolicy(token);
             fulfillmentPolicyId = fRes.fulfillmentPolicyId;
+
+            const pRes = await ebayService.initDefaultPaymentPolicy(token);
             paymentPolicyId = pRes.paymentPolicyId;
+
+            const rRes = await ebayService.initDefaultReturnPolicy(token);
             returnPolicyId = rRes.returnPolicyId;
 
-            console.log('Automated policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
-            
-            // Critical wait for eBay Sandbox to index these brand new policies
+            console.log('Policies secured:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
             console.log('Waiting 20 seconds for eBay indexing...');
             await new Promise(resolve => setTimeout(resolve, 20000));
         } catch (policyErr) {
-            const ebayError = policyErr.response?.data?.errors?.[0];
-            const detail = ebayError ? `${ebayError.message} (ID: ${ebayError.errorId})` : policyErr.message;
-            console.error('Automated Policy Error:', detail);
-            throw new Error(`Testing Setup Error: ${detail}. This often happens if the Sandbox account is blocked or not fully set up as a seller.`);
+            console.error('Policy Setup Error:', policyErr.response?.data || policyErr.message);
+            throw new Error('Failed to setup eBay Policies. Check server logs.');
+        }
+
+        // 4. Create Offer
+        console.log('Step 2: Creating Offer...');
+        let offerId;
+        try {
+            const offer = {
+                sku: sku,
+                marketplaceId: 'EBAY_US',
+                format: 'FIXED_PRICE',
+                availableQuantity: 1,
+                categoryId: product.category_id || '31387', 
+                listingDescription: (product.description || product.title).substring(0, 4000),
+                pricingSummary: {
+                    price: {
+                        currency: 'USD',
+                        value: product.selling_price || '10.00'
+                    }
+                },
+                merchantLocationKey: 'default', 
+                tax: { vatPercentage: 0 },
+                listingPolicies: {
+                    fulfillmentPolicyId,
+                    paymentPolicyId,
+                    returnPolicyId
+                }
+            };
+            const offerResponse = await ebayService.createOffer(token, offer);
+            offerId = offerResponse.offerId;
+        } catch (err) {
+            err.step = 'Create Offer';
+            throw err;
         }
 
         // 5. Publish Offer
