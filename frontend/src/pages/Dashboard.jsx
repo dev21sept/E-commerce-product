@@ -124,7 +124,7 @@ const Dashboard = () => {
                         </p>
                     </div>
                     <div className="relative z-10 mt-8">
-                        <Link to="/products/add" className="inline-flex items-center bg-white text-[#4F46E5] px-6 py-3 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all shadow-lg group">
+                        <Link to="/products/add" className="btn-primary !bg-white !text-[#4F46E5] px-8 py-3">
                             Get Started
                             <ArrowUpRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                         </Link>

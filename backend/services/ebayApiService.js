@@ -179,7 +179,8 @@ async function createOrUpdateLocation(token, locationKey, locationData) {
         const response = await axios.post(`${API_BASE_URL}/sell/inventory/v1/location/${locationKey}`, locationData, {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Content-Language': 'en-US'
             }
         });
         return response.data;
@@ -200,39 +201,33 @@ async function createOrUpdateLocation(token, locationKey, locationData) {
  * Get Business Policies (Needed for Offers)
  */
 async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_US') {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/sell/account/v1/fulfillment_policy?marketplace_id=${marketplaceId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        return response.data.fulfillmentPolicies || [];
-    } catch (error) {
-        console.error('Error fetching fulfillment policies:', error.response?.data || error.message);
-        return [];
-    }
+    const response = await axios.get(`${API_BASE_URL}/sell/account/v1/fulfillment_policy?marketplace_id=${marketplaceId}`, {
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Language': 'en-US'
+        }
+    });
+    return response.data.fulfillmentPolicies || [];
 }
 
 async function getPaymentPolicies(token, marketplaceId = 'EBAY_US') {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/sell/account/v1/payment_policy?marketplace_id=${marketplaceId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        return response.data.paymentPolicies || [];
-    } catch (error) {
-        console.error('Error fetching payment policies:', error.response?.data || error.message);
-        return [];
-    }
+    const response = await axios.get(`${API_BASE_URL}/sell/account/v1/payment_policy?marketplace_id=${marketplaceId}`, {
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Language': 'en-US'
+        }
+    });
+    return response.data.paymentPolicies || [];
 }
 
 async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/sell/account/v1/return_policy?marketplace_id=${marketplaceId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        return response.data.returnPolicies || [];
-    } catch (error) {
-        console.error('Error fetching return policies:', error.response?.data || error.message);
-        return [];
-    }
+    const response = await axios.get(`${API_BASE_URL}/sell/account/v1/return_policy?marketplace_id=${marketplaceId}`, {
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Language': 'en-US'
+        }
+    });
+    return response.data.returnPolicies || [];
 }
 
 async function initDefaultFulfillmentPolicy(token) {
@@ -255,7 +250,11 @@ async function initDefaultFulfillmentPolicy(token) {
         }
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/fulfillment_policy`, policy, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: { 
+            'Authorization': `Bearer ${token}`, 
+            'Content-Type': 'application/json',
+            'Content-Language': 'en-US'
+        }
     });
     return res.data;
 }
@@ -269,7 +268,11 @@ async function initDefaultPaymentPolicy(token) {
         paymentMethods: [{ paymentMethodType: 'INTEGRATED_MERCHANT_PAYMENTS' }]
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/payment_policy`, policy, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: { 
+            'Authorization': `Bearer ${token}`, 
+            'Content-Type': 'application/json',
+            'Content-Language': 'en-US'
+        }
     });
     return res.data;
 }
@@ -285,7 +288,11 @@ async function initDefaultReturnPolicy(token) {
         returnShippingCostPayer: 'BUYER'
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/return_policy`, policy, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: { 
+            'Authorization': `Bearer ${token}`, 
+            'Content-Type': 'application/json',
+            'Content-Language': 'en-US'
+        }
     });
     return res.data;
 }

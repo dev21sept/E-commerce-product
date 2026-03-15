@@ -4,128 +4,158 @@ console.log("[eBay AutoLister] Content script active!");
 function getPageState(key) { return sessionStorage.getItem('ebay_lister_' + key); }
 function setPageState(key, val) { sessionStorage.setItem('ebay_lister_' + key, val); }
 
+// --- FEATURE 0: ENSURE PROPER FORMAT ---
+async function ensureBuyItNowFormat() {
+    console.log("[eBay AutoLister] Verifying Format...");
+    
+    // 0. QUICK EXIT: If already set, don't do anything!
+    const allTriggers = Array.from(document.querySelectorAll('button, [role="combobox"], .listbox__control, .ux-action-button'));
+    const currentMode = allTriggers.find(b => 
+        (b.innerText?.toLowerCase().includes("buy it now") || b.innerText?.toLowerCase().includes("fixed price")) && 
+        b.offsetParent !== null && 
+        !b.innerText.toLowerCase().includes("auction")
+    );
+
+    if (currentMode) {
+        console.log("[eBay AutoLister] ✅ Buy It Now already active. No action needed.");
+        setPageState('format_fixed', 'true');
+        return true;
+    }
+
+    // 1. Direct check for the "Auction" trigger (to switch it)
+    const auctionTrigger = allTriggers.find(b => b.innerText?.toLowerCase().trim() === "auction" && b.offsetParent !== null);
+    
+    if (auctionTrigger) {
+        console.log("[eBay AutoLister] ⚡ Auction detected. Switching...");
+        auctionTrigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        auctionTrigger.click();
+        await new Promise(r => setTimeout(r, 1200));
+        
+        const options = Array.from(document.querySelectorAll('.listbox__option, [role="option"], .menu__item, .listbox__control'));
+        const binOption = options.find(o => 
+            (o.innerText.toLowerCase().includes("buy it now") || o.innerText.toLowerCase().includes("fixed price")) && 
+            o.innerText.toLowerCase() !== "auction"
+        );
+        
+        if (binOption) {
+            binOption.click();
+            await new Promise(r => setTimeout(r, 3000)); 
+            setPageState('format_fixed', 'true');
+            return true;
+        }
+    }
+
+    // 2. Fallback: Warning link
+    const warningLink = Array.from(document.querySelectorAll('a, button')).find(el => el.innerText.toLowerCase().includes("go to pricing format"));
+    if (warningLink) {
+        warningLink.click();
+        await new Promise(r => setTimeout(r, 1500));
+        return await ensureBuyItNowFormat(); 
+    }
+
+    return false;
+}
+
 // --- UTILITY: Simulation (Human-like Typing & Selecting) ---
 async function setInputValue(selectorOrEl, value) {
     const el = typeof selectorOrEl === 'string' ? document.querySelector(selectorOrEl) : selectorOrEl;
     if (!el || el.disabled) return false;
 
     try {
-        // 1. Open the box to trigger the type 'dropdown'
-        el.focus();
-        el.click();
-        await new Promise(r => setTimeout(r, 600)); // increased wait for React to spawn search
+        console.log(`[eBay AutoLister] Attempting to set "${value}" for:`, el);
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
-        let typingBox = el;
-        
-        // 1.5. CHECK IF EBAY OPENED AND FOCUSED A DEDICATED SEARCH BOX ON CLICK
-        if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
-            typingBox = document.activeElement;
-            console.log("[eBay AutoLister] Intercepted auto-focused search box.");
-        } else {
-            const activeSearch = Array.from(document.querySelectorAll('input.search-box-attributes__input, [role="combobox"][aria-expanded="true"] input, .listbox__control input, input[aria-autocomplete="list"]:not([hidden])'))
-                .find(input => input.offsetParent !== null && !input.disabled);
-                
-            if (activeSearch) {
-                typingBox = activeSearch;
-                typingBox.focus();
-                typingBox.click();
-            } else if (typingBox.tagName !== 'INPUT' && typingBox.tagName !== 'TEXTAREA' && typingBox.tagName !== 'SELECT') {
-                // Fallback: If no global search box popped up, look inside the combobox container itself
-                const inner = typingBox.querySelector('input:not([type="hidden"])');
-                if (inner) {
-                    typingBox = inner;
-                    typingBox.focus();
-                    typingBox.click();
-                }
+        // 1. Try "Frequently selected" or visible options first (Best for eBay)
+        const container = el.closest('.summary__attributes--field, [data-testid="attribute"], .ux-labels-values, .form-field, .aspect-name') || el.parentElement;
+        const findOption = (root) => Array.from(root.querySelectorAll('button, span, a, [role="option"]'))
+                .find(s => s.innerText?.toLowerCase().trim() === String(value).toLowerCase().trim() && s !== el && s.offsetParent !== null);
+
+        let suggestion = findOption(container);
+        if (suggestion) {
+            console.log("[eBay AutoLister] Clicking Suggestion Choice:", suggestion.innerText);
+            suggestion.click();
+            await new Promise(r => setTimeout(r, 1000));
+            return true;
+        }
+
+        // 2. Click the element if it's a button/combobox to activate the input or show menu
+        if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'combobox') {
+            console.log("[eBay AutoLister] Clicking element to open menu/input...");
+            el.click();
+            await new Promise(r => setTimeout(r, 1000));
+            // Re-check for options after clicking
+            suggestion = findOption(document);
+            if (suggestion) {
+                console.log("[eBay AutoLister] Clicking Choice after activation:", suggestion.innerText);
+                suggestion.click();
+                await new Promise(r => setTimeout(r, 1000));
+                return true;
             }
         }
 
-        // 2. Insert the actual text value 
-        if (typingBox.tagName === 'INPUT' || typingBox.tagName === 'TEXTAREA' || typingBox.tagName === 'SELECT') {
+        // 3. Look for an input to type into
+        let input = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ? el : null;
+        if (!input) {
+            // Look for a search box or input triggered by the click
+            input = container.querySelector('input:not([type="hidden"])') || 
+                    document.activeElement.tagName === 'INPUT' ? document.activeElement : null;
+        }
+
+        if (input) {
+            console.log("[eBay AutoLister] Typing value...");
+            input.focus();
             const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set || 
-                               Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set ||
-                               Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
+                               Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+            if (nativeSetter) { nativeSetter.call(input, value); } else { input.value = value; }
             
-            if (nativeSetter) { nativeSetter.call(typingBox, value); } 
-            else { typingBox.value = value; }
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise(r => setTimeout(r, 1200));
 
-            // 3. Dispatch an 'input' event so eBay brings up its dropdown options
-            typingBox.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        }
-        
-        // 4. Wait for the eBay servers to fetch and show the dropdown suggestions
-        await new Promise(r => setTimeout(r, 1200));
-
-        // Also fire an Enter key to lock-in text if no suggestion appears
-        typingBox.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 }));
-        
-        // 5. User's Idea: Find the first dropdown option and select it
-        const options = Array.from(document.querySelectorAll('.search-box-attributes__suggestion, .autocomplete__option, .menu-button__item, [role="option"], .listbox__option'))
-            .filter(o => o.offsetParent !== null && o.innerText && !o.innerText.toLowerCase().includes("add custom")); // Skip "Add custom" buttons inside dropdowns
-
-        if (options.length > 0) {
-            let bestMatch = options.find(s => (s.innerText || "").toLowerCase().trim() === String(value).toLowerCase().trim());
-            if (!bestMatch) {
-                bestMatch = options[0]; // Select the very first option from dropdown
+            // Select from result list if it appeared
+            const options = Array.from(document.querySelectorAll('.search-box-attributes__suggestion, .autocomplete__option, [role="option"], .listbox__option, .menu__item'))
+                .filter(o => o.offsetParent !== null);
+                
+            if (options.length > 0) {
+                const match = options.find(o => o.innerText.toLowerCase().includes(String(value).toLowerCase())) || options[0];
+                console.log("[eBay AutoLister] Selecting from list:", match.innerText);
+                match.click();
+                await new Promise(r => setTimeout(r, 800));
+            } else {
+                input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter', code: 'Enter', keyCode: 13, which: 13 }));
+                await new Promise(r => setTimeout(r, 1000));
             }
-
-            console.log("[eBay AutoLister] Clicking Dropdown Option:", bestMatch.innerText, "for box:", value);
-            try { 
-                bestMatch.focus();
-                bestMatch.click(); 
-            } catch(e) {}
-            await new Promise(r => setTimeout(r, 400));
+            return true;
         }
 
-        // Finish up
-        if (typingBox.tagName === 'INPUT' || typingBox.tagName === 'TEXTAREA' || typingBox.tagName === 'SELECT') {
-            typingBox.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-            typingBox.blur();
-        }
-        
-        // Close dropdown
-        try { document.body.click(); } catch(e) {}
-        
-        // Wait sequence complete before returning
-        await new Promise(r => setTimeout(r, 300));
-        return true;
-    } catch(e) {
-        console.error("[eBay AutoLister] Simulation background error:", e);
         return false;
+    } catch(e) { 
+        console.error("[eBay AutoLister] Error in setInputValue:", e);
+        return false; 
     }
 }
 
-// --- POPUP CLEANER ---
-function closeUnwantedPopups() {
-    const closeSelectors = ['button[aria-label="Close"]', 'button[aria-label="Close dialog"]', 'button.lightbox-dialog__close', 'button.dialog__close'];
-    closeSelectors.forEach(selector => {
-        document.querySelectorAll(selector).forEach(btn => {
-            const isCustomModal = btn.closest('div[role="dialog"]')?.innerText?.toLowerCase().includes("add custom item specific");
-            if (btn.offsetParent !== null && !isCustomModal) try { btn.click(); } catch(e) {}
-        });
-    });
-}
 
 // --- FEATURE 1: AUTO SEARCH ---
 function handleSuggestPage(productData) {
     if (!window.location.href.includes("prelist/suggest")) return;
-    const gateKey = 'search_done_' + btoa(productData.title).substring(0, 16);
+    const gateKey = 'search_done_' + btoa(productData.title).substring(0, 8);
     if (getPageState(gateKey)) return;
 
     const input = document.querySelector('input[placeholder*="selling"], input.textbox__control, #keyword');
-    const searchBtn = document.querySelector('button.keyword-suggestion__button, button[aria-label="Search"], .btn--primary');
+    const searchBtn = document.querySelector('button.keyword-suggestion__button, button[aria-label*="Search" i], .btn--primary');
 
     if (input && input.value.trim().length === 0) {
         setInputValue(input, productData.title);
         setPageState(gateKey, "true"); 
-        setTimeout(() => { if (searchBtn && !searchBtn.disabled) searchBtn.click(); }, 2000); 
+        setTimeout(() => { if (searchBtn && !searchBtn.disabled) searchBtn.click(); }, 1500); 
     }
 }
 
 // --- FEATURE 2: AUTO IDENTIFY ---
 function handleIdentifyPage(productData) {
     if (!window.location.href.includes("prelist/identify")) return;
-    const gateKey = 'match_done_' + btoa(productData.title).substring(0, 16);
+    const gateKey = 'match_done_' + btoa(productData.title).substring(0, 8);
     if (getPageState(gateKey)) return;
 
     const noMatchBtn = Array.from(document.querySelectorAll('button, span')).find(el => 
@@ -143,658 +173,605 @@ function handleIdentifyPage(productData) {
 function handleConditionPage(productData) {
     const isConditionPage = window.location.href.includes("/condition") || document.querySelector('h1')?.innerText.toLowerCase().includes("condition");
     if (!isConditionPage) return;
-    const gateKey = 'cond_done_' + btoa(productData.title).substring(0, 16);
+    const gateKey = 'cond_done_' + btoa(productData.title).substring(0, 8);
     if (getPageState(gateKey)) return;
 
-    let cond = (productData.condition_name || "").toLowerCase();
-    const priorities = ["new with tags", "new with box", "new without tags", "new without box", "brand new", "new", "pre-owned", "used"];
-    let target = priorities.find(p => cond.includes(p)) || "";
+    let target = "new"; 
+    const dbCondition = (productData.condition_name || productData.condition || "").toLowerCase();
+    if (dbCondition.includes("used") || dbCondition.includes("pre-owned") || dbCondition.includes("worn")) target = "used";
+    if (dbCondition.includes("new")) target = "new";
 
-    if (target) {
-        const elements = Array.from(document.querySelectorAll('span, div, label, button, .radio__label'));
-        let match = elements.find(el => el.innerText?.toLowerCase().trim() === target) ||
-                    elements.find(el => el.innerText?.toLowerCase().includes(target) && el.innerText.length < 40);
+    console.log(`[eBay AutoLister] 🏷️ Auto-selecting Condition: ${target}`);
 
-        if (match) {
-            const clickable = match.closest('button') || match.closest('[role="radio"]') || match.closest('.radio') || match;
-            if (clickable.getAttribute('aria-checked') !== 'true' && clickable.getAttribute('aria-pressed') !== 'true') {
-                clickable.click();
-                setPageState(gateKey, "true"); 
-            }
-        }
+    const elements = Array.from(document.querySelectorAll('span, div, label, button, .radio__label, .ux-selection-box__label'));
+    const match = elements.find(el => el.innerText?.toLowerCase().trim() === target && el.offsetParent !== null) ||
+                  elements.find(el => el.innerText?.toLowerCase().includes(target) && el.innerText.length < 30 && el.offsetParent !== null);
+
+    if (match) {
+        const clickable = match.closest('button') || match.closest('[role="radio"]') || match.closest('.ux-selection-box') || match;
+        setPageState(gateKey, "true"); 
+        clickable.click();
     }
 }
 
 // --- FEATURE 4: MAIN FORM FILLING ---
-function performFullFill() {
-    if (!chrome.runtime?.id) {
-        alert("Extension context invalidated. Please refresh this eBay page.");
-        return;
-    }
-    try {
-        chrome.storage.local.get("ebayDraftData", async (result) => {
-            if (chrome.runtime.lastError) return;
-            const productData = result.ebayDraftData;
-            if (!productData) return alert("No data found! Send to eBay from Admin first.");
-
-        console.log("[eBay AutoLister] Starting full fill...");
-
-        // 0. Enforce "Buy It Now" format to unlock variations globally
-        console.log("[eBay AutoLister] Waiting for Pricing Format component to load...");
-        
-        const waitForFormatAndSwitch = async () => {
-            let attempts = 0;
-            while (attempts < 20) {
-                // Best-way approach: Find the hidden native select or its container by name
-                const formatSelect = document.querySelector('select[name="format"]');
-                if (formatSelect) {
-                    const container = formatSelect.closest('.se-field, .listbox-button');
-                    if (container) {
-                        const formatBtn = container.querySelector('button[aria-haspopup="listbox"]');
-                        if (formatBtn) {
-                            const btnText = (formatBtn.innerText || formatBtn.textContent || "").toLowerCase();
-                            
-                            if (btnText.includes("auction")) {
-                                console.log("[eBay AutoLister] Exact match found for 'Auction' Format via select[name='format']. Clicking...");
-                                formatBtn.focus();
-                                formatBtn.click();
-                                
-                                // Wait for eBay to animate/open listbox
-                                await new Promise(r => setTimeout(r, 600));
-                                
-                                // Find exactly which listbox opened using aria-controls
-                                const listboxId = formatBtn.getAttribute('aria-controls');
-                                const listbox = listboxId ? document.getElementById(listboxId) : document.querySelector('.listbox__options:not([hidden])');
-                                
-                                if (listbox) {
-                                    const options = Array.from(listbox.querySelectorAll('[role="option"], .listbox__option'));
-                                    const buyItNowOption = options.find(opt => (opt.innerText || "").toLowerCase().includes("buy it now") && opt.offsetParent !== null);
-                                    
-                                    if (buyItNowOption) {
-                                        console.log("[eBay AutoLister] Clicking 'Buy It Now' option inside Exact ListBox. Waiting 2.5 seconds...");
-                                        buyItNowOption.click();
-                                        await new Promise(r => setTimeout(r, 2500));
-                                        return; // success
-                                    } else {
-                                        document.body.click(); // close it if failed
-                                    }
-                                }
-                            } else if (btnText.includes("buy it now") || btnText.includes("fixedprice")) {
-                                console.log("[eBay AutoLister] Format is already Buy It Now!");
-                                return; // already correct
-                            }
-                        }
-                    }
-                }
-                attempts++;
-                await new Promise(r => setTimeout(r, 600)); // check every 600ms
-            }
-            console.warn("[eBay AutoLister] Timed out waiting for Format dropdown. (Failed to find hidden select[name='format']).");
-        };
-
-        // Await the format switch BEFORE filling everything else
-        await waitForFormatAndSwitch();
-
-        // 1. Basic Info
-        setInputValue('input[name="title"], input[id*="title"]', productData.title);
-
-        // 2. Price (Selling Price)
-        const waitForPriceInputs = async () => {
-            const priceVal = String(productData.selling_price || productData.price || "0").replace(/[^\d.]/g, '');
-            const priceSelectors = [
-                'input[name*="price" i]:not([name="startPrice"])', // avoid auction start price if possible
-                'input[aria-label*="buy it now" i]', 
-                'input[aria-label*="price" i]', 
-                'input[placeholder*="price" i]',
-                '.price-input input',
-                '.bid-input input'
-            ];
-            
-            let attempts = 0;
-            while (attempts < 15) { // wait up to 4.5 seconds
-                const priceInputs = Array.from(document.querySelectorAll(priceSelectors.join(',')))
-                    .filter(inp => inp.offsetParent !== null && !inp.disabled);
-                    
-                if (priceInputs.length > 0) {
-                    console.log("[eBay AutoLister] Price inputs found. Filling Price:", priceVal);
-                    for (const inp of priceInputs) {
-                        try { await setInputValue(inp, priceVal); } catch(e) {}
-                    }
-                    return; // done
-                }
-                attempts++;
-                await new Promise(r => setTimeout(r, 300));
-            }
-            console.warn("[eBay AutoLister] Timed out waiting for Price inputs to mount.");
-        };
-
-        await waitForPriceInputs();
-
-        // 3. Description
-        const fillDesc = () => {
-            document.querySelectorAll('iframe').forEach(iframe => {
-                try {
-                    const doc = iframe.contentDocument || iframe.contentWindow.document;
-                    if (doc && (doc.body.getAttribute('contenteditable') === 'true' || iframe.title.toLowerCase().includes('description') || iframe.id.includes('desc'))) {
-                        doc.body.innerHTML = productData.description || productData.about_item || productData.title;
-                        doc.body.dispatchEvent(new Event('input', {bubbles: true}));
-                    }
-                } catch(e) {}
-            });
-        };
-        fillDesc(); setTimeout(fillDesc, 2000);
-
-        // 4. AGGRESSIVE IMAGE UPLOAD & Video Highlight
-        if (productData.images && productData.images.length > 0) {
-            console.log("[eBay AutoLister] Attempting aggressive image upload...");
-            const mediaSelectors = [
-                '.image-upload input[type="file"]', 
-                '.video-upload input[type="file"]',
-                '.uploader-drop-zone input[type="file"]', 
-                '#file-input', 'input[type="file"][accept*="image"]'
-            ];
-            
-            const dropZones = [
-                '.image-upload', '.uploader-drop-zone', '[class*="media"]', '[id*="media"]', 'button[aria-label*="photo" i]'
-            ];
-
-            const fileInput = document.querySelector(mediaSelectors.join(','));
-            const dropZone = document.querySelector(dropZones.join(','));
-
-            if (dropZone) {
-                dropZone.style.border = "8px solid #0053a0";
-                dropZone.style.boxShadow = "0 0 30px #0053a0";
-                dropZone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                // Try to construct a DataTransfer object with fetched files
-                const dataTransfer = new DataTransfer();
-                let filesFetched = 0;
-
-                productData.images.forEach((url, i) => {
-                    chrome.runtime.sendMessage({ action: "fetchImageBlob", url: url }, response => {
-                        if (response && response.dataUrl) {
-                            fetch(response.dataUrl)
-                                .then(res => res.blob())
-                                .then(blob => {
-                                    const ext = url.split('.').pop().split(/[#?]/)[0] || 'jpg';
-                                    const file = new File([blob], `product_image_${i}.${ext}`, { type: blob.type || 'image/jpeg' });
-                                    dataTransfer.items.add(file);
-                                    filesFetched++;
-                                    
-                                    if (filesFetched === productData.images.length) {
-                                        console.log("[eBay AutoLister] All images fetched. Dispatching DROP event...");
-                                        
-                                        // 1. Try file input override
-                                        if (fileInput) {
-                                            try {
-                                                fileInput.files = dataTransfer.files;
-                                                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                            } catch(e) { console.error("File input override failed:", e); }
-                                        }
-
-                                        // 2. Try simulated React drop event
-                                        const dropEvent = new DragEvent('drop', {
-                                            bubbles: true,
-                                            cancelable: true,
-                                            dataTransfer: dataTransfer
-                                        });
-                                        dropZone.dispatchEvent(dropEvent);
-                                    }
-                                });
-                        }
-                    });
-                });
-            }
-        }
-
-        if (productData.video_url) {
-            navigator.clipboard.writeText("VIDEO URL: " + productData.video_url).catch(e=>{});
-        }
-
-        // 5. UNIVERSAL ITEM SPECIFICS & VARIATIONS
-        setTimeout(async () => {
-            console.log("[eBay AutoLister] Starting Universal Fill...");
-            let specifics = productData.item_specifics || {};
-            if (typeof specifics === 'string') { try { specifics = JSON.parse(specifics); } catch(e) { specifics = {}; } }
-            if (productData.brand) specifics["Brand"] = productData.brand;
-
-            // Block non-specifics coming from the admin panel (like Shipping, Returns, Delivery)
-            const ignoreList = ['shipping', 'returns', 'delivery', 'list price', 'item price', 'estimated total'];
-            Object.keys(specifics).forEach(k => {
-                if (ignoreList.includes(k.toLowerCase().trim())) {
-                    delete specifics[k];
-                }
-            });
-
-            const filledKeys = new Set();
-            
-            // --- Helper: Fill existing fields (Sequential async) ---
-            const fillExistingFields = async () => {
-                const allInputs = document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, select, [role="combobox"], [role="textbox"], .search-box-attributes');
-                let foundAny = false;
-                
-                // Process each input sequentially
-                for (const input of allInputs) {
-                    let labelText = "";
-                    
-                    const ebayFieldContainer = input.closest('[data-testid="attribute"], .summary__attributes--field');
-                    if (ebayFieldContainer) {
-                        const labelEl = ebayFieldContainer.querySelector('.summary__attributes--label');
-                        if (labelEl) labelText = labelEl.innerText;
-                    }
-                    
-                    if (!labelText) {
-                        const genericContainer = input.closest('.form-field, .combobox, .field, .ux-labels-values__labels-content, [class*="label"], .aspect-name');
-                        if (genericContainer) {
-                            const labelEl = genericContainer.querySelector('label, [class*="label"], span');
-                            labelText = labelEl ? labelEl.innerText : "";
-                        }
-                    }
-
-                    if (!labelText) {
-                        labelText = input.getAttribute('aria-label') || input.name || input.placeholder || "";
-                        labelText = labelText.replace(/search-box-attributes|attributes\.|Search or enter your own/gi, '').trim();
-                    }
-
-                    let label = (labelText || "").toLowerCase();
-                    label = label.split('\n')[0].replace(/[*:]/g, '').trim();
-
-                    if (!label || label.includes("search")) continue;
-
-                    for (const [key, val] of Object.entries(specifics)) {
-                        let cleanKey = key.toLowerCase().replace(/[*:]/g, '').trim();
-                        if (cleanKey === "size") cleanKey = "size (men's)"; // Specific hardcode just in case for shoe inputs
-                        
-                        const isExactMatch = label === cleanKey;
-                        const isWordMatch = new RegExp(`\\b${key.toLowerCase().replace(/[*:]/g, '').trim()}\\b`, 'i').test(label);
-                        
-                        if ((isExactMatch || isWordMatch) && !filledKeys.has(key)) {
-                            if (!input.disabled && val) {
-                                console.log("[eBay AutoLister] Sequential Matching:", key, "with label:", label, "Element:", input.tagName);
-                                const success = await setInputValue(input, String(val));
-                                if (success !== false) {
-                                    filledKeys.add(key);
-                                    foundAny = true;
-                                }
-                            }
-                        }
-                    }
-                }
-                return foundAny;
-            };
-            
-            // Run existing fields fill sequence
-            const runExistingSequence = async () => {
-                let limit = 10;
-                let clickedShowMore = false;
-                
-                while (limit > 0) {
-                    // Try to click Show more early on to expose all fields
-                    if (!clickedShowMore) {
-                        const allButtons = Array.from(document.querySelectorAll('button'));
-                        const showMoreBtn = allButtons.find(el => {
-                            const txt = (el.innerText || el.textContent || "").toLowerCase().trim();
-                            return txt === "show more" || txt.includes("show more");
-                        });
-                        
-                        // We check for existence of btn before trying to click
-                        if (showMoreBtn) {
-                            try {
-                                const isHidden = showMoreBtn.closest('[hidden]') || showMoreBtn.style.display === 'none';
-                                const ariaExpanded = showMoreBtn.getAttribute('aria-expanded');
-                                if (!isHidden && ariaExpanded !== 'true') {
-                                    console.log("[eBay AutoLister] Clicking 'Show more' early to expose lazy loaded fields...");
-                                    showMoreBtn.click();
-                                    await new Promise(r => setTimeout(r, 1000));
-                                }
-                            } catch(e) {}
-                            clickedShowMore = true; // Mark as done to prevent spam clicking
-                        } else if (limit < 8) {
-                            // If we couldn't find it after 3 loops, give up checking it
-                            clickedShowMore = true;
-                        }
-                    }
-
-                    await fillExistingFields();
-                    limit--;
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-            };
-            runExistingSequence();
-
-            /*
-            if (productData.variations && productData.variations.length > 0) {
-                const varBtn = Array.from(document.querySelectorAll('button, a, span')).find(el => 
-                    /Create variations|Edit variations|Variations/i.test(el.innerText) && el.offsetParent !== null
-                );
-                if (varBtn) {
-                    const clickable = varBtn.closest('button') || varBtn.closest('a') || varBtn;
-                    clickable.style.border = "5px solid #e53238";
-                    clickable.style.boxShadow = "0 0 20px #e53238";
-                    console.log("[eBay AutoLister] Highlighted Variations button.");
-                }
-            }
-            */
-
-            // --- PART B: Variations Automation ---
-            const handleVariationsWizard = async () => {
-                console.log("[eBay AutoLister] Starting Variations Wizard automation...");
-                
-                // 1. Find and click "Edit" variations button (Refined for extreme precision)
-                const editBtn = document.querySelector('.summary__variations button.summary__header-edit-button') || 
-                               document.querySelector('button[aria-label="Edit Variations"]') ||
-                               document.querySelector('.summary__variations button') ||
-                               Array.from(document.querySelectorAll('button, .faux-link, a, [class*="edit"]')).find(el => {
-                                   const txt = (el.innerText || el.textContent || "").toLowerCase().trim();
-                                   const isVarContainer = el.closest('.summary__variations, .variations-section, [id*="variation"]');
-                                   return txt === "edit" && isVarContainer;
-                               });
-
-                if (!editBtn) {
-                    console.log("[eBay AutoLister] No Variations 'Edit' button found. Maybe no variations allowed for this category?");
-                    return;
-                }
-
-                console.log("[eBay AutoLister] Clicking Variations Edit button.");
-                editBtn.click();
-
-                // 2. Wait for Wizard container (msku-variation-selection-wrapper)
-                let wizardFound = false;
-                for (let i = 0; i < 20; i++) {
-                    if (document.getElementById('msku-variation-selection-wrapper')) {
-                        wizardFound = true;
-                        break;
-                    }
-                    await new Promise(r => setTimeout(r, 500));
-                }
-
-                if (!wizardFound) {
-                    console.error("[eBay AutoLister] Variations Wizard container not found after clicking Edit.");
-                    return;
-                }
-
-                // 3. Process Variations from productData
-                let variations = productData.variations || [];
-                if (typeof variations === 'string') { try { variations = JSON.parse(variations); } catch(e) { variations = []; } }
-
-                const attributesMap = {}; // { 'Color': Set(['Red', 'Blue']), 'Size': Set(['S', 'M']) }
-                variations.forEach(v => {
-                    const attr = v.attribute || v.name || "";
-                    const val = v.value || "";
-                    if (attr && val) {
-                        if (!attributesMap[attr]) attributesMap[attr] = new Set();
-                        attributesMap[attr].add(val);
-                    }
-                });
-
-                // Helper for fuzzy label matching (e.g., "SIZE (MENS)" -> "Size Type")
-                const findFuzzyMatch = (elements, targetText, isAttribute = false) => {
-                    const normalizedTarget = targetText.toLowerCase().trim();
-                    const list = Array.from(elements);
-                    
-                    // 1. Exact/Subset match
-                    let match = list.find(el => {
-                        const txt = (el.innerText || el.textContent || "").toLowerCase().trim();
-                        return txt === normalizedTarget || txt.includes(normalizedTarget) || normalizedTarget.includes(txt);
-                    });
-                    if (match) return match;
-
-                    // 2. Specific eBay mappings
-                    if (isAttribute) {
-                        if (normalizedTarget.includes("size")) {
-                            return list.find(el => {
-                                const txt = (el.innerText || el.textContent || "").toLowerCase().trim();
-                                return txt.includes("size");
-                            });
-                        }
-                        if (normalizedTarget.includes("color") || normalizedTarget.includes("colour")) {
-                            return list.find(el => {
-                                const txt = (el.innerText || el.textContent || "").toLowerCase().trim();
-                                return txt.includes("color");
-                            });
-                        }
-                    }
-                    return null;
-                };
-
-                for (const [attrName, values] of Object.entries(attributesMap)) {
-                    console.log(`[eBay AutoLister] Processing Variation Aspect: ${attrName}`);
-
-                    // A. Find or Add Attribute Tag
-                    const allTags = document.querySelectorAll('.var-tag span');
-                    let attrTag = findFuzzyMatch(allTags, attrName, true);
-
-                    if (!attrTag) {
-                        console.log(`[eBay AutoLister] Attribute '${attrName}' not found. Adding it...`);
-                        const addBtn = document.getElementById('msku-attribute-add');
-                        if (addBtn) {
-                            addBtn.click();
-                            await new Promise(r => setTimeout(r, 1000));
-
-                            // Find in overlay
-                            const allLabels = document.querySelectorAll('#msku-variation-checkbox-list label');
-                            const checkboxLabel = findFuzzyMatch(allLabels, attrName, true);
-
-                            if (checkboxLabel) {
-                                const cb = checkboxLabel.querySelector('input[type="checkbox"]');
-                                if (cb && !cb.checked) cb.click();
-                            } else {
-                                // Add your own attribute
-                                const ownAttrCb = document.getElementById('msku-own-parent-tag-checkbox');
-                                if (ownAttrCb) {
-                                    if (!ownAttrCb.checked) ownAttrCb.click();
-                                    await new Promise(r => setTimeout(r, 400));
-                                    const ownInput = document.getElementById('msku-custom-parent-attribute-input');
-                                    if (ownInput) await setInputValue(ownInput, attrName);
-                                }
-                            }
-
-                            const saveTagBtn = document.getElementById('msku-add-parent-tag-btn');
-                            if (saveTagBtn) {
-                                saveTagBtn.click();
-                                await new Promise(r => setTimeout(r, 1500));
-                            }
-                        }
-                        
-                        // Re-verify
-                        attrTag = findFuzzyMatch(document.querySelectorAll('.var-tag span'), attrName, true);
-                    }
-
-                    if (attrTag) {
-                        // B. Select Attribute Tag to show its options
-                        attrTag.click();
-                        await new Promise(r => setTimeout(r, 800));
-
-                        const panelId = attrTag.getAttribute('aria-controls');
-                        const panel = document.getElementById(panelId);
-                        if (panel) {
-                            for (const valName of values) {
-                                const allOptions = panel.querySelectorAll('li');
-                                let optionLi = findFuzzyMatch(allOptions, valName);
-
-                                if (optionLi) {
-                                    if (optionLi.getAttribute('aria-pressed') !== 'true') {
-                                        optionLi.click();
-                                        await new Promise(r => setTimeout(r, 400));
-                                    }
-                                } else {
-                                    // Create your own option for this attribute
-                                    console.log(`[eBay AutoLister] Creating own option for ${attrName}: ${valName}`);
-                                    const createOwnLink = document.getElementById('msku-custom-option-link');
-                                    if (createOwnLink) {
-                                        createOwnLink.click();
-                                        await new Promise(r => setTimeout(r, 500));
-                                        const customInp = document.getElementById('msku-custom-option-input');
-                                        if (customInp) {
-                                            await setInputValue(customInp, valName);
-                                            const addOptBtn = document.getElementById('msku-custom-option-add');
-                                            if (addOptBtn) addOptBtn.click();
-                                            await new Promise(r => setTimeout(r, 800));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 4. Click Continue to save wizard progress
-                const finishBtn = Array.from(document.querySelectorAll('button')).find(b => 
-                    (b.innerText || "").toLowerCase().includes("continue")
-                );
-                if (finishBtn) {
-                    console.log("[eBay AutoLister] Finishing Variations Wizard...");
-                    finishBtn.click();
-                }
-            };
-
-            // --- PART B: Variations Automation (Call moved to end of PART C) ---
-
-            // --- PART C: True DOM Custom Specifics Loop (No API Calls) ---
-            // Wait for existing fields to finish filling (Wait 12s) before checking what's left
-            setTimeout(async () => {
-                const remainingKeys = Object.keys(specifics).filter(k => {
-                    const val = specifics[k];
-                    return !filledKeys.has(k) && val && String(val).trim() !== "" && k.toLowerCase() !== "brand";
-                });
-                
-                if (remainingKeys.length > 0) {
-                    console.log("[eBay AutoLister] Unfilled specifics found. QUEUING forcefully:", remainingKeys);
-                    console.log("[eBay AutoLister] Starting Custom Specifics DOM Sequence...");
-                    // (Removed 'Show more' logic from here - it was moved earlier to run before 'fillExistingFields')                    // 2. Process each missing key sequentially
-                    for (const key of remainingKeys) {
-                        console.log(`[eBay AutoLister] Processing custom key: ${key}`);
-                        
-                        // Find "Add specific" button
-                        const addBtn = Array.from(document.querySelectorAll('button, .summary__attributes--custom-specific')).find(el => {
-                            const txt = (el.innerText || el.textContent || "").toLowerCase().trim();
-                            // Look for the "Add custom item specific" text
-                            return txt.includes("add custom") || txt.includes("add specific") || txt.includes("add an aspect");
-                        });
-                        
-                        if (!addBtn) {
-                            console.error("[eBay AutoLister] Could not find 'Add specific' button. Skipping key.");
-                            continue;
-                        }
-                        
-                        const clickable = addBtn.closest('button') || addBtn.closest('a') || addBtn;
-                        const initialInputCount = document.querySelectorAll('input:not([type="hidden"])').length;
-                        
-                        try { clickable.click(); } catch (e) { console.error(e); continue; }
-                        
-                        // Wait for Modal to open
-                        let waited = 0;
-                        let modalPopup = null;
-                        let nameInput = null;
-                        let valInput = null;
-                        let saveBtn = null;
-                        let closeBtn = null;
-                        
-                        while (waited < 5000) {
-                            await new Promise(r => setTimeout(r, 400));
-                            waited += 400;
-                            
-                            // Explicitly look for the modal dialog overlay
-                            modalPopup = document.querySelector('[role="dialog"], .lightbox-dialog, .lightbox');
-                            if (modalPopup) {
-                                // Find all inputs inside the modal
-                                const inputs = Array.from(modalPopup.querySelectorAll('input:not([type="hidden"])')).filter(inp => 
-                                    inp.offsetParent !== null && !inp.hidden && !inp.disabled
-                                );
-                                
-                                if (inputs.length >= 2) {
-                                    nameInput = inputs[0];
-                                    valInput = inputs[1];
-                                    
-                                    // Find 'Save' and 'Close' buttons
-                                    const modalBtns = Array.from(modalPopup.querySelectorAll('button'));
-                                    saveBtn = modalBtns.find(b => (b.innerText || "").toLowerCase().includes("save"));
-                                    closeBtn = modalBtns.find(b => (b.innerText || "").toLowerCase().includes("close") || b.getAttribute("aria-label")?.toLowerCase().includes("close"));
-                                    
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (nameInput && valInput && saveBtn && modalPopup) {
-                            // 1. Fill Name
-                            const didName = await setInputValue(nameInput, key);
-                            await new Promise(r => setTimeout(r, 600)); // wait for React to register 
-                            
-                            // Check for "already exists" error
-                            const errorText = Array.from(modalPopup.querySelectorAll('.inline-notice__content, [class*="error"], span, div')).find(el => 
-                                (el.innerText || "").toLowerCase().includes("already exists")
-                            );
-                            
-                            if (errorText) {
-                                console.warn(`[eBay AutoLister] eBay says '${key}' already exists. Closing modal and skipping.`);
-                                if (closeBtn) { try { closeBtn.click(); } catch(e) {} }
-                                await new Promise(r => setTimeout(r, 1000));
-                                continue; // Skip to next key
-                            }
-                            
-                            // 2. Fill Value
-                            const didVal = await setInputValue(valInput, String(specifics[key]));
-                            await new Promise(r => setTimeout(r, 600));
-                            
-                            // 3. Click Save
-                            try { saveBtn.click(); } catch(e) {}
-                            
-                            filledKeys.add(key);
-                            console.log(`[eBay AutoLister] Successfully saved custom specific: ${key}`);
-                            
-                            // Wait for modal to disappear before next iteration
-                            await new Promise(r => setTimeout(r, 1500));
-                        } else {
-                            console.error(`[eBay AutoLister] Failed to find Modal inputs or Save button for key: ${key}`);
-                            // Escap hatch: try to close the stuck modal
-                            if (closeBtn) { try { closeBtn.click(); } catch(e) {} }
-                        }
-                    }
-                    console.log("[eBay AutoLister] Custom Specifics Sequence Completed.");
-                }
-
-                // --- FINAL STEP: Variations Wizard ---
-                if (productData.variations && productData.variations.length > 0) {
-                    console.log("[eBay AutoLister] All specifics done. Triggering Variations Wizard as the final step...");
-                    await handleVariationsWizard();
-                }
-            }, 12000);
-            
-        }, 3500);
+function getStorage(key) {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(key, (result) => resolve(result[key]));
     });
-    } catch (e) { console.error(e); }
 }
 
-function createManualButton() {
-    if (document.getElementById('ebay-autofill-btn')) return;
-    const isListingPage = window.location.href.includes("/sl/list/") || 
-                          window.location.href.includes("/lstng") || 
-                          window.location.href.includes("/sl/drafts/") ||
-                          document.body.innerText.includes("List your item");
-                          
-    if (!isListingPage) return;
+async function fillTitlePrice() {
+    const productData = await getStorage("ebayDraftData");
+    if (!productData) return alert("No data found!");
+    showStatus("⚡ Filling Title & Price...", "info");
+    
+    // Title
+    console.log("[eBay AutoLister] Title:", productData.title);
+    await setInputValue('input[name="title"], input[id*="title"], #title, [aria-label*="Title" i], [data-testid*="title"] input', productData.title);
+    
+    // Price Handling (Based on your HTML)
+    const priceStr = String(productData.selling_price || productData.retail_price || "");
+    const price = priceStr.replace(/[^\d.]/g, '');
+    console.log("[eBay AutoLister] Injecting Price:", price);
 
-    const btn = document.createElement('button');
-    btn.id = 'ebay-autofill-btn';
-    btn.innerText = '⚡ Auto-Fill Data';
-    btn.style.cssText = 'position:fixed; bottom:30px; right:30px; z-index:999999; padding:15px 30px; background:#0053a0; color:white; border:none; border-radius:12px; font-weight:bold; cursor:pointer; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-size:20px;';
-    btn.onclick = performFullFill;
-    document.body.appendChild(btn);
+    if (price && price !== "0") {
+        const priceSelectors = [
+            'input[name="price"].textbox__control', 
+            'input[aria-label="Item price"]',
+            '[data-testid$="price"] input',
+            '#price'
+        ];
+        
+        let priceInp = document.querySelector(priceSelectors.join(','));
+        
+        if (!priceInp) {
+            await ensureBuyItNowFormat();
+            await new Promise(r => setTimeout(r, 1000));
+            priceInp = document.querySelector(priceSelectors.join(','));
+        }
+
+        if (priceInp) {
+            priceInp.focus();
+            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+            if (nativeSetter) { nativeSetter.call(priceInp, price); } else { priceInp.value = price; }
+            
+            ['input', 'change', 'blur'].forEach(e => priceInp.dispatchEvent(new Event(e, { bubbles: true })));
+            console.log("[eBay AutoLister] Price set successfully.");
+        }
+    }
+
+    // Condition - Prevent modal opening if already correct
+    const dbCondition = (productData.condition_name || productData.condition || "").toLowerCase();
+    const target = dbCondition.includes("used") || dbCondition.includes("pre-owned") ? "used" : "new";
+    
+    // Find trigger button that shows the current condition
+    const condTrigger = Array.from(document.querySelectorAll('button, .ux-selection-box'))
+        .find(b => (b.innerText.toLowerCase().includes("condition") || b.innerText.toLowerCase().includes("new") || b.innerText.toLowerCase().includes("used")) && b.offsetParent !== null);
+    
+    if (condTrigger) {
+        const current = condTrigger.innerText.toLowerCase();
+        // Only click if the button doesn't already show our target condition
+        if (!current.includes(target)) {
+            console.log(`[eBay AutoLister] Opening condition menu for: ${target}`);
+            condTrigger.click();
+            await new Promise(r => setTimeout(r, 1000));
+            const options = Array.from(document.querySelectorAll('.listbox__option, [role="option"], label'));
+            const match = options.find(o => o.innerText.toLowerCase().trim() === target);
+            if (match) match.click();
+        } else {
+            console.log(`[eBay AutoLister] Condition is already ${target}. skipping click.`);
+        }
+    }
+
+    showStatus("✅ Title, Price & Condition Done!", "success");
 }
 
-setInterval(() => { 
-    if (!chrome.runtime?.id) return;
-    closeUnwantedPopups(); 
-    createManualButton(); 
+async function fillDescriptionStep() {
+    const productData = await getStorage("ebayDraftData");
+    if (!productData) return;
+    showStatus("⚡ Injecting Description...", "info");
+    const htmlContent = productData.description || productData.about_item || productData.title;
+    const editors = document.querySelectorAll('.ck-editor__editable, [contenteditable="true"][aria-label*="Description" i], #desc_wrapper [contenteditable="true"]');
+    editors.forEach(editor => {
+        editor.focus(); editor.click(); editor.innerHTML = htmlContent;
+        ['input', 'change', 'blur'].forEach(evtType => editor.dispatchEvent(new Event(evtType, { bubbles: true })));
+    });
+    document.querySelectorAll('iframe').forEach(iframe => {
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            const body = doc.body;
+            if (body && (body.getAttribute('contenteditable') === 'true' || iframe.title?.toLowerCase().includes('description'))) {
+                body.focus(); body.innerHTML = htmlContent;
+                ['input', 'change', 'blur'].forEach(evtType => body.dispatchEvent(new Event(evtType, { bubbles: true })));
+            }
+        } catch(e) {}
+    });
+    showStatus("✅ Description Done!", "success");
+}
+
+async function fillImagesStep() {
+    const productData = await getStorage("ebayDraftData");
+    if (!productData || !productData.images) return;
+    showStatus("⚡ Uploading Images...", "info");
+    const fileInput = document.querySelector('input[type="file"][accept*="image"]');
+    if (fileInput) {
+        const dataTransfer = new DataTransfer();
+        for (let i = 0; i < productData.images.slice(0, 12).length; i++) {
+            const res = await new Promise(r => chrome.runtime.sendMessage({ action: "fetchImageBlob", url: productData.images[i] }, r));
+            if (res?.dataUrl) {
+                const r = await fetch(res.dataUrl);
+                const blob = await r.blob();
+                dataTransfer.items.add(new File([blob], `image_${i}.jpg`, {type:'image/jpeg'}));
+            }
+        }
+        fileInput.files = dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+    showStatus("✅ Images Queued!", "success");
+}
+
+async function fillSpecificsStep() {
+    console.log("[eBay AutoLister] ⚙️ Starting Item Specifics (Confirmed Working Version)...");
+    const productData = await getStorage("ebayDraftData");
+    if (!productData) return alert("Product data not found!");
+    showStatus("⚡ Filling Item Specifics...", "info");
+    
+    // 1. Expand "Show More"
+    const moreBtn = Array.from(document.querySelectorAll('button')).find(b => 
+        ["show more", "see all", "view more", "more aspects"].some(t => b.innerText.toLowerCase().includes(t)) && b.offsetParent !== null
+    );
+    if (moreBtn) { moreBtn.click(); await new Promise(r => setTimeout(r, 1000)); }
+
+    let specifics = productData.item_specifics || {};
+    if (typeof specifics === 'string') try { specifics = JSON.parse(specifics); } catch(e) {}
+    
+    if (productData.brand) specifics["Brand"] = productData.brand;
+    if (productData.color) specifics["Color"] = productData.color;
+    if (productData.size) specifics["Size"] = productData.size;
+
+    const requiredPriority = ["brand", "type", "size", "color", "department", "style"];
+    const aliases = {
+        "brand": ["brand", "brand name", "manufacturer"],
+        "size": ["size type", "size", "shoe size", "chest size", "size (men's)"],
+        "color": ["colour", "color", "main color"],
+        "material": ["material", "outer shell material", "fabric type"],
+        "style": ["style", "theme", "design", "jacket style", "sweatshirt type"],
+        "department": ["department", "gender", "section"],
+        "type": ["type", "product type"]
+    };
+
+    const ignoreKeys = ['price', 'retail_price', 'selling_price', 'msrp', 'list price', 'shipping', 'delivery', 'returns', 'import fees', 'estimated total', 'ebayurl', 'ebay_url'];
+    const filledKeys = new Set();
+
+    const getLabelForField = (field) => {
+        let labelText = "";
+        const container = field.closest('.ux-labels-values, .summary__attributes--field, [data-testid="attribute"], .form-field, .aspect-name, .field-container, .ui-form-element, .ux-combobox, .selection-list');
+        if (container) {
+            // Check for specific eBay aspect class (e.g., ux-labels-values--style)
+            const aspectClass = Array.from(container.classList).find(c => c.startsWith('ux-labels-values--'));
+            if (aspectClass) {
+                labelText = aspectClass.split('--')[1].replace(/-/g, ' ');
+            } else {
+                labelText = container.querySelector('label, .ux-labels-values__labels-content, .aspect-name, span[class*="label"], .summary__attributes--label, .field-label, .ux-combobox__label, h3')?.innerText || "";
+            }
+        }
+        if (!labelText) labelText = field.getAttribute('aria-label') || field.placeholder || field.name || "";
+        return labelText.toLowerCase().replace(/[*:]/g, '').trim().split('\n')[0];
+    };
+
+    const allFields = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea, [role="combobox"], button[name^="attributes."], [data-testid="attribute"] button, .ux-combobox input'));
+
+    // --- PHASE 1: FILL EXISTING FIELDS ---
+    console.log("[eBay AutoLister] Phase 1: Filling Required Fields first...");
+    for (const priorityKey of requiredPriority) {
+        const actualKey = Object.keys(specifics).find(k => k.toLowerCase() === priorityKey || k.toLowerCase().includes(priorityKey));
+        let val = actualKey ? specifics[actualKey] : productData[priorityKey];
+        if (!val && priorityKey === "size") val = specifics["Size (Men's)"] || specifics["Size Type"];
+        if (!val) continue;
+
+        const targetMatches = [priorityKey, ...(aliases[priorityKey] || [])];
+        let targetField = null;
+
+        // Try direct matching first
+        for (const field of allFields) {
+            const label = getLabelForField(field);
+            if (targetMatches.some(m => label === m || (label.includes(m) && label.length < m.length + 5))) {
+                targetField = field;
+                break;
+            }
+        }
+
+        // If not found, try finding by specific container class (based on user snippet)
+        if (!targetField) {
+            const container = document.querySelector(`.ux-labels-values--${priorityKey}, .ux-labels-values--${priorityKey.replace(/\s/g, '-')}`);
+            if (container) {
+                targetField = container.querySelector('input:not([type="hidden"]), textarea, [role="combobox"], button') || container.querySelector('.ux-textspans');
+            }
+        }
+
+        if (targetField) {
+            const finalVal = Array.isArray(val) ? val[0] : val;
+            console.log(`[eBay AutoLister] Filling Priority: ${priorityKey} -> ${finalVal}`);
+            const success = await setInputValue(targetField, finalVal);
+            if (success) {
+                filledKeys.add(priorityKey);
+                if (actualKey) filledKeys.add(actualKey);
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+    }
+
+    // Fill remaining fields that were not in priority
+    for (const field of allFields) {
+        const labelText = getLabelForField(field);
+        if (!labelText || labelText.includes("search") || labelText.includes("price")) continue;
+
+        for (const [key, val] of Object.entries(specifics)) {
+            const cleanKey = key.toLowerCase().replace(/[*:]/g, '').trim();
+            if (filledKeys.has(key) || ignoreKeys.some(ik => cleanKey.includes(ik))) continue;
+
+            const matches = [cleanKey, ...(aliases[cleanKey] || [])];
+            if (matches.some(m => labelText === m || (labelText.includes(m) && labelText.length < m.length + 5))) {
+                const finalVal = Array.isArray(val) ? val[0] : val;
+                const success = await setInputValue(field, finalVal);
+                if (success) {
+                    filledKeys.add(key);
+                    await new Promise(r => setTimeout(r, 400));
+                }
+            }
+        }
+    }
+
+    // --- PHASE 2: ADD CUSTOM ---
+    const remaining = Object.keys(specifics).filter(k => !filledKeys.has(k) && specifics[k] && !ignoreKeys.some(ik => k.toLowerCase().includes(ik)));
+    if (remaining.length > 0) {
+        for (const key of remaining) {
+            const addBtn = Array.from(document.querySelectorAll('button, .ux-action-link, span')).find(b => ["add custom", "add specific", "add an aspect"].some(t => b.innerText.toLowerCase().includes(t)) && b.offsetParent !== null);
+            if (!addBtn) break;
+            
+            addBtn.click();
+            await new Promise(r => setTimeout(r, 1200));
+            const modal = document.querySelector('[role="dialog"], .lightbox-dialog');
+            if (modal) {
+                const inputs = Array.from(modal.querySelectorAll('input:not([type="hidden"])')).filter(i => i.offsetParent !== null);
+                if (inputs.length >= 2) {
+                    await setInputValue(inputs[0], key);
+                    await setInputValue(inputs[1], String(specifics[key]));
+                    const save = Array.from(modal.querySelectorAll('button')).find(b => ["save", "add", "confirm", "done"].some(t => b.innerText.toLowerCase().includes(t)));
+                    if (save) { save.click(); await new Promise(r => setTimeout(r, 1500)); }
+                }
+            }
+        }
+    }
+    showStatus("✅ Item Specifics Done!", "success");
+}
+
+// --- FEATURE 5: VARIATIONS WIZARD AUTOMATION ---
+let isHandlingVariations = false;
+
+async function handleVariationsWizard(productData) {
+    if (isHandlingVariations) return;
+    
+    const isInsideIframe = window.location.href.includes("bulkedit.ebay.com/msku");
+    const wizardModal = document.querySelector('.variation-wizard, .modal-dialog, .msku-dialog, .variations-v3-overlay');
+    
+    if (!isInsideIframe && !wizardModal) return;
+
+    isHandlingVariations = true;
+    const modal = isInsideIframe ? document.body : wizardModal;
+    console.log("[eBay AutoLister] 🎭 Variation Engine Started");
+    showStatus("🎭 Starting Variations...", "success");
     
     try {
-        chrome.storage.local.get("ebayDraftData", (result) => {
-            if (result?.ebayDraftData) { 
-                handleSuggestPage(result.ebayDraftData); 
-                handleIdentifyPage(result.ebayDraftData); 
-                handleConditionPage(result.ebayDraftData); 
+        await new Promise(r => setTimeout(r, 1500)); 
+        const variations = productData.variations || [];
+        
+        if (variations.length === 0) {
+            showStatus("⚠️ No variations data found!", "error");
+            return;
+        }
+
+        for (const v of variations) {
+            showStatus(`🔍 Looking for attribute: "${v.name}"`, "info");
+            
+            // 1. SELECT ATTRIBUTE TAB
+            const allElements = Array.from(modal.querySelectorAll('button, span, div, .ux-action-link, .msku-attribute'));
+            let attrLink = allElements.find(el => {
+                const text = el.innerText.trim().toLowerCase();
+                const target = v.name.toLowerCase();
+                return text.startsWith(target) && el.offsetParent !== null;
+            });
+            
+            if (!attrLink) {
+                console.log(`[eBay AutoLister] Attribute "${v.name}" not found. Trying to add...`);
+                showStatus(`➕ Adding missing attribute: "${v.name}"`, "info");
+                const addBtn = Array.from(modal.querySelectorAll('button')).find(b => b.innerText.toLowerCase().includes("+ add") && b.offsetParent !== null);
+                if (addBtn) {
+                    addBtn.click(); await new Promise(r => setTimeout(r, 1500));
+                    const attrModal = document.querySelector('.msku-dialog, [role="dialog"], .se-dialog');
+                    if (attrModal) {
+                        const labels = Array.from(attrModal.querySelectorAll('label, .checkbox__label'));
+                        const match = labels.find(l => l.innerText.toLowerCase().trim() === v.name.toLowerCase());
+                        if (match) {
+                            console.log(`[eBay AutoLister] Selecting existing attribute checkbox: ${v.name}`);
+                            match.click(); 
+                        }
+                        else {
+                            console.log(`[eBay AutoLister] Creating custom attribute: ${v.name}`);
+                            const own = labels.find(l => l.innerText.toLowerCase().includes("add your own"));
+                            if (own) { 
+                                own.click(); await new Promise(r => setTimeout(r, 800));
+                                const inp = attrModal.querySelector('input[type="text"]');
+                                if (inp) await setInputValue(inp, v.name);
+                            }
+                        }
+                        const save = Array.from(attrModal.querySelectorAll('button')).find(b => /Save|Add|Done/i.test(b.innerText));
+                        if (save) { 
+                            save.click(); await new Promise(r => setTimeout(r, 2000)); 
+                        }
+                    }
+                }
+                attrLink = Array.from(modal.querySelectorAll('button, span')).find(el => el.innerText.trim().toLowerCase().startsWith(v.name.toLowerCase()) && el.offsetParent !== null);
             }
+
+            if (attrLink) {
+                console.log(`[eBay AutoLister] Activating attribute tab: ${v.name}`);
+                attrLink.click();
+                await new Promise(r => setTimeout(r, 1200)); 
+                
+                // 2. SELECT VALUES
+                for (const val of v.values) {
+                    showStatus(`👉 Looking for value: "${val}"`, "info");
+                    const possibleChips = Array.from(modal.querySelectorAll('.msku-chip, button, .ux-selection-box'));
+                    const match = possibleChips.find(o => {
+                        const text = (o.innerText || "").trim().toLowerCase();
+                        return text === val.toLowerCase() || (text.includes(val.toLowerCase()) && text.length < val.length + 5);
+                    });
+                    
+                    if (match) {
+                        const btn = match.tagName === 'BUTTON' ? match : match.closest('button, .ux-selection-box') || match;
+                        const isChecked = btn.getAttribute('aria-pressed') === 'true' || 
+                                          btn.classList.contains('selected') || 
+                                          btn.classList.contains('checked');
+
+                        if (!isChecked) {
+                            console.log(`[eBay AutoLister] Clicking value: ${val}`);
+                            btn.click();
+                            // Fallback for tricky buttons
+                            setTimeout(() => { 
+                                if (btn.getAttribute('aria-pressed') !== 'true' && !btn.classList.contains('selected') && !btn.classList.contains('checked')) {
+                                    btn.dispatchEvent(new Event('click', {bubbles: true})); 
+                                }
+                            }, 100);
+                            await new Promise(r => setTimeout(r, 600));
+                        } else {
+                            console.log(`[eBay AutoLister] Value "${val}" already selected.`);
+                        }
+                    } else {
+                        showStatus(`➕ Creating custom value: "${val}"`, "info");
+                        console.log(`[eBay AutoLister] Value "${val}" not found. Creating custom...`);
+                        const create = Array.from(modal.querySelectorAll('button, span, a')).find(b => ["create your own", "add custom", "+ add"].some(t => b.innerText.toLowerCase().includes(t)) && b.offsetParent !== null);
+                        if (create) {
+                            create.click(); await new Promise(r => setTimeout(r, 1000));
+                            const inp = modal.querySelector('input[type="text"]');
+                            if (inp) {
+                                await setInputValue(inp, val);
+                                const addB = modal.querySelector('button[aria-label*="Add" i], .add-button, button.btn--primary');
+                                if (addB) { addB.click(); await new Promise(r => setTimeout(r, 1200)); }
+                            }
+                        }
+                    }
+                }
+                const done = Array.from(modal.querySelectorAll('button')).find(b => /Update|Done|Close/i.test(b.innerText) && b.offsetParent !== null);
+                if (done) { 
+                    console.log(`[eBay AutoLister] Clicking "Done" for attribute: ${v.name}`);
+                    done.click(); 
+                    await new Promise(r => setTimeout(r, 1200)); 
+                }
+            }
+        }
+
+        showStatus("🏁 Moving to Prices & Qty...", "info");
+        console.log("[eBay AutoLister] Moving to next step (Continue/Next)...");
+        const next = Array.from(modal.querySelectorAll('button')).find(b => (b.innerText.toLowerCase().includes("continue") || b.innerText.toLowerCase().includes("next")) && b.offsetParent !== null);
+        if (next) { 
+            next.click(); 
+            await new Promise(r => setTimeout(r, 2000)); 
+        } else {
+            console.warn("[eBay AutoLister] 'Continue' or 'Next' button not found. Assuming already on grid or final step.");
+        }
+
+        showStatus("💰 Filling Grid...", "info");
+        console.log("[eBay AutoLister] Filling prices and quantities in the variations grid...");
+        const rows = Array.from(modal.querySelectorAll('tr, [role="row"]')).filter(r => r.querySelector('input'));
+        for (const row of rows) {
+            const rowText = row.innerText.toLowerCase();
+            const matchingVar = (productData.variations_table || []).find(vt => {
+                const comboVals = Object.values(vt.combination || {}).map(cv => String(cv).toLowerCase());
+                return comboVals.every(cv => rowText.includes(cv));
+            });
+            if (matchingVar) {
+                const inputs = Array.from(row.querySelectorAll('input'));
+                const priceInp = inputs.find(i => /price/i.test(i.name || i.getAttribute('aria-label') || ""));
+                const qtyInp = inputs.find(i => /quantity|qty/i.test(i.name || i.getAttribute('aria-label') || ""));
+                if (priceInp) {
+                    console.log(`[eBay AutoLister] Setting price for variation: ${matchingVar.price}`);
+                    await setInputValue(priceInp, matchingVar.price);
+                }
+                if (qtyInp) {
+                    console.log(`[eBay AutoLister] Setting quantity for variation: ${matchingVar.quantity || "1"}`);
+                    await setInputValue(qtyInp, matchingVar.quantity || "1");
+                }
+            }
+        }
+        showStatus("✅ Variations Complete!", "success");
+        console.log("[eBay AutoLister] 🎭 Variations Wizard Process Completed.");
+    } catch(e) { 
+        console.error("[eBay AutoLister] Wizard Error:", e); 
+        showStatus("❌ Variations Fill Failed!", "error");
+    } finally { 
+        isHandlingVariations = false; 
+    }
+}
+
+async function performVariationsFill() {
+    console.log("[eBay AutoLister] 🎭 MANUAL VARIATIONS INITIATED");
+    const productData = await getStorage("ebayDraftData");
+    if (!productData || !productData.variations) return alert("No variations data found!");
+    showStatus("⚡ Detecting Wizard...", "info");
+    
+    // Precise button detection: Strictly scope to the Variations section
+    const varSection = document.querySelector('.summary__variations, [data-testid="variations-section"]');
+    let varBtn = null;
+
+    if (varSection) {
+        console.log("[eBay AutoLister] Searching for Edit button inside Variations section...");
+        // Find the button inside the variations section that mentions "variation"
+        varBtn = Array.from(varSection.querySelectorAll('button, a')).find(el => {
+            const text = (el.innerText || "").toLowerCase();
+            const label = (el.getAttribute('aria-label') || "").toLowerCase();
+            return (text.includes("variation") || label.includes("variation")) && el.offsetParent !== null;
         });
-    } catch (e) {}
+        
+        // Final fallback within section: the main edit button class
+        if (!varBtn) varBtn = varSection.querySelector('.summary__header-edit-button');
+    }
+
+    if (!varBtn) {
+        console.warn("[eBay AutoLister] Variations Edit button not found within the expected section.");
+    }
+    
+    if (varBtn) {
+        varBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        varBtn.click();
+        
+        // Wait for modal OR iframe to appear
+        let attempts = 0;
+        const checkModal = setInterval(async () => {
+            const wizard = document.querySelector('.variation-wizard, .modal-dialog, .msku-dialog, iframe[src*="bulkedit.ebay.com"]');
+            if (wizard) {
+                clearInterval(checkModal);
+                // Note: If it's an iframe, the internal instance of this script will take over via the global loop below
+                if (wizard.tagName !== 'IFRAME') await handleVariationsWizard(productData);
+            }
+            if (++attempts > 20) clearInterval(checkModal);
+        }, 1000);
+    } else {
+        alert("Variations 'Edit' button not found. Please ensure 'Variations' section is visible.");
+    }
+}
+
+// --- FULL FILL COORDINATOR ---
+let isFiling = false;
+
+async function performFullFill() {
+    if (isFiling) return;
+    isFiling = true;
+    console.log("[eBay AutoLister] 🚀 FULL FILL INITIATED");
+
+    try {
+        await fillTitlePrice();
+        await new Promise(r => setTimeout(r, 1000));
+        await fillDescriptionStep();
+        await new Promise(r => setTimeout(r, 1000));
+        await fillImagesStep();
+        await new Promise(r => setTimeout(r, 1000));
+        await fillSpecificsStep();
+        showStatus("🚀 All Steps Completed!", "success");
+    } catch (e) {
+        console.error("Full Fill Error:", e);
+        showStatus("❌ Full Fill Failed!", "error");
+    } finally {
+        isFiling = false;
+    }
+}
+
+function showStatus(msg, type = "info") {
+    let overlay = document.getElementById('ebay-status-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'ebay-status-overlay';
+        overlay.style.cssText = 'position:fixed; top:15px; left:50%; transform:translateX(-50%); z-index:9999999; padding:8px 20px; border-radius:10px; font-weight:500; font-size:14px; box-shadow:0 4px 15px rgba(0,0,0,0.15); transition:all 0.3s ease; pointer-events:none; border:1px solid rgba(255,255,255,0.1); backdrop-filter:blur(8px);';
+        document.body.appendChild(overlay);
+    }
+    // Deep emoji stripping
+    overlay.innerText = msg.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+    overlay.style.background = type === "success" ? "rgba(34, 197, 94, 0.9)" : type === "error" ? "rgba(239, 68, 68, 0.9)" : "rgba(31, 41, 55, 0.9)";
+    overlay.style.color = "white";
+    overlay.style.opacity = "1";
+    overlay.style.top = "20px";
+    setTimeout(() => { if (overlay) { overlay.style.opacity = "0"; overlay.style.top = "10px"; } }, 4000);
+}
+
+function createManualButton(productData) {
+    if (document.getElementById('ebay-autofill-container')) return;
+    const isListingPage = window.location.href.includes("/sl/list/") || window.location.href.includes("/lstng") || window.location.href.includes("/drafts/");
+    if (!isListingPage) return;
+
+    const container = document.createElement('div');
+    container.id = 'ebay-autofill-container';
+    container.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:999999; display:flex; flex-direction:column; gap:6px; background:rgba(255,255,255,0.85); padding:10px; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.1); backdrop-filter:blur(10px); border:1px solid rgba(0,0,0,0.05); width:170px;';
+
+    const createBtn = (text, color, action) => {
+        const btn = document.createElement('button');
+        btn.innerText = text; // No icon span
+        btn.style.cssText = `padding:8px 12px; background:${color}; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s; width:100%; text-align:center; text-transform:uppercase; letter-spacing:0.4px;`;
+        btn.onmouseenter = () => { btn.style.transform = 'translateY(-1px)'; btn.style.filter = 'brightness(1.05)'; };
+        btn.onmouseleave = () => { btn.style.transform = 'translateY(0)'; btn.style.filter = 'brightness(1.0)'; };
+        btn.onclick = action;
+        return btn;
+    };
+
+    container.appendChild(createBtn('FULL AUTO FILL', 'linear-gradient(135deg, #4F46E5, #3730A3)', performFullFill));
+    container.appendChild(createBtn('Title & Price', '#1F2937', fillTitlePrice));
+    container.appendChild(createBtn('Description', '#374151', fillDescriptionStep));
+    container.appendChild(createBtn('Upload Photos', '#4B5563', fillImagesStep));
+    container.appendChild(createBtn('Item Specifics', '#6B7280', fillSpecificsStep));
+
+    if (productData.variations && productData.variations.length > 0) {
+        container.appendChild(createBtn('Fill Variations', '#D97706', performVariationsFill));
+    }
+
+    document.body.appendChild(container);
+}
+
+// --- AUTOMATION GATE ---
+setInterval(async () => {
+    if (!chrome.runtime?.id) return;
+    
+    const productData = await getStorage("ebayDraftData");
+    if (!productData) return;
+
+    // 1. HIGHEST PRIORITY: WIZARD/MODAL (Check every 3s)
+    const isIframeWizard = window.location.href.includes("bulkedit.ebay.com");
+    const wizardModal = document.querySelector('.variation-wizard, .modal-dialog, .msku-dialog, .variations-v3-overlay');
+    const hasWizardTitle = document.body.innerText.includes("Create your variations") || document.body.innerText.includes("Edit Variations");
+
+    if (isIframeWizard || wizardModal || hasWizardTitle) {
+        console.log("[eBay AutoLister] 🎭 Wizard/Modal detected in loop. Triggering auto-fill...");
+        handleVariationsWizard(productData);
+        return; // Don't do other things if we are in the wizard
+    }
+
+    // 2. MAIN LISTING & BRIDGE PAGES
+    const isMainListing = window.location.href.includes("/sl/list/") || window.location.href.includes("/lstng") || window.location.href.includes("/drafts/");
+
+    handleSuggestPage(productData);
+    handleIdentifyPage(productData);
+    handleConditionPage(productData);
+
+    if (isMainListing) {
+        createManualButton(productData); 
+        
+        if (!getPageState('format_fixed')) {
+            const success = await ensureBuyItNowFormat(); 
+            if (success) {
+                const trigger = document.querySelector('.pricing-format button, [role="combobox"]');
+                if (trigger && trigger.innerText.toLowerCase().includes("buy it now")) {
+                    setPageState('format_fixed', 'true');
+                }
+            }
+        }
+    }
 }, 3000);
