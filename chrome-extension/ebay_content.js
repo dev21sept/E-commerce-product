@@ -171,15 +171,13 @@ function findBestConditionMatch(elements, dbConditionText) {
     if (match) return match;
 
     // Level 4: Category Fallback (Select the first visible option in the same category)
-    match = elements.find(el => {
+    // Level 5: Pure Fallback (Select the first visible option that seems like a choice)
+    return elements.find(el => {
         const text = el.innerText?.toLowerCase().trim();
-        if (!text || el.offsetParent === null) return false;
-        const elIsUsed = text.includes("pre-owned") || text.includes("used") || text.includes("worn") || text.includes("refurbished");
-        return isUsed === elIsUsed;
+        return text && text.length > 2 && text.length < 40 && el.offsetParent !== null;
     });
-
-    return match;
 }
+
 
 
 // --- FEATURE 1: AUTO SEARCH ---
