@@ -181,6 +181,7 @@ function findBestConditionMatch(elements, dbConditionText) {
     return match;
 }
 
+
 // --- FEATURE 1: AUTO SEARCH ---
 function handleSuggestPage(productData) {
     if (!window.location.href.includes("prelist/suggest")) return;
@@ -221,6 +222,7 @@ function handleConditionPage(productData) {
     const gateKey = 'cond_done_' + btoa(productData.title).substring(0, 8);
     if (getPageState(gateKey)) return;
 
+
     const dbCondition = (productData.condition_name || productData.condition || "");
     const elements = Array.from(document.querySelectorAll('span, div, label, button, .radio__label, .ux-selection-box__label, .ux-selection-box__text, .ux-selection-box'));
     
@@ -235,6 +237,9 @@ function handleConditionPage(productData) {
         console.warn(`[eBay AutoLister] ❌ No candidate found for: ${dbCondition}`);
     }
 }
+
+
+
 
 // --- FEATURE 4: MAIN FORM FILLING ---
 function getStorage(key) {
@@ -283,6 +288,7 @@ async function fillTitlePrice() {
         }
     }
 
+
     // Condition Selection - Ultra Hybrid Matcher
     const dbCondition = (productData.condition_name || productData.condition || "");
     const isUsed = dbCondition.toLowerCase().includes("used") || dbCondition.toLowerCase().includes("pre-owned") || dbCondition.toLowerCase().includes("worn");
@@ -314,6 +320,7 @@ async function fillTitlePrice() {
             console.log(`[eBay AutoLister] Condition already looks correct (${current}). Skipping.`);
         }
     }
+
 
     showStatus("✅ Title, Price & Condition Done!", "success");
 }
