@@ -1,5 +1,25 @@
+const crypto = require('crypto');
 const ebayService = require('../services/ebayApiService');
 const pool = require('../config/db');
+
+// Handle eBay Marketplace Account Deletion Notification (Mandatory for Production Keys)
+exports.handleDeletionNotification = async (req, res) => {
+    const challengeCode = req.query.challenge_code;
+    if (!challengeCode) {
+        return res.status(400).send('Challenge code missing');
+    }
+
+    const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || 'your_secret_token_here';
+    const endpoint = process.env.EBAY_DELETION_ENDPOINT || 'https://' + req.get('host') + '/api/ebay/deletion';
+
+    const hash = crypto.createHash('sha256');
+    hash.update(challengeCode + verificationToken + endpoint);
+    const responseHash = hash.digest('hex');
+
+    res.status(200).json({
+        challengeResponse: responseHash
+    });
+};
 
 // In a real app, you'd store these in a DB per user
 let userTokens = {
@@ -234,8 +254,10 @@ exports.listProduct = async (req, res) => {
                 }
             }
         } catch (policyErr) {
-            console.error('Policy Flow Err:', policyErr.message);
-            throw new Error(`eBay Setup Error: ${policyErr.message}`);
+            const ebayError = policyErr.response?.data?.errors?.[0];
+            const errorDetail = ebayError?.message || policyErr.message;
+            console.error('Policy Flow Err:', errorDetail, policyErr.response?.data);
+            throw new Error(`eBay Setup Error: ${errorDetail}`);
         }
 
         // 4. Create Offer

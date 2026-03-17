@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Briefcase, Link2, CheckCircle2 } from 'lucide-react';
-import { getProducts, deleteProduct, listProduct, getEbayAuthUrl } from '../services/api';
+import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2 } from 'lucide-react';
+import { getProducts, deleteProduct, getEbayAuthUrl } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
 
 const ProductList = () => {
@@ -52,32 +52,15 @@ const ProductList = () => {
     };
 
     const [previewProduct, setPreviewProduct] = useState(null);
-    const [listingLoading, setListingLoading] = useState(false);
 
     const handlePreviewListing = (product) => {
         setPreviewProduct(product);
     };
 
-    const handleConfirmList = async () => {
-        if (!previewProduct) return;
-        
-        setListingLoading(true);
-        try {
-            const result = await listProduct(previewProduct.id);
-            alert(`SUCCESS: ${result.message}\nListing ID: ${result.listingId}`);
-            setPreviewProduct(null);
-        } catch (error) {
-            const errorDetail = error.response?.data?.details || error.message;
-            alert(`Listing failed: ${errorDetail}`);
-        } finally {
-            setListingLoading(false);
-        }
-    };
-
     const handleSendToEbay = (product) => {
-        // Broadcast event for the Chrome Extension to pick up
+        setAuthStatus("Sending data to Extension...");
         window.postMessage({ type: 'EbayAutoLister_SendData', payload: product }, '*');
-        alert('Data sent to eBay Auto Lister. If you have the Chrome Extension installed, a new tab will open shortly.');
+        setTimeout(() => setAuthStatus(null), 3000);
     };
 
     const filteredProducts = products.filter(p =>
@@ -104,15 +87,15 @@ const ProductList = () => {
                     <p className="text-gray-500 mt-1">Manage your eBay product inventory.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={handleEbayConnect}
-                        className="flex items-center gap-2 bg-[#0053a0] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#004080] transition-all shadow-md active:scale-95"
+                        className="flex items-center gap-2 bg-[#0053a0] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#004080] transition-all shadow-md active:scale-95"
                     >
-                        <Link2 className="w-3.5 h-3.5" />
+                        <Link2 className="w-4 h-4" />
                         Connect eBay
                     </button>
-                    <Link to="/products/add" className="btn-primary flex items-center gap-2">
-                        <Plus className="w-4 h-4" />
+                    <Link to="/products/add" className="btn-primary">
+                        <Plus className="w-5 h-5" />
                         Add Product
                     </Link>
                 </div>
@@ -137,6 +120,7 @@ const ProductList = () => {
                         <thead className="bg-gray-50 border-b border-gray-100">
                             <tr>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Product</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Preview</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Condition</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Price</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Seller</th>
@@ -184,6 +168,15 @@ const ProductList = () => {
                                                 </div>
                                             </div>
                                         </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button
+                                                onClick={() => handlePreviewListing(product)}
+                                                className="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl transition-all shadow-sm border border-gray-100 bg-white"
+                                                title="View Details"
+                                            >
+                                                <Eye className="w-5 h-5" />
+                                            </button>
+                                        </td>
                                         <td className="px-6 py-4">
                                             <span className="px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-100">
                                                 {product.condition_name || 'N/A'}
@@ -207,17 +200,14 @@ const ProductList = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handlePreviewListing(product)} className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Preview & List via eBay API">
-                                                    <Briefcase className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={() => handleSendToEbay(product)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Fill via Extension">
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => handlePreviewListing(product)} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all border border-blue-100 shadow-sm" title="Preview & Fill eBay">
                                                     <ExternalLink className="w-4 h-4" />
                                                 </button>
-                                                <Link to={`/products/edit/${product.id}`} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Edit">
+                                                <Link to={`/products/edit/${product.id}`} className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-all border border-indigo-100 shadow-sm" title="Edit">
                                                     <Edit className="w-4 h-4" />
                                                 </Link>
-                                                <button onClick={() => handleDelete(product.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete">
+                                                <button onClick={() => handleDelete(product.id)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-all border border-red-100 shadow-sm" title="Delete">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -246,7 +236,7 @@ const ProductList = () => {
                             </div>
                             <button onClick={() => setPreviewProduct(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">&times;</button>
                         </div>
-                        
+
                         <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
                             <div className="flex gap-6">
                                 <div className="w-32 h-32 rounded-2xl bg-gray-100 overflow-hidden border border-gray-100 shrink-0">
@@ -273,7 +263,7 @@ const ProductList = () => {
                                     <Edit className="w-4 h-4 text-indigo-600" />
                                     Description Preview
                                 </h4>
-                                <div 
+                                <div
                                     className="bg-gray-50 rounded-2xl p-4 text-sm text-gray-600 overflow-y-auto max-h-60 leading-relaxed border border-gray-100 preview-description"
                                     dangerouslySetInnerHTML={{ __html: previewProduct.description || 'No description available.' }}
                                 />
@@ -292,12 +282,12 @@ const ProductList = () => {
 
                             {/* Item Specifics vs Business Policies Logic */}
                             {(() => {
-                                const specifics = typeof previewProduct.item_specifics === 'string' 
-                                    ? JSON.parse(previewProduct.item_specifics) 
+                                const specifics = typeof previewProduct.item_specifics === 'string'
+                                    ? JSON.parse(previewProduct.item_specifics)
                                     : (previewProduct.item_specifics || {});
-                                
+
                                 const policyKeys = ['shipping', 'returns', 'delivery', 'import fees', 'payment', 'handling', 'postage'];
-                                
+
                                 const itemAspects = {};
                                 const businessPolicies = {};
 
@@ -376,7 +366,7 @@ const ProductList = () => {
                                 </div>
                             )}
 
-                            {!previewProduct.variations || previewProduct.variations.length === 0 && (
+                            {(!previewProduct.variations || previewProduct.variations.length === 0) && (
                                 <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start gap-3">
                                     <Package className="w-5 h-5 text-gray-400 mt-0.5" />
                                     <div>
@@ -390,29 +380,27 @@ const ProductList = () => {
                         </div>
 
                         <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
-                            <button 
+                            <button
                                 onClick={() => setPreviewProduct(null)}
-                                className="flex-1 px-6 py-3 rounded-2xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-100 transition-all active:scale-95"
+                                className="flex-1 px-6 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
                             >
                                 Cancel
                             </button>
-                            <button 
-                                onClick={handleConfirmList}
-                                disabled={listingLoading}
-                                className={`flex-1 px-6 py-3 rounded-2xl font-bold text-white transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-200 ${listingLoading ? 'bg-gray-400' : 'bg-[#4F46E5] hover:bg-[#4338CA]'}`}
+                            <button
+                                onClick={() => {
+                                    handleSendToEbay(previewProduct);
+                                    setPreviewProduct(null);
+                                }}
+                                className="flex-[2] px-6 py-3 rounded-2xl bg-[#0053a0] font-bold text-white hover:bg-[#004080] transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
                             >
-                                {listingLoading ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        Listing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="w-4 h-4" />
-                                        Confirm & List on eBay
-                                    </>
-                                )}
+                                <ExternalLink className="w-5 h-5" />
+                                Everything is Correct - Fill on eBay
                             </button>
+                        </div>
+                        <div className="px-6 pb-4 bg-gray-50/50 text-center">
+                            <p className="text-[10px] text-gray-400">
+                                This will open eBay in a new tab and auto-fill all information shown above.
+                            </p>
                         </div>
                     </div>
                 </div>

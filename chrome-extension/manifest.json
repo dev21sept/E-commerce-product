@@ -10,9 +10,16 @@
     "scripting"
   ],
   "host_permissions": [
-    "http://localhost:5173/*",
-    "http://127.0.0.1:5173/*",
-    "*://*.ebay.com/*"
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*",
+    "https://*.ebay.com/*",
+    "https://*.ebay.co.uk/*",
+    "https://*.ebay.de/*",
+    "https://*.ebay.ca/*",
+    "https://*.ebay.com.au/*",
+    "https://*.ebay.in/*",
+    "https://*.ebay.ie/*",
+    "https://*.ebay.at/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -26,7 +33,16 @@
       "run_at": "document_start"
     },
     {
-      "matches": ["*://*.ebay.com/*"],
+      "matches": [
+        "*://*.ebay.com/*",
+        "*://*.ebay.co.uk/*",
+        "*://*.ebay.de/*",
+        "*://*.ebay.ca/*",
+        "*://*.ebay.com.au/*",
+        "*://*.ebay.in/*",
+        "*://*.ebay.ie/*",
+        "*://*.ebay.at/*"
+      ],
       "js": ["ebay_content.js"],
       "run_at": "document_idle"
     }

@@ -94,7 +94,7 @@ const AddProduct = () => {
                     <button
                         onClick={handleFetchEbay}
                         disabled={isFetching}
-                        className="btn-primary py-4 px-8 text-lg font-bold flex items-center justify-center gap-3 shrink-0 shadow-lg shadow-[#4F46E5]/20"
+                        className="btn-primary shrink-0"
                     >
                         {isFetching ? 'Fetching...' : (
                             <>
