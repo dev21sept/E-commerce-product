@@ -3,12 +3,26 @@ const Product = require('../models/Product');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
+let openai;
+try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        console.warn('⚠️ WARNING: OPENAI_API_KEY is missing from environment variables.');
+    }
+    openai = new OpenAI({
+        apiKey: apiKey || 'dummy-key-to-prevent-crash'
+    });
+} catch (error) {
+    console.error('❌ Failed to initialize OpenAI client:', error.message);
+}
 
 exports.analyzeProductImage = async (req, res) => {
     try {
+        if (!process.env.OPENAI_API_KEY) {
+            console.error('❌ ERROR: OPENAI_API_KEY is missing. AI analysis will fail.');
+            return res.status(500).json({ error: 'OpenAI API key is missing. Please contact administrator.' });
+        }
+        
         const { images, condition, gender } = req.body;
         console.log(`Analyzing ${images ? images.length : 0} images. Condition: ${condition}, Gender: ${gender}`);
 
