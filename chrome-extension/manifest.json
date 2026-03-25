@@ -7,11 +7,14 @@
     "storage",
     "tabs",
     "activeTab",
-    "scripting"
+    "scripting",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "http://localhost:*/*",
     "http://127.0.0.1:*/*",
+    "https://*/*",
+    "http://*/*",
     "https://*.ebay.com/*",
     "https://*.ebay.co.uk/*",
     "https://*.ebay.de/*",
@@ -27,7 +30,8 @@
   "content_scripts": [
     {
       "matches": [
-         "<all_urls>"
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*"
       ],
       "js": ["admin_content.js"],
       "run_at": "document_start"

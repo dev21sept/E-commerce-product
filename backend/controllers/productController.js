@@ -1,7 +1,7 @@
-const pool = require('../config/db');
 const { fetchEbayProduct } = require('../services/ebayScraper');
+const Product = require('../models/Product');
 
-// Fetch eBay product data
+// Fetch eBay product data (unchanged logic, just scraper)
 exports.fetchEbayData = async (req, res) => {
     const { url } = req.body;
     if (!url) {
@@ -34,135 +34,134 @@ exports.scrapeEbayDescription = async (req, res) => {
     }
 };
 
-
-
-// Create a new product
+// Create a new product (MongoDB version)
 exports.createProduct = async (req, res) => {
-    console.log("[DB] Attempting to create a new product...");
-    const connection = await pool.getConnection();
+    console.log("[MongoDB] Attempting to create a new product...");
     try {
-        await connection.beginTransaction();
-
         const {
-            title, description, category, categoryId, brand,
-            condition_name, retail_price, selling_price,
-            discount_percentage, seller_name, seller_feedback,
-            ebay_url, about_item, item_specifics, images, variations, video_url
+            title, description, category, category_id: categoryId, brand,
+            condition_name, retail_price, selling_price, discount_percentage,
+            seller_name, seller_feedback, ebay_url, about_item, item_specifics,
+            images, variations, video_url, overwrite
         } = req.body;
 
-        console.log(`[DB] Saving product: ${title?.substring(0, 30)}...`);
+        console.log(`[MongoDB] Saving product: ${title?.substring(0, 30)}...`);
 
-        const [result] = await connection.execute(
-            `INSERT INTO products (title, description, category, category_id, brand, condition_name, retail_price, selling_price, discount_percentage, seller_name, seller_feedback, ebay_url, about_item, item_specifics, video_url)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                title || null,
-                description || null,
-                category || null,
-                categoryId || null,
-                brand || null,
-                condition_name || null,
-                retail_price || null,
-                selling_price || null,
-                discount_percentage || null,
-                seller_name || null,
-                seller_feedback || null,
-                ebay_url || null,
-                about_item || null,
-                item_specifics ? JSON.stringify(item_specifics) : null,
-                video_url || null
-            ]
-        );
-
-        const productId = result.insertId;
-        console.log(`[DB] Main product record created with ID: ${productId}`);
-
-        // Insert images
+        // IMAGE-BASED DEDUPLICATION: Search for existing product with one matching image
         if (images && images.length > 0) {
-            for (const imgUrl of images) {
-                await connection.execute(
-                    'INSERT INTO product_images (product_id, image_url) VALUES (?, ?)',
-                    [productId, imgUrl]
-                );
-            }
-            console.log(`[DB] Inserted ${images.length} images.`);
-        }
+            const existingProduct = await Product.findOne({
+                images: { $in: images.filter(img => img && img.length > 50) }
+            });
 
-        // Insert variations (e.g. Size, Color dropdowns)
-        if (variations && Array.isArray(variations)) {
-            for (const variation of variations) {
-                const { name, values } = variation;
-                if (values && Array.isArray(values)) {
-                    for (const value of values) {
-                        await connection.execute(
-                            'INSERT INTO product_variations (product_id, variation_name, variation_value) VALUES (?, ?, ?)',
-                            [productId, name, value]
-                        );
-                    }
+            if (existingProduct) {
+                if (!overwrite) {
+                    console.log(`⚠️ DUPLICATE DETECTED: Product exists with ID: ${existingProduct._id}`);
+                    return res.status(200).json({
+                        success: false,
+                        duplicate: true,
+                        message: 'Product with these images already exists!',
+                        productId: existingProduct._id,
+                        existingProduct: existingProduct
+                    });
+                } else {
+                    console.log(`⚡ OVERWRITING: ID: ${existingProduct._id}`);
+                    const updated = await Product.findByIdAndUpdate(existingProduct._id, {
+                        ...req.body,
+                        updated_at: new Date()
+                    }, { new: true });
+                    return res.status(200).json({ message: 'Product updated successfully', productId: updated._id });
                 }
             }
-            console.log(`[DB] Inserted variations.`);
         }
 
-        await connection.commit();
-        console.log("[DB] Transaction committed successfully.");
-        res.status(201).json({ message: 'Product created successfully', productId });
+        // Transform variations if needed (SQL version had nested structure)
+        let formattedVariations = [];
+        if (variations && Array.isArray(variations)) {
+            variations.forEach(v => {
+                if (v.values && Array.isArray(v.values)) {
+                    v.values.forEach(val => {
+                        formattedVariations.push({ name: v.name, value: val });
+                    });
+                } else if (v.value) {
+                    formattedVariations.push({ name: v.name, value: v.value });
+                }
+            });
+        }
+
+        const newProduct = new Product({
+            title,
+            description,
+            category,
+            category_id: categoryId,
+            brand,
+            condition_name,
+            retail_price: parseFloat(retail_price) || 0,
+            selling_price: parseFloat(selling_price) || 0,
+            discount_percentage,
+            seller_name,
+            seller_feedback,
+            ebay_url,
+            about_item,
+            item_specifics,
+            images: images || [],
+            variations: formattedVariations,
+            video_url,
+            ai_generated: req.body.ai_generated || false,
+            source: req.body.source || 'ebay'
+        });
+
+        await newProduct.save();
+        console.log(`[MongoDB] Product record created with ID: ${newProduct._id}`);
+
+        res.status(201).json({ message: 'Product created successfully', productId: newProduct._id });
     } catch (error) {
-        console.error("[DB] CRITICAL ERROR DURING SAVE:", error.message);
-        await connection.rollback();
+        console.error("[MongoDB] ERROR DURING SAVE:", error.message);
         res.status(500).json({ error: 'Failed to create product', details: error.message });
-    } finally {
-        connection.release();
     }
 };
 
-
-// Get all products
+// Get all products (MongoDB version)
 exports.getAllProducts = async (req, res) => {
     try {
-        const [products] = await pool.execute('SELECT * FROM products ORDER BY id DESC');
-
-        // Fetch images and variations for each product
-        for (let product of products) {
-            const [images] = await pool.execute('SELECT image_url FROM product_images WHERE product_id = ?', [product.id]);
-            product.images = images.map(img => img.image_url);
-
-            const [variationsRows] = await pool.execute('SELECT variation_name, variation_value FROM product_variations WHERE product_id = ?', [product.id]);
+        const products = await Product.find().sort({ created_at: -1 });
+        
+        // Map to keep frontend compatibility (e.g. converting _id to id if needed)
+        const formattedProducts = products.map(p => {
+            const product = p.toObject();
+            product.id = product._id.toString();
+            
+            // Reformat variations back to the grouped format if the frontend expects it
             const variationMap = {};
-            variationsRows.forEach(({ variation_name, variation_value }) => {
-                if (!variationMap[variation_name]) variationMap[variation_name] = [];
-                variationMap[variation_name].push(variation_value);
+            product.variations.forEach(({ name, value }) => {
+                if (!variationMap[name]) variationMap[name] = [];
+                variationMap[name].push(value);
             });
-            product.variations = Object.keys(variationMap).map(name => ({ name, values: variationMap[name] }));
-        }
+            product.variationsFormatted = Object.keys(variationMap).map(name => ({ name, values: variationMap[name] }));
+            
+            return product;
+        });
 
-        res.json(products);
+        res.json(formattedProducts);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch products', details: error.message });
     }
 };
 
-// Get single product
+// Get single product (MongoDB version)
 exports.getProduct = async (req, res) => {
     try {
-        const [products] = await pool.execute('SELECT * FROM products WHERE id = ?', [req.params.id]);
-        if (products.length === 0) return res.status(404).json({ error: 'Product not found' });
+        const p = await Product.findById(req.params.id);
+        if (!p) return res.status(404).json({ error: 'Product not found' });
 
-        const product = products[0];
-        const [images] = await pool.execute('SELECT image_url FROM product_images WHERE product_id = ?', [product.id]);
-        const [variationsRows] = await pool.execute('SELECT variation_name, variation_value FROM product_variations WHERE product_id = ?', [product.id]);
+        const product = p.toObject();
+        product.id = product._id.toString();
 
-        product.images = images.map(img => img.image_url);
-
-        // Group variations by name
+        // Reformat variations for frontend
         const variationMap = {};
-        variationsRows.forEach(({ variation_name, variation_value }) => {
-            if (!variationMap[variation_name]) {
-                variationMap[variation_name] = [];
-            }
-            variationMap[variation_name].push(variation_value);
+        product.variations.forEach(({ name, value }) => {
+            if (!variationMap[name]) variationMap[name] = [];
+            variationMap[name].push(value);
         });
-
         product.variations = Object.keys(variationMap).map(name => ({
             name,
             values: variationMap[name]
@@ -174,12 +173,9 @@ exports.getProduct = async (req, res) => {
     }
 };
 
-// Update product
+// Update product (MongoDB version)
 exports.updateProduct = async (req, res) => {
-    const connection = await pool.getConnection();
     try {
-        await connection.beginTransaction();
-
         const {
             title, description, category, categoryId, brand,
             condition_name, retail_price, selling_price,
@@ -187,70 +183,45 @@ exports.updateProduct = async (req, res) => {
             ebay_url, about_item, item_specifics, images, variations, video_url
         } = req.body;
 
-        await connection.execute(
-            `UPDATE products SET title=?, description=?, category=?, category_id=?, brand=?, condition_name=?, retail_price=?, selling_price=?, discount_percentage=?, seller_name=?, seller_feedback=?, ebay_url=?, about_item=?, item_specifics=?, video_url=?
-             WHERE id = ?`,
-            [
-                title || null,
-                description || null,
-                category || null,
-                categoryId || null,
-                brand || null,
-                condition_name || null,
-                retail_price || null,
-                selling_price || null,
-                discount_percentage || null,
-                seller_name || null,
-                seller_feedback || null,
-                ebay_url || null,
-                about_item || null,
-                item_specifics ? JSON.stringify(item_specifics) : null,
-                video_url || null,
-                req.params.id
-            ]
+        let formattedVariations = [];
+        if (variations && Array.isArray(variations)) {
+            variations.forEach(v => {
+                if (v.values && Array.isArray(v.values)) {
+                    v.values.forEach(val => {
+                        formattedVariations.push({ name: v.name, value: val });
+                    });
+                } else if (v.value) {
+                    formattedVariations.push({ name: v.name, value: v.value });
+                }
+            });
+        }
+
+        const updatedProduct = await Product.findByIdAndUpdate(
+            req.params.id,
+            {
+                title, description, category, category_id: categoryId, brand,
+                condition_name, retail_price: parseFloat(retail_price) || 0, 
+                selling_price: parseFloat(selling_price) || 0,
+                discount_percentage, seller_name, seller_feedback,
+                ebay_url, about_item, item_specifics, images, 
+                variations: formattedVariations, video_url,
+                updated_at: Date.now()
+            },
+            { new: true }
         );
 
-        // Update images (delete and re-insert)
-        await connection.execute('DELETE FROM product_images WHERE product_id = ?', [req.params.id]);
-        if (images && images.length > 0) {
-            for (const imgUrl of images) {
-                await connection.execute(
-                    'INSERT INTO product_images (product_id, image_url) VALUES (?, ?)',
-                    [req.params.id, imgUrl]
-                );
-            }
-        }
+        if (!updatedProduct) return res.status(404).json({ error: 'Product not found' });
 
-        // Update variations
-        await connection.execute('DELETE FROM product_variations WHERE product_id = ?', [req.params.id]);
-        if (variations && Array.isArray(variations)) {
-            for (const variation of variations) {
-                const { name, values } = variation;
-                if (values && Array.isArray(values)) {
-                    for (const value of values) {
-                        await connection.execute(
-                            'INSERT INTO product_variations (product_id, variation_name, variation_value) VALUES (?, ?, ?)',
-                            [req.params.id, name, value]
-                        );
-                    }
-                }
-            }
-        }
-
-        await connection.commit();
-        res.json({ message: 'Product updated successfully' });
+        res.json({ message: 'Product updated successfully', product: updatedProduct });
     } catch (error) {
-        await connection.rollback();
         res.status(500).json({ error: 'Failed to update product', details: error.message });
-    } finally {
-        connection.release();
     }
 };
 
-// Delete product
+// Delete product (MongoDB version)
 exports.deleteProduct = async (req, res) => {
     try {
-        await pool.execute('DELETE FROM products WHERE id = ?', [req.params.id]);
+        await Product.findByIdAndDelete(req.params.id);
         res.json({ message: 'Product deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete product', details: error.message });

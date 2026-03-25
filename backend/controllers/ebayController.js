@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const ebayService = require('../services/ebayApiService');
-const pool = require('../config/db');
+const Product = require('../models/Product');
+const Setting = require('../models/Setting');
 
 // Handle eBay Marketplace Account Deletion Notification (Mandatory for Production Keys)
 exports.handleDeletionNotification = async (req, res) => {
@@ -21,30 +22,33 @@ exports.handleDeletionNotification = async (req, res) => {
     });
 };
 
-// In a real app, you'd store these in a DB per user
-let userTokens = {
-    accessToken: null,
-    refreshToken: null,
-    expiresAt: null
-};
-
-// Helper to get a setting from DB
+// Helper to get a setting from MongoDB
 async function getSetting(key) {
-    const [rows] = await pool.execute('SELECT setting_value FROM settings WHERE setting_key = ?', [key]);
-    return rows.length > 0 ? rows[0].setting_value : null;
+    try {
+        const setting = await Setting.findOne({ setting_key: key });
+        return setting ? setting.setting_value : null;
+    } catch (e) {
+        console.error('Error fetching setting from MongoDB:', e);
+        return null;
+    }
 }
 
-// Helper to save a setting to DB
+// Helper to save a setting to MongoDB
 async function saveSetting(key, value) {
-    await pool.execute(
-        'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
-        [key, value, value]
-    );
+    try {
+        await Setting.findOneAndUpdate(
+            { setting_key: key },
+            { setting_value: value, updated_at: Date.now() },
+            { upsert: true, new: true }
+        );
+    } catch (e) {
+        console.error('Error saving setting to MongoDB:', e);
+    }
 }
 
 exports.getAuthUrl = (req, res) => {
     const ruName = req.query.ruName || process.env.EBAY_RU_NAME;
-    const state = req.query.state || 'dashboard'; // Pass the source page as state
+    const state = req.query.state || 'dashboard'; 
     if (!ruName) return res.status(400).json({ error: 'RuName is required' });
     
     const url = ebayService.getUserConsentUrl(ruName, state);
@@ -74,8 +78,7 @@ exports.handleCallback = async (req, res) => {
         await saveSetting('ebay_refresh_token', tokens.refresh_token);
         await saveSetting('ebay_token_expiry', (Date.now() + (tokens.expires_in * 1000)).toString());
         
-        const frontendUrl = (process.env.FRONTEND_URL || 'https://fascinating-longma-3fed25.netlify.app').trim().replace(/\/$/, '');
-        // Redirect back to the originating page
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').trim().replace(/\/$/, '');
         const redirectPath = state === 'products' ? '/products' : '/';
         res.redirect(`${frontendUrl}${redirectPath}?ebay_auth=success`);
     } catch (error) {
@@ -84,26 +87,18 @@ exports.handleCallback = async (req, res) => {
     }
 };
 
-// Function to ensure we have a valid token
 async function getValidToken() {
     try {
-        console.log('Fetching tokens from DB...');
+        console.log('Fetching tokens from MongoDB...');
         let accessToken = await getSetting('ebay_access_token');
         let refreshToken = await getSetting('ebay_refresh_token');
         let expiresAt = await getSetting('ebay_token_expiry');
-
-        console.log('DB Check:', { 
-            hasAccessToken: !!accessToken, 
-            hasRefreshToken: !!refreshToken, 
-            expiresAt 
-        });
 
         if (!refreshToken) {
             console.error('CRITICAL: No refresh token found. User MUST login again.');
             return null;
         }
         
-        // If expired or about to expire, refresh it
         if (!expiresAt || Date.now() > Number(expiresAt) - 60000) { 
             console.log('Refreshing eBay token using refresh token...');
             const newTokenData = await ebayService.refreshUserToken(refreshToken);
@@ -126,7 +121,6 @@ exports.listProduct = async (req, res) => {
     
     try {
         const token = await getValidToken();
-        
         if (!token) {
             return res.status(401).json({ 
                 error: 'Authentication Required', 
@@ -134,23 +128,17 @@ exports.listProduct = async (req, res) => {
             });
         }
         
-        // 1. Fetch product from our DB
-        const [rows] = await pool.execute('SELECT * FROM products WHERE id = ?', [productId]);
-        if (rows.length === 0) return res.status(404).json({ error: 'Product not found' });
-        const product = rows[0];
+        const product = await Product.findById(productId);
+        if (!product) return res.status(404).json({ error: 'Product not found' });
 
-        // 2. Fetch images
-        const [imgs] = await pool.execute('SELECT image_url FROM product_images WHERE product_id = ?', [productId]);
-        const imageList = imgs.map(i => i.image_url);
+        const imageList = product.images || [];
+        const sku = `PROD-${product._id}-${Date.now()}`; 
 
-        const sku = `PROD-${product.id}-${Date.now()}`; // Unique SKU to avoid conflicts
-
-        // 3. Create/Update Inventory Item
         const inventoryItem = {
             availability: { shipToLocationAvailability: { quantity: 1 } },
             condition: 'NEW',
             product: {
-                title: product.title.substring(0, 80), // eBay limit
+                title: product.title.substring(0, 80),
                 description: (product.description || product.title).substring(0, 4000),
                 imageUrls: imageList.slice(0, 12),
                 aspects: {
@@ -159,23 +147,14 @@ exports.listProduct = async (req, res) => {
             }
         };
 
-        // If specific data exists in our DB, add more aspects
-        try {
-            if (product.item_specifics) {
-                const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : product.item_specifics;
-                Object.entries(specs).forEach(([k, v]) => {
-                    inventoryItem.product.aspects[k] = [Array.isArray(v) ? v[0] : v];
-                });
-            }
-        } catch (e) {}
+        if (product.item_specifics) {
+            Object.entries(product.item_specifics).forEach(([k, v]) => {
+                inventoryItem.product.aspects[k] = [Array.isArray(v) ? v[0] : v];
+            });
+        }
 
         console.log('Step 1: Creating/Updating Inventory Item...');
-        try {
-            await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
-        } catch (err) {
-            err.step = 'Create Inventory Item';
-            throw err;
-        }
+        await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
 
         console.log('Step 1.5: Verifying Merchant Location...');
         try {
@@ -208,115 +187,76 @@ exports.listProduct = async (req, res) => {
             }
         }
 
-        // 3.5 Managing Business Policies (Production/Sandbox Hybrid)
-        console.log(`Step 1.7: Finding Business Policies in ${process.env.EBAY_ENVIRONMENT || 'sandbox'} account...`);
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
+        const [fList, pList, rList] = await Promise.all([
+            ebayService.getFulfillmentPolicies(token),
+            ebayService.getPaymentPolicies(token),
+            ebayService.getReturnPolicies(token)
+        ]);
 
-        try {
-            // Priority: Fetch existing policies first
-            const [fList, pList, rList] = await Promise.all([
-                ebayService.getFulfillmentPolicies(token),
-                ebayService.getPaymentPolicies(token),
-                ebayService.getReturnPolicies(token)
-            ]);
+        fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
+        paymentPolicyId = pList[0]?.paymentPolicyId;
+        returnPolicyId = rList[0]?.returnPolicyId;
 
-            fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
-            paymentPolicyId = pList[0]?.paymentPolicyId;
-            returnPolicyId = rList[0]?.returnPolicyId;
-
-            console.log('Existing policies found:', { fulfillmentPolicyId, paymentPolicyId, returnPolicyId });
-
-            // In Production, if policies are missing, we show a clear error instead of creating random ones
-            if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
-                if (process.env.EBAY_ENVIRONMENT === 'production') {
-                    const missing = [];
-                    if (!fulfillmentPolicyId) missing.push('Shipping');
-                    if (!paymentPolicyId) missing.push('Payment');
-                    if (!returnPolicyId) missing.push('Return');
-                    throw new Error(`[Production] Missing Business Policies: ${missing.join(', ')}. Please ensure you have at least one active policy of each type on your eBay account.`);
-                } else {
-                    // Fallback for Sandbox: Try to create if missing
-                    console.log('Missing Sandbox policies, attempting automated creation...');
-                    if (!fulfillmentPolicyId) {
-                        const res = await ebayService.initDefaultFulfillmentPolicy(token);
-                        fulfillmentPolicyId = res.fulfillmentPolicyId;
-                    }
-                    if (!paymentPolicyId) {
-                        const res = await ebayService.initDefaultPaymentPolicy(token);
-                        paymentPolicyId = res.paymentPolicyId;
-                    }
-                    if (!returnPolicyId) {
-                        const res = await ebayService.initDefaultReturnPolicy(token);
-                        returnPolicyId = res.returnPolicyId;
-                    }
-                    // Delay only for Sandbox creation
-                    await new Promise(resolve => setTimeout(resolve, 10000));
+        if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
+            if (process.env.EBAY_ENVIRONMENT === 'production') {
+                 throw new Error(`[Production] Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies on your eBay account.`);
+            } else {
+                if (!fulfillmentPolicyId) {
+                    const res = await ebayService.initDefaultFulfillmentPolicy(token);
+                    fulfillmentPolicyId = res.fulfillmentPolicyId;
                 }
+                if (!paymentPolicyId) {
+                    const res = await ebayService.initDefaultPaymentPolicy(token);
+                    paymentPolicyId = res.paymentPolicyId;
+                }
+                if (!returnPolicyId) {
+                    const res = await ebayService.initDefaultReturnPolicy(token);
+                    returnPolicyId = res.returnPolicyId;
+                }
+                await new Promise(resolve => setTimeout(resolve, 5000));
             }
-        } catch (policyErr) {
-            const ebayError = policyErr.response?.data?.errors?.[0];
-            const errorDetail = ebayError?.message || policyErr.message;
-            console.error('Policy Flow Err:', errorDetail, policyErr.response?.data);
-            throw new Error(`eBay Setup Error: ${errorDetail}`);
         }
 
-        // 4. Create Offer
-        console.log('Step 2: Creating Offer...');
-        let offerId;
-        try {
-            const offer = {
-                sku: sku,
-                marketplaceId: 'EBAY_US',
-                format: 'FIXED_PRICE',
-                availableQuantity: 1,
-                categoryId: product.category_id || '31387', 
-                listingDescription: (product.description || product.title).substring(0, 4000),
-                pricingSummary: {
-                    price: {
-                        currency: 'USD',
-                        value: product.selling_price || '10.00'
-                    }
-                },
-                merchantLocationKey: 'default', 
-                tax: { vatPercentage: 0 },
-                listingPolicies: {
-                    fulfillmentPolicyId,
-                    paymentPolicyId,
-                    returnPolicyId
+        const offer = {
+            sku: sku,
+            marketplaceId: 'EBAY_US',
+            format: 'FIXED_PRICE',
+            availableQuantity: 1,
+            categoryId: product.category_id || '31387', 
+            listingDescription: (product.description || product.title).substring(0, 4000),
+            pricingSummary: {
+                price: {
+                    currency: 'USD',
+                    value: product.selling_price || '10.00'
                 }
-            };
-            const offerResponse = await ebayService.createOffer(token, offer);
-            offerId = offerResponse.offerId;
-        } catch (err) {
-            err.step = 'Create Offer';
-            throw err;
-        }
+            },
+            merchantLocationKey: 'default', 
+            listingPolicies: {
+                fulfillmentPolicyId,
+                paymentPolicyId,
+                returnPolicyId
+            }
+        };
 
-        // 5. Publish Offer
+        console.log('Step 2: Creating Offer...');
+        const offerResponse = await ebayService.createOffer(token, offer);
+        const offerId = offerResponse.offerId;
+
         console.log('Step 3: Publishing Offer...');
-        try {
-            const publishResponse = await ebayService.publishOffer(token, offerId);
-            res.json({ 
-                message: 'SUCCESS! Listed on eBay Sandbox!', 
-                sku, 
-                listingId: publishResponse.listingId 
-            });
-        } catch (err) {
-            err.step = 'Publish Offer';
-            throw err;
-        }
+        const publishResponse = await ebayService.publishOffer(token, offerId);
+        res.json({ 
+            message: 'SUCCESS! Listed on eBay!', 
+            sku, 
+            listingId: publishResponse.listingId 
+        });
+
     } catch (error) {
         console.error('--- EBAY LISTING ERROR ---');
         const ebayError = error.response?.data?.errors?.[0];
-        const errorMsg = ebayError?.message || error.message || "";
-        console.error('Error Step:', error.step || 'Unknown');
-        console.error('Full Error:', JSON.stringify(error.response?.data, null, 2));
-        
         res.status(500).json({ 
             error: 'Listing failed', 
-            details: `[${error.step || 'eBay'}] ${ebayError?.message || error.message}`,
-            step: error.step,
-            fullError: error.response?.data
+            details: `[${error.step || 'eBay'}] ${ebayError?.message || error.message}`
         });
     }
 };

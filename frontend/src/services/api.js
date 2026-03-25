@@ -56,3 +56,13 @@ export const deleteProduct = async (id) => {
     const response = await api.delete(`/products/${id}`);
     return response.data;
 };
+
+export const analyzeProduct = async (data) => {
+    const response = await api.post('/ai/analyze-product', data);
+    return response.data;
+};
+
+export const saveAiListing = async (data) => {
+    const response = await api.post('/ai/save-listing', data);
+    return response.data;
+};

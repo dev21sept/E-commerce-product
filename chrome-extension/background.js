@@ -15,9 +15,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     
     if (request.action === "fetchImageBlob") {
-        fetch(request.url)
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(request.url);
+        } catch (error) {
+            sendResponse({ error: "Invalid image URL" });
+            return true;
+        }
+
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+            sendResponse({ error: "Unsupported URL protocol" });
+            return true;
+        }
+
+        fetch(parsedUrl.toString())
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                const contentType = res.headers.get("content-type") || "";
+                if (!contentType.startsWith("image/")) throw new Error("URL does not return an image");
                 return res.blob();
             })
             .then(blob => {

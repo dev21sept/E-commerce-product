@@ -5,6 +5,7 @@ import ProductList from './pages/ProductList';
 import AddProduct from './pages/AddProduct';
 import EditProduct from './pages/EditProduct';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import AiFetching from './pages/AiFetching';
 
 function App() {
     return (
@@ -15,6 +16,7 @@ function App() {
                     <Route path="/products" element={<ProductList />} />
                     <Route path="/products/add" element={<AddProduct />} />
                     <Route path="/products/edit/:id" element={<EditProduct />} />
+                    <Route path="/ai-fetching" element={<AiFetching />} />
                     <Route path="/privacy" element={<PrivacyPolicy />} />
                 </Routes>
             </Layout>

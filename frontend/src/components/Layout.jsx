@@ -1,11 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, PlusCircle, Search, Bell, User } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, PlusCircle, Search, Bell, User, Sparkles } from 'lucide-react';
 
 const Layout = ({ children }) => {
     const sidebarLinks = [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Products', path: '/products', icon: ShoppingBag },
+        { name: 'Products List', path: '/products', icon: ShoppingBag },
         { name: 'Add Product', path: '/products/add', icon: PlusCircle },
     ];
 
@@ -18,7 +18,7 @@ const Layout = ({ children }) => {
                         <div className="w-8 h-8 bg-[#4F46E5] rounded-lg flex items-center justify-center">
                             <ShoppingBag className="text-white w-5 h-5" />
                         </div>
-                        <span className="text-xl font-bold text-gray-900 tracking-tight">eBayAdmin</span>
+                        <span className="text-xl font-bold text-gray-900 tracking-tight">VA Help Listing</span>
                     </div>
                 </div>
 

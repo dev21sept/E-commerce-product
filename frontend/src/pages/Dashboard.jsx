@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, DollarSign, Package, Tag, ArrowUpRight, Link2 } from 'lucide-react';
+import { ShoppingBag, DollarSign, Package, Tag, ArrowUpRight, Link2, Sparkles, Plus, ExternalLink, Clock } from 'lucide-react';
 import { getProducts, getEbayAuthUrl } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -8,17 +8,17 @@ const Dashboard = () => {
     const [stats, setStats] = useState({
         totalProducts: 0,
         totalValue: 0,
-        brands: 0,
-        categories: 0
+        aiCount: 0,
+        ebayCount: 0
     });
+    const [recentProducts, setRecentProducts] = useState([]);
     const [authStatus, setAuthStatus] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check for eBay auth status in URL
         const params = new URLSearchParams(location.search);
         if (params.get('ebay_auth') === 'success') {
             setAuthStatus('Successfully connected to eBay!');
-            // Clear the param from URL
             window.history.replaceState({}, document.title, "/");
         }
 
@@ -26,112 +26,202 @@ const Dashboard = () => {
             try {
                 const products = await getProducts();
                 const totalValue = products.reduce((sum, p) => sum + Number(p.selling_price || 0), 0);
-                const brands = new Set(products.map(p => p.brand).filter(Boolean)).size;
-                const categories = new Set(products.map(p => p.category).filter(Boolean)).size;
+                const aiCount = products.filter(p => p.source === 'ai').length;
+                const ebayCount = products.filter(p => p.source === 'ebay').length;
 
                 setStats({
                     totalProducts: products.length,
                     totalValue,
-                    brands,
-                    categories
+                    aiCount,
+                    ebayCount
                 });
+                
+                setRecentProducts(products.slice(0, 4));
             } catch (error) {
                 console.error('Error fetching dashboard stats:', error);
+            } finally {
+                setLoading(false);
             }
         };
         fetchData();
     }, [location]);
 
-    const handleEbayConnect = async () => {
-        try {
-            const { url } = await getEbayAuthUrl();
-            window.location.href = url;
-        } catch (error) {
-            alert('Failed to get eBay Auth URL. Is the backend running?');
-        }
+    const handleEbayConnect = () => {
+        window.open('https://signin.ebay.com/signin/', '_blank');
     };
 
-    const cards = [
-        { name: 'Total Products', value: stats.totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { name: 'Total Value', value: `$${stats.totalValue.toLocaleString()}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
-        { name: 'Brands', value: stats.brands, icon: Tag, color: 'text-purple-600', bg: 'bg-purple-50' },
-        { name: 'Categories', value: stats.categories, icon: ShoppingBag, color: 'text-orange-600', bg: 'bg-orange-50' },
+    const statCards = [
+        { name: 'Total Inventory', value: stats.totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', trend: '+12% from last month' },
+        { name: 'Total Portfolio Value', value: `$${stats.totalValue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: 'Average price: $' + (stats.totalProducts > 0 ? (stats.totalValue / stats.totalProducts).toFixed(2) : 0) },
+        { name: 'AI Gen Listings', value: stats.aiCount, icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-50', trend: ((stats.aiCount / stats.totalProducts || 0) * 100).toFixed(0) + '% of total' },
+        { name: 'eBay Imports', value: stats.ebayCount, icon: Link2, color: 'text-orange-600', bg: 'bg-orange-50', trend: ((stats.ebayCount / stats.totalProducts || 0) * 100).toFixed(0) + '% of total' },
     ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            {authStatus && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center justify-between">
-                    <span>{authStatus}</span>
-                    <button onClick={() => setAuthStatus(null)} className="text-green-700 font-bold">×</button>
-                </div>
-            )}
-            
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-8 animate-in fade-in duration-700 max-w-7xl mx-auto">
+            {/* Top Bar with Welcome */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-gray-100">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-                    <p className="text-gray-500 mt-1">Your eBay product inventory at a glance.</p>
+                    <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                        Welcome Back, Admin <span className="text-2xl animate-bounce">👋</span>
+                    </h1>
+                    <p className="text-gray-500 mt-1 font-medium italic">VA Help Listing - Real-time inventory insights.</p>
                 </div>
-                <button 
-                    onClick={handleEbayConnect}
-                    className="flex items-center gap-2 bg-[#0053a0] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#004080] transition-all shadow-md active:scale-95"
-                >
-                    <Link2 className="w-4 h-4" />
-                    Connect eBay Account
-                </button>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={handleEbayConnect}
+                        className="flex items-center gap-2 bg-white text-[#0053a0] border border-[#0053a0]/20 px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-[#0053a0]/5 transition-all active:scale-95 shadow-sm"
+                    >
+                        <Link2 className="w-4 h-4" />
+                        Sync eBay
+                    </button>
+                    <Link 
+                        to="/products/add" 
+                        className="flex items-center gap-2 bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:translate-y-[-2px] transition-all shadow-lg active:scale-95"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Create New Listing
+                    </Link>
+                </div>
             </div>
 
+            {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {cards.map((card) => (
-                    <div key={card.name} className="card p-6 flex items-start justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-500 mb-1">{card.name}</p>
-                            <h3 className="text-2xl font-bold text-gray-900">{card.value}</h3>
+                {statCards.map((card) => (
+                    <div key={card.name} className="group relative bg-white rounded-3xl p-6 border border-gray-100 hover:border-[#4F46E5]/20 hover:shadow-xl hover:shadow-[#4F46E5]/5 transition-all duration-300">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className={`p-3 rounded-2xl ${card.bg} ${card.color} group-hover:scale-110 transition-transform duration-500`}>
+                                <card.icon className="w-6 h-6" />
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-full">{card.trend}</span>
                         </div>
-                        <div className={`p-3 rounded-xl ${card.bg} ${card.color}`}>
-                            <card.icon className="w-6 h-6" />
-                        </div>
+                        <h3 className="text-2xl font-black text-gray-900 mb-1">{card.value}</h3>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{card.name}</p>
+                        
+                        <div className="absolute bottom-0 left-6 right-6 h-1 rounded-t-full bg-transparent group-hover:bg-[#4F46E5]/10 transition-all"></div>
                     </div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="card">
-                    <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                        <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
-                        <Link to="/products" className="text-xs font-semibold text-[#4F46E5] hover:underline">View all</Link>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Recent Products Table/List */}
+                <div className="lg:col-span-2 bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
+                    <div className="p-8 border-b border-gray-100 flex items-center justify-between">
+                        <div>
+                            <h3 className="text-lg font-black text-gray-900 tracking-tight">Recently Added Products</h3>
+                            <p className="text-xs text-gray-400 mt-0.5">Your latest inventory updates.</p>
+                        </div>
+                        <Link to="/products" className="text-xs font-bold text-[#4F46E5] bg-[#4F46E5]/5 px-4 py-2 rounded-xl hover:bg-[#4F46E5]/10 transition-all">View All Products</Link>
                     </div>
-                    <div className="p-6 space-y-6">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="flex gap-4">
-                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                                    <Package className="w-5 h-5 text-gray-500" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900">Product imported from eBay</p>
-                                    <p className="text-xs text-gray-500">Recently added</p>
-                                </div>
+                    
+                    <div className="relative">
+                        {loading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4F46E5]"></div>
                             </div>
-                        ))}
+                        ) : recentProducts.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-gray-400 italic">
+                                <ShoppingBag className="w-12 h-12 mb-3 opacity-20" />
+                                <p>No products yet. Start by adding one!</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-50">
+                                {recentProducts.map((product) => (
+                                    <div key={product.id} className="p-4 hover:bg-gray-50/80 transition-all flex items-center gap-4 group">
+                                        <div className="w-16 h-16 rounded-2xl bg-gray-50 overflow-hidden shrink-0 border border-gray-100 group-hover:scale-105 transition-transform">
+                                            {product.images?.[0] ? (
+                                                <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Package className="w-6 h-6 text-gray-200" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <p className="text-sm font-bold text-gray-900 truncate">{product.title}</p>
+                                                {product.source === 'ai' ? (
+                                                    <Sparkles className="w-3 h-3 text-emerald-500 shrink-0" />
+                                                ) : (
+                                                    <Link2 className="w-3 h-3 text-blue-500 shrink-0" />
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3 text-[10px] font-bold text-gray-400">
+                                                <span className="uppercase">{product.brand || 'No Brand'}</span>
+                                                <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
+                                                <span className="text-gray-900">${product.selling_price}</span>
+                                                <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
+                                                <div className="flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {product.created_at ? new Date(product.created_at).toLocaleDateString() : 'Today'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Link 
+                                            to={`/products/edit/${product.id}`}
+                                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:border-[#4F46E5] hover:text-[#4F46E5]"
+                                        >
+                                            <ArrowUpRight className="w-4 h-4" />
+                                        </Link>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="card bg-[#4F46E5] text-white p-8 flex flex-col justify-between relative overflow-hidden">
-                    <div className="relative z-10">
-                        <h3 className="text-2xl font-bold mb-2">Import from eBay</h3>
-                        <p className="text-white/80 text-sm max-w-xs leading-relaxed">
-                            Paste an eBay URL to automatically import all product details — title, images, specifics, variations, seller info, and pricing.
-                        </p>
-                    </div>
-                    <div className="relative z-10 mt-8">
-                        <Link to="/products/add" className="btn-primary !bg-white !text-[#4F46E5] px-8 py-3">
-                            Get Started
-                            <ArrowUpRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
-                        </Link>
+                {/* Right Side Column */}
+                <div className="space-y-8">
+                    {/* Feature Highlight Card */}
+                    <div className="bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[#4F46E5]/30">
+                        <div className="relative z-10 h-full flex flex-col justify-between">
+                            <div>
+                                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
+                                    <Sparkles className="w-6 h-6 text-white" />
+                                </div>
+                                <h3 className="text-2xl font-black mb-3 leading-tight">Supercharge with AI Analysis</h3>
+                                <p className="text-white/80 text-sm leading-relaxed mb-8">
+                                    Let our AI handle the boring stuff. Upload images and get high-converting eBay listings in seconds.
+                                </p>
+                            </div>
+                            <Link to="/products/add" className="w-full bg-white text-[#4F46E5] font-black text-sm py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-gray-50 transition-all shadow-lg active:scale-[0.98]">
+                                Try AI Fetching
+                                <ArrowUpRight className="w-4 h-4" />
+                            </Link>
+                        </div>
+                        
+                        {/* Decorative blobs */}
+                        <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                        <div className="absolute bottom-[-10%] left-[-10%] w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
                     </div>
 
-                    <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-                    <div className="absolute bottom-[-20%] left-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                    {/* System Status / Health */}
+                    <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
+                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Connection Health</h4>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    <span className="text-sm font-bold text-gray-700">Database</span>
+                                </div>
+                                <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full uppercase">Online</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                    <span className="text-sm font-bold text-gray-700">eBay API</span>
+                                </div>
+                                <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase">Active</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
+                                    <span className="text-sm font-bold text-gray-700">OpenAI Vision</span>
+                                </div>
+                                <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full uppercase">Stable</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

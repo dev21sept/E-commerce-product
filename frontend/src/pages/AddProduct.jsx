@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Link as LinkIcon, AlertCircle } from 'lucide-react';
+import { Sparkles, Link as LinkIcon, AlertCircle, Cpu } from 'lucide-react';
 import ProductForm from '../components/ProductForm';
+import AiFetchSection from '../components/AiFetchSection';
 import { fetchEbayProduct, createProduct, scrapeEbayDescription } from '../services/api';
 
 const AddProduct = () => {
@@ -10,6 +11,7 @@ const AddProduct = () => {
     const [isFetching, setIsFetching] = useState(false);
     const [error, setError] = useState('');
     const [scrapedData, setScrapedData] = useState(null);
+    const [fetchMethod, setFetchMethod] = useState('ebay'); // 'ebay' or 'ai'
 
     const handleFetchEbayData = async (url) => {
         try {
@@ -28,7 +30,6 @@ const AddProduct = () => {
         setIsFetching(true);
         try {
             const data = await fetchEbayProduct(ebayUrl);
-
 
             // Clean up price (remove symbols, convert to number)
             const cleanPrice = parseFloat(data.price?.replace(/[^0-9.]/g, '') || 0);
@@ -60,61 +61,123 @@ const AddProduct = () => {
         }
     };
 
+    const handleAiDataFetched = (data) => {
+        setScrapedData(data);
+    };
+
     const handleSaveProduct = async (formData) => {
         try {
-            await createProduct(formData);
+            const productWithSource = {
+                ...formData,
+                source: fetchMethod === 'ai' ? 'ai' : 'ebay'
+            };
+            
+            const response = await createProduct(productWithSource);
+            
+            if (response.duplicate) {
+                const shouldOverwrite = window.confirm('This product (or one with identical images) already exists! Overwrite existing record?');
+                if (shouldOverwrite) {
+                    await createProduct({ ...productWithSource, overwrite: true });
+                    navigate('/products');
+                }
+                return;
+            }
+
             navigate('/products');
         } catch (err) {
-            alert('Failed to save product');
+            console.error('Save error:', err);
+            alert('Failed to save product: ' + (err.response?.data?.details || err.message));
         }
     };
 
+    const handleMethodSwitch = (method) => {
+        setFetchMethod(method);
+        setScrapedData(null); // Clear previous data when switching methods
+        setError('');
+        setEbayUrl('');
+    };
+
     return (
-        <div className="space-y-8 animate-in slide-in-from-bottom duration-500">
+        <div className="space-y-8 animate-in slide-in-from-bottom duration-500 max-w-7xl mx-auto px-4 pb-20">
             <div className="flex items-end justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Add New Product</h1>
-                    <p className="text-gray-500 mt-1">Import product data automatically from eBay.</p>
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Add New Product</h1>
+                    <p className="text-gray-500 mt-1 font-medium italic">Select a method to import product details automatically.</p>
                 </div>
             </div>
 
-            {/* eBay Import Tool */}
-            <div className="card border-[#4F46E5]/20 bg-[#4F46E5]/[0.02] p-8">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
-                        <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                            type="text"
-                            className="form-input pl-12 py-4 bg-white shadow-sm"
-                            placeholder="Paste eBay Product URL here..."
-                            value={ebayUrl}
-                            onChange={(e) => setEbayUrl(e.target.value)}
-                        />
-                    </div>
-                    <button
-                        onClick={handleFetchEbay}
-                        disabled={isFetching}
-                        className="btn-primary shrink-0"
-                    >
-                        {isFetching ? 'Fetching...' : (
-                            <>
-                                <Sparkles className="w-5 h-5" />
-                                Import from eBay
-                            </>
-                        )}
-                    </button>
-                </div>
-                {error && (
-                    <div className="mt-4 flex items-center gap-2 text-red-600 text-sm font-medium bg-red-50 p-3 rounded-lg border border-red-100">
-                        <AlertCircle className="w-4 h-4" />
-                        {error}
-                    </div>
-                )}
-                <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
-                    <span className="w-1.5 h-1.5 bg-[#4F46E5] rounded-full"></span>
-                    Example: https://www.ebay.com/itm/354838957999
-                </div>
+            {/* Fetch Method Selector */}
+            <div className="flex gap-4 p-1.5 bg-gray-100 rounded-2xl w-fit">
+                <button
+                    onClick={() => handleMethodSwitch('ebay')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+                        fetchMethod === 'ebay' 
+                            ? 'bg-white text-[#4F46E5] shadow-sm ring-1 ring-black/5' 
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <LinkIcon className="w-4 h-4" />
+                    eBay Link Fetch
+                </button>
+                <button
+                    onClick={() => handleMethodSwitch('ai')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+                        fetchMethod === 'ai' 
+                            ? 'bg-white text-[#4F46E5] shadow-sm ring-1 ring-black/5' 
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <Sparkles className="w-4 h-4" />
+                    AI Fetching
+                </button>
             </div>
+
+            {/* eBay Import Tool - Conditional */}
+            {fetchMethod === 'ebay' && (
+                <div className="card border-[#4F46E5]/20 bg-[#4F46E5]/[0.02] p-8 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1 relative">
+                            <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input
+                                type="text"
+                                className="form-input pl-12 py-4 bg-white shadow-sm"
+                                placeholder="Paste eBay Product URL here..."
+                                value={ebayUrl}
+                                onChange={(e) => setEbayUrl(e.target.value)}
+                            />
+                        </div>
+                        <button
+                            onClick={handleFetchEbay}
+                            disabled={isFetching}
+                            className="btn-primary shrink-0"
+                        >
+                            {isFetching ? 'Fetching...' : (
+                                <>
+                                    <Sparkles className="w-5 h-5" />
+                                    Import from eBay
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    {error && (
+                        <div className="mt-4 flex items-center gap-2 text-red-600 text-sm font-medium bg-red-50 p-3 rounded-lg border border-red-100">
+                            <AlertCircle className="w-4 h-4" />
+                            {error}
+                        </div>
+                    )}
+                    <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
+                        <span className="w-1.5 h-1.5 bg-[#4F46E5] rounded-full"></span>
+                        Example: https://www.ebay.com/itm/354838957999
+                    </div>
+                </div>
+            )}
+
+            {/* AI Fetching Section - Conditional */}
+            {fetchMethod === 'ai' && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                    <AiFetchSection onDataFetched={handleAiDataFetched} />
+                </div>
+            )}
 
             <ProductForm
                 initialData={scrapedData}

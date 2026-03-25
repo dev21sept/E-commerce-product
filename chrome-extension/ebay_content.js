@@ -3,6 +3,14 @@ console.log("[eBay AutoLister] Content script active!");
 // --- STORAGE-BASED STATE (PERSISTS REFRESHES) ---
 function getPageState(key) { return sessionStorage.getItem('ebay_lister_' + key); }
 function setPageState(key, val) { sessionStorage.setItem('ebay_lister_' + key, val); }
+function getGateKey(prefix, rawValue) {
+    const safeValue = String(rawValue || "");
+    const bytes = new TextEncoder().encode(safeValue);
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    const encoded = btoa(binary);
+    return `${prefix}_${encoded.substring(0, 8)}`;
+}
 
 // --- FEATURE 0: ENSURE PROPER FORMAT ---
 async function ensureBuyItNowFormat() {
@@ -66,7 +74,7 @@ async function setInputValue(selectorOrEl, value) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
         // 1. Try "Frequently selected" or visible options first (Best for eBay)
-        const container = el.closest('.summary__attributes--field, [data-testid="attribute"], .ux-labels-values, .form-field, .aspect-name') || el.parentElement;
+        const container = el.closest('.summary__attributes--field, [data-testid="attribute"], .ux-labels-values, .form-field, .aspect-name') || el.parentElement || document;
         const findOption = (root) => Array.from(root.querySelectorAll('button, span, a, [role="option"]'))
                 .find(s => s.innerText?.toLowerCase().trim() === String(value).toLowerCase().trim() && s !== el && s.offsetParent !== null);
 
@@ -97,8 +105,12 @@ async function setInputValue(selectorOrEl, value) {
         let input = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ? el : null;
         if (!input) {
             // Look for a search box or input triggered by the click
-            input = container.querySelector('input:not([type="hidden"])') || 
-                    document.activeElement.tagName === 'INPUT' ? document.activeElement : null;
+            const activeElement = document.activeElement;
+            const fallbackActiveInput = activeElement &&
+                (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')
+                ? activeElement
+                : null;
+            input = container.querySelector('input:not([type="hidden"]), textarea') || fallbackActiveInput;
         }
 
         if (input) {
@@ -183,7 +195,7 @@ function findBestConditionMatch(elements, dbConditionText) {
 // --- FEATURE 1: AUTO SEARCH ---
 function handleSuggestPage(productData) {
     if (!window.location.href.includes("prelist/suggest")) return;
-    const gateKey = 'search_done_' + btoa(productData.title).substring(0, 8);
+    const gateKey = getGateKey('search_done', productData.title);
     if (getPageState(gateKey)) return;
 
     const input = document.querySelector('input[placeholder*="selling"], input.textbox__control, #keyword');
@@ -199,7 +211,7 @@ function handleSuggestPage(productData) {
 // --- FEATURE 2: AUTO IDENTIFY ---
 function handleIdentifyPage(productData) {
     if (!window.location.href.includes("prelist/identify")) return;
-    const gateKey = 'match_done_' + btoa(productData.title).substring(0, 8);
+    const gateKey = getGateKey('match_done', productData.title);
     if (getPageState(gateKey)) return;
 
     const noMatchBtn = Array.from(document.querySelectorAll('button, span')).find(el => 
@@ -217,7 +229,7 @@ function handleIdentifyPage(productData) {
 function handleConditionPage(productData) {
     const isConditionPage = window.location.href.includes("/condition") || document.querySelector('h1')?.innerText.toLowerCase().includes("condition");
     if (!isConditionPage) return;
-    const gateKey = 'cond_done_' + btoa(productData.title).substring(0, 8);
+    const gateKey = getGateKey('cond_done', productData.title);
     if (getPageState(gateKey)) return;
 
 
@@ -244,6 +256,145 @@ function getStorage(key) {
     return new Promise((resolve) => {
         chrome.storage.local.get(key, (result) => resolve(result[key]));
     });
+}
+
+function normalizeFieldText(value) {
+    return String(value || "")
+        .toLowerCase()
+        .replace(/[*:_-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function getFieldLabelText(field) {
+    const id = field.id ? `#${CSS.escape(field.id)}` : null;
+    const directLabel = id ? document.querySelector(`label[for="${field.id}"]`) : null;
+    const container = field.closest(
+        ".ux-labels-values, .summary__attributes--field, [data-testid=\"attribute\"], .form-field, .aspect-name, .field-container, .ui-form-element, .ux-combobox, .selection-list"
+    );
+
+    const containerLabel = container
+        ? container.querySelector(
+              "label, .ux-labels-values__labels-content, .aspect-name, span[class*=\"label\"], .summary__attributes--label, .field-label, .ux-combobox__label, h3"
+          )
+        : null;
+
+    const text =
+        directLabel?.innerText ||
+        containerLabel?.innerText ||
+        field.getAttribute("aria-label") ||
+        field.placeholder ||
+        field.name ||
+        field.id ||
+        "";
+
+    return normalizeFieldText(text.split("\n")[0]);
+}
+
+function setNativeFieldValue(field, rawValue) {
+    const value = String(rawValue ?? "").trim();
+    if (!value) return false;
+    if (!field || field.disabled || field.readOnly || field.offsetParent === null) return false;
+
+    if (field.tagName === "SELECT") {
+        const options = Array.from(field.options || []);
+        const normalizedTarget = normalizeFieldText(value);
+        const exact = options.find((option) => normalizeFieldText(option.textContent) === normalizedTarget);
+        const partial = options.find((option) => normalizeFieldText(option.textContent).includes(normalizedTarget));
+        const selectedOption = exact || partial;
+        if (!selectedOption) return false;
+        field.value = selectedOption.value;
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+    }
+
+    const proto =
+        field.tagName === "TEXTAREA"
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+    const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+
+    if (nativeSetter) nativeSetter.call(field, value);
+    else field.value = value;
+
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    field.dispatchEvent(new Event("blur", { bubbles: true }));
+    return true;
+}
+
+async function fillDetectedFieldsStep() {
+    const productData = await getStorage("ebayDraftData");
+    if (!productData) return 0;
+
+    let specifics = productData.item_specifics || {};
+    if (typeof specifics === "string") {
+        try { specifics = JSON.parse(specifics); } catch (e) { specifics = {}; }
+    }
+
+    const aliasMap = {
+        brand: ["brand", "brand name", "manufacturer"],
+        size: ["size", "size type", "shoe size", "chest size", "size men s"],
+        color: ["color", "colour", "main color"],
+        material: ["material", "outer shell material", "fabric type"],
+        style: ["style", "theme", "design", "jacket style", "sweatshirt type"],
+        department: ["department", "gender", "section"],
+        type: ["type", "product type"],
+        model: ["model", "model name", "model number"],
+        mpn: ["mpn", "part number", "manufacturer part number"],
+        upc: ["upc"],
+        ean: ["ean"],
+        isbn: ["isbn"]
+    };
+
+    const dataMap = new Map();
+    const writeValue = (key, value) => {
+        const normalizedKey = normalizeFieldText(key);
+        if (!normalizedKey || value === undefined || value === null || value === "") return;
+        dataMap.set(normalizedKey, Array.isArray(value) ? value[0] : value);
+    };
+
+    for (const [key, value] of Object.entries(specifics || {})) writeValue(key, value);
+    for (const [key, value] of Object.entries(productData || {})) writeValue(key, value);
+
+    for (const [canonical, aliases] of Object.entries(aliasMap)) {
+        const candidate = productData[canonical] ?? specifics[canonical];
+        if (candidate) {
+            writeValue(canonical, candidate);
+            aliases.forEach((alias) => writeValue(alias, candidate));
+        }
+    }
+
+    const fields = Array.from(
+        document.querySelectorAll(
+            "input:not([type=\"hidden\"]):not([type=\"file\"]):not([type=\"checkbox\"]):not([type=\"radio\"]), textarea, select"
+        )
+    );
+
+    let filledCount = 0;
+    for (const field of fields) {
+        if (field.offsetParent === null || field.disabled || field.readOnly) continue;
+        const existingValue = String(field.value || "").trim();
+        if (existingValue.length > 0) continue;
+
+        const label = getFieldLabelText(field);
+        if (!label || label.includes("search")) continue;
+
+        let mappedValue = dataMap.get(label);
+        if (!mappedValue) {
+            const keyMatch = Array.from(dataMap.keys()).find(
+                (key) => (label.includes(key) || key.includes(label)) && key.length >= 3
+            );
+            if (keyMatch) mappedValue = dataMap.get(keyMatch);
+        }
+        if (!mappedValue) continue;
+
+        if (setNativeFieldValue(field, mappedValue)) filledCount += 1;
+    }
+
+    if (filledCount > 0) console.log(`[eBay AutoLister] Direct one-click filled fields: ${filledCount}`);
+    return filledCount;
 }
 
 async function fillTitlePrice() {
@@ -354,9 +505,20 @@ async function fillImagesStep() {
     if (fileInput) {
         const dataTransfer = new DataTransfer();
         for (let i = 0; i < productData.images.slice(0, 12).length; i++) {
-            const res = await new Promise(r => chrome.runtime.sendMessage({ action: "fetchImageBlob", url: productData.images[i] }, r));
-            if (res?.dataUrl) {
-                const r = await fetch(res.dataUrl);
+            const imgSrc = productData.images[i];
+            let dataUrl = null;
+
+            if (imgSrc.startsWith('data:')) {
+                // Already a base64/data URL, use as is
+                dataUrl = imgSrc;
+            } else {
+                // Remote URL, fetch via background script to bypass CORS
+                const res = await new Promise(r => chrome.runtime.sendMessage({ action: "fetchImageBlob", url: imgSrc }, r));
+                dataUrl = res?.dataUrl;
+            }
+
+            if (dataUrl) {
+                const r = await fetch(dataUrl);
                 const blob = await r.blob();
                 dataTransfer.items.add(new File([blob], `image_${i}.jpg`, {type:'image/jpeg'}));
             }
@@ -729,6 +891,10 @@ async function performFullFill() {
     try {
         await fillTitlePrice();
         await new Promise(r => setTimeout(r, 1000));
+        showStatus("⚡ Detecting and filling all visible fields...", "info");
+        const directFilled = await fillDetectedFieldsStep();
+        if (directFilled > 0) showStatus(`✅ One-click filled ${directFilled} fields`, "success");
+        await new Promise(r => setTimeout(r, 800));
         await fillDescriptionStep();
         await new Promise(r => setTimeout(r, 1000));
         await fillImagesStep();
@@ -752,7 +918,8 @@ function showStatus(msg, type = "info") {
         document.body.appendChild(overlay);
     }
     // Deep emoji stripping
-    overlay.innerText = msg.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+    const displayMsg = String(msg || "").replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "").trim();
+    overlay.innerText = displayMsg;
     overlay.style.background = type === "success" ? "rgba(34, 197, 94, 0.9)" : type === "error" ? "rgba(239, 68, 68, 0.9)" : "rgba(31, 41, 55, 0.9)";
     overlay.style.color = "white";
     overlay.style.opacity = "1";

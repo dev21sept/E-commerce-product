@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, ChevronDown, User, ExternalLink, Tag } from 'lucide-react';
+import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, ChevronDown, User, ExternalLink, Tag, Upload } from 'lucide-react';
 
 const ProductForm = ({ initialData, onSubmit, isFetching }) => {
     const [formData, setFormData] = useState({
@@ -90,6 +90,44 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
 
     const removeImage = (index) => {
         setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+    };
+
+    const handleFileUpload = (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1200;
+                    if (width > height) {
+                        if (width > maxDim) {
+                            height *= maxDim / width;
+                            width = maxDim;
+                        }
+                    } else {
+                        if (height > maxDim) {
+                            width *= maxDim / height;
+                            height = maxDim;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+                    setFormData(prev => ({
+                        ...prev,
+                        images: [...prev.images, compressedBase64]
+                    }));
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
     };
 
     const handleSubmit = (e) => {
@@ -196,7 +234,15 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
 
                     {/* Media Gallery */}
                     <div className="card p-8">
-                        <h3 className="text-lg font-bold text-gray-900 mb-6">Product Images</h3>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-gray-900">Product Images</h3>
+                            <div className="flex gap-2">
+                                <label className="cursor-pointer text-[#4F46E5] text-sm font-bold flex items-center gap-1 hover:underline">
+                                    <Upload className="w-4 h-4" /> Upload
+                                    <input type="file" multiple className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                </label>
+                            </div>
+                        </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {formData.images.map((img, idx) => (
                                 <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-100 bg-gray-50">

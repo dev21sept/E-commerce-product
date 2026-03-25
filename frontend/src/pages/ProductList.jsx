@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2, Sparkles } from 'lucide-react';
 import { getProducts, deleteProduct, getEbayAuthUrl } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -8,6 +8,7 @@ const ProductList = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'ai', 'ebay'
     const [authStatus, setAuthStatus] = useState(null);
 
     useEffect(() => {
@@ -20,13 +21,8 @@ const ProductList = () => {
         loadProducts();
     }, [location]);
 
-    const handleEbayConnect = async () => {
-        try {
-            const { url } = await getEbayAuthUrl('products'); // Tell eBay we are coming from products page
-            window.location.href = url;
-        } catch (error) {
-            alert('Failed to get eBay Auth URL. Check backend.');
-        }
+    const handleEbayConnect = () => {
+        window.open('https://signin.ebay.com/signin/', '_blank');
     };
 
     const loadProducts = async () => {
@@ -63,11 +59,17 @@ const ProductList = () => {
         setTimeout(() => setAuthStatus(null), 3000);
     };
 
-    const filteredProducts = products.filter(p =>
-        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredProducts = products.filter(p => {
+        const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.category?.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchesSource = sourceFilter === 'all' || 
+            (sourceFilter === 'ai' && p.source === 'ai') || 
+            (sourceFilter === 'ebay' && p.source === 'ebay');
+            
+        return matchesSearch && matchesSource;
+    });
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -102,112 +104,163 @@ const ProductList = () => {
             </div>
 
             <div className="card overflow-hidden">
-                <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-gray-50/50">
+                <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                             type="text"
                             placeholder="Search by title, brand, or category..."
-                            className="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5] outline-none"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5]/40 outline-none transition-all"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                    </div>
+                    
+                    {/* Source Filter Buttons */}
+                    <div className="flex p-1 bg-gray-100 rounded-xl w-fit self-start md:self-center">
+                        <button
+                            onClick={() => setSourceFilter('all')}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                sourceFilter === 'all' 
+                                    ? 'bg-white text-gray-900 shadow-sm' 
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            All Products
+                        </button>
+                        <button
+                            onClick={() => setSourceFilter('ebay')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                sourceFilter === 'ebay' 
+                                    ? 'bg-white text-blue-600 shadow-sm' 
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            <Link2 className="w-3.5 h-3.5" />
+                            eBay Imports
+                        </button>
+                        <button
+                            onClick={() => setSourceFilter('ai')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                                sourceFilter === 'ai' 
+                                    ? 'bg-white text-emerald-600 shadow-sm' 
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            AI Listings
+                        </button>
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-gray-50 border-b border-gray-100">
+                        <thead className="bg-gray-50/50 border-b border-gray-100">
                             <tr>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Product</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Preview</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Condition</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Price</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Seller</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Product Info</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date Added</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Condition</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pricing</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 Array(5).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td className="px-6 py-4" colSpan="5">
+                                        <td className="px-6 py-4" colSpan="6">
                                             <div className="h-12 bg-gray-50 rounded-lg"></div>
                                         </td>
                                     </tr>
                                 ))
                             ) : filteredProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-12 text-center">
+                                    <td colSpan="6" className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center">
                                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                                 <ShoppingBag className="w-8 h-8 text-gray-400" />
                                             </div>
-                                            <p className="text-gray-500 font-medium">No products found</p>
-                                            <Link to="/products/add" className="text-[#4F46E5] text-sm mt-1 hover:underline">Add your first product</Link>
+                                            <p className="text-gray-500 font-medium italic">No products found for this source</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
                                 filteredProducts.map((product) => (
-                                    <tr key={product.id} className="hover:bg-gray-50 transition-all group">
+                                    <tr key={product.id} className="hover:bg-gray-50/50 transition-all group border-b border-gray-50 last:border-none">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-100">
+                                                <div className="w-14 h-14 rounded-xl bg-gray-50 overflow-hidden shrink-0 border border-gray-100 shadow-sm">
                                                     {product.images?.[0] ? (
                                                         <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center">
-                                                            <Package className="w-6 h-6 text-gray-300" />
+                                                            <Package className="w-6 h-6 text-gray-200" />
                                                         </div>
                                                     )}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-gray-900 line-clamp-1">{product.title}</p>
-                                                    <p className="text-xs text-gray-500 mt-0.5">{product.brand || 'No brand'} · {product.category || 'Uncategorized'}</p>
+                                                    <p className="text-sm font-bold text-gray-900 line-clamp-1 group-hover:text-[#4F46E5] transition-colors">{product.title}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded uppercase">{product.brand || 'No Brand'}</span>
+                                                        <span className="text-[10px] font-medium text-gray-400">{product.category || 'General'}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button
-                                                onClick={() => handlePreviewListing(product)}
-                                                className="p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-xl transition-all shadow-sm border border-gray-100 bg-white"
-                                                title="View Details"
-                                            >
-                                                <Eye className="w-5 h-5" />
-                                            </button>
+                                        <td className="px-6 py-4">
+                                            <div className="text-xs font-semibold text-gray-600">
+                                                {product.created_at ? new Date(product.created_at).toLocaleDateString() : 'N/A'}
+                                            </div>
+                                            <div className="text-[10px] text-gray-400">
+                                                {product.created_at ? new Date(product.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-100">
-                                                {product.condition_name || 'N/A'}
+                                            {product.source === 'ai' ? (
+                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider border border-emerald-100">
+                                                    <Sparkles className="w-3 h-3" /> AI Fetch
+                                                </div>
+                                            ) : (
+                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-100">
+                                                    <Link2 className="w-3 h-3" /> eBay Link
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-md">
+                                                {product.condition_name?.substring(0, 20) || 'N/A'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-sm">
-                                                <span className="font-bold text-gray-900">${product.selling_price}</span>
-                                                {product.retail_price && Number(product.retail_price) > Number(product.selling_price) && (
-                                                    <span className="text-gray-400 ml-2 line-through text-xs">${product.retail_price}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-black text-gray-900">${product.selling_price}</span>
+                                                {product.retail_price > 0 && (
+                                                    <span className="text-[10px] text-gray-400 line-through">${product.retail_price}</span>
                                                 )}
-                                                {product.discount_percentage && (
-                                                    <span className="ml-1 text-red-600 text-xs font-bold">{product.discount_percentage}</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <User className="w-3.5 h-3.5 text-gray-400" />
-                                                <span className="text-sm text-gray-600 truncate max-w-[120px]">{product.seller_name || 'Unknown'}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button onClick={() => handlePreviewListing(product)} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all border border-blue-100 shadow-sm" title="Preview & Fill eBay">
-                                                    <ExternalLink className="w-4 h-4" />
+                                            <div className="flex justify-end gap-2.5">
+                                                <button 
+                                                    onClick={() => handlePreviewListing(product)} 
+                                                    className="w-9 h-9 flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 shadow-sm" 
+                                                    title="Preview & Send to eBay"
+                                                >
+                                                    <Eye className="w-4 h-4" />
                                                 </button>
-                                                <Link to={`/products/edit/${product.id}`} className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-all border border-indigo-100 shadow-sm" title="Edit">
+                                                <Link 
+                                                    to={`/products/edit/${product.id}`} 
+                                                    className="w-9 h-9 flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-100 shadow-sm" 
+                                                    title="Edit Product"
+                                                >
                                                     <Edit className="w-4 h-4" />
                                                 </Link>
-                                                <button onClick={() => handleDelete(product.id)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-all border border-red-100 shadow-sm" title="Delete">
+                                                <button 
+                                                    onClick={() => handleDelete(product.id)} 
+                                                    className="w-9 h-9 flex items-center justify-center text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all border border-red-100 shadow-sm" 
+                                                    title="Delete Product"
+                                                >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -269,16 +322,6 @@ const ProductList = () => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-green-50/50 p-4 rounded-2xl border border-green-100">
-                                    <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest mb-1">eBay Marketplace</p>
-                                    <p className="text-sm font-bold text-gray-900">eBay US (ebay.com)</p>
-                                </div>
-                                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                                    <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest mb-1">Shipping Location</p>
-                                    <p className="text-sm font-bold text-gray-900">San Jose, CA (Default)</p>
-                                </div>
-                            </div>
 
                             {/* Item Specifics vs Business Policies Logic */}
                             {(() => {
