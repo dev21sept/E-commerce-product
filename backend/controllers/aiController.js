@@ -1,19 +1,24 @@
 const { OpenAI } = require('openai');
 const Product = require('../models/Product');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// Dotenv is handled in index.js for the main app.
+// Standalone scripts should load it themselves if needed.
 
 let openai;
 try {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-        console.warn('⚠️ WARNING: OPENAI_API_KEY is missing from environment variables.');
+    if (apiKey) {
+        console.log('✅ OpenAI Client: API Key detected (length: ' + apiKey.length + ')');
+    } else {
+        console.warn('⚠️ OpenAI Client: OPENAI_API_KEY is missing from environment.');
     }
+    
     openai = new OpenAI({
-        apiKey: apiKey || 'dummy-key-to-prevent-crash'
+        apiKey: apiKey || 'dummy-key-to-prevent-startup-crash'
     });
 } catch (error) {
-    console.error('❌ Failed to initialize OpenAI client:', error.message);
+    console.error('❌ OpenAI Client: Failed to initialize:', error.message);
 }
 
 exports.analyzeProductImage = async (req, res) => {
