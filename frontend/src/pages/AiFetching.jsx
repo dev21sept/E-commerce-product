@@ -90,6 +90,15 @@ const AiFetching = () => {
                 setImageUrls(data.images);
             }
             if (data.condition) setCondition(data.condition);
+
+            // Populate AI Result with eBay data so it shows on screen
+            setAiResult({
+                category: data.category || '',
+                title: data.title || '',
+                description: data.description || '',
+                item_specifics: data.item_specifics || {},
+                selling_price: parseFloat(data.price?.replace(/[^0-9.]/g, '')) || 0
+            });
             
             setMessage({ type: 'success', text: `Successfully imported ${data.images?.length || 0} images!` });
         } catch (error) {

@@ -81,9 +81,9 @@ exports.analyzeProductImage = async (req, res) => {
      - IF SHOES: provide Brand, Type, Color, Style, US Shoe Size, Shoe Width, Department, Upper Material, Heel Height, etc.
      - IF ELECTRONICS: provide Brand, Model, Connectivity, Features, Processor, Storage, etc.
      - DETECT PRECISION: Read tags carefully for "Country of Origin", "Material", "Brand", and "Size".
-   (IMPORTANT: DO NOT include attributes with values like 'None', 'N/A', or 'Unknown'. If a key is not applicable (like 'Lining' for a T-shirt), OMIT it entirely. Focus on providing 15-20 HIGH-VALUE attributes that are actually seen or inferred). 
+    (IMPORTANT: DO NOT include attributes with values like 'None', 'N/A', or 'Unknown'. If a key is not applicable (like 'Lining' for a T-shirt), OMIT it entirely. Focus on providing 25-30 HIGH-VALUE attributes that are actually seen or inferred). 
 5. Price - Real-world estimated market value for selling. 
-   (IMPORTANT: DO NOT include seller, marketplace, or shipping info in the JSON). Provide 15-20 attributes in total.
+   (IMPORTANT: DO NOT include seller, marketplace, or shipping info in the JSON). Provide at least 25-30 attributes in total.
 
 Context:
 - Gender: ${gender || 'N/A'}
@@ -104,8 +104,18 @@ Format your response STRICTLY as: {
             response_format: { type: "json_object" }
         });
 
-        const aiData = JSON.parse(response.choices[0].message.content);
-        console.log('AI Logic Result:', aiData);
+        const rawAiData = JSON.parse(response.choices[0].message.content);
+        
+        // Sanitize keys (ensure everything is lowercase for safety)
+        const aiData = {
+            category: rawAiData.category || rawAiData.Category || rawAiData.ebay_category || '',
+            title: rawAiData.title || rawAiData.Title || '',
+            description: rawAiData.description || rawAiData.Description || '',
+            item_specifics: rawAiData.item_specifics || rawAiData.Item_Specifics || {},
+            selling_price: rawAiData.selling_price || rawAiData.Price || 0
+        };
+
+        console.log('AI Logic Result (Sanitized):', aiData);
 
         res.json({
             success: true,

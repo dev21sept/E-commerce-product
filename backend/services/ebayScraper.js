@@ -239,14 +239,43 @@ const fetchEbayProduct = async (url) => {
                     categoryId = catMatch[1];
                 } else {
                     // Method 2: breadcrumb link ID
-                    const breadcrumbs = document.querySelectorAll('.seo-breadcrumb-text a, .breadcrumbs a');
-                    for (let i = breadcrumbs.length - 1; i >= 0; i--) {
-                        const href = breadcrumbs[i].href;
+                    const breadcArr = document.querySelectorAll('.seo-breadcrumb-text a, .breadcrumbs a');
+                    for (let i = breadcArr.length - 1; i >= 0; i--) {
+                        const href = breadcArr[i].href;
                         const hm = href.match(/bn_(\d+)/) || href.match(/\/(?:category|sch|b)\/[^\/]+\/(\d+)\//);
                         if (hm) { categoryId = hm[1]; break; }
                     }
                 }
             } catch (e) { }
+
+            // Improved Category detection
+            let detectedCategory = '';
+            const categorySelectors = [
+                '.seo-breadcrumb-text span', 
+                '.breadcrumbs li:last-child span', 
+                '.breadcrumbs a:last-child',
+                '#vi-VR-brumb-cntr span:last-child',
+                '.vi-center-container .breadcrumbs',
+                '.p-breadcrumb-item-actual'
+            ];
+            
+            for (const selector of categorySelectors) {
+                const el = document.querySelector(selector);
+                if (el && el.innerText.trim()) {
+                    detectedCategory = el.innerText.trim();
+                    break;
+                }
+            }
+
+            // If still not found, try getting all breadcrumbs as a string
+            if (!detectedCategory) {
+                const breadcrumbs = Array.from(document.querySelectorAll('.seo-breadcrumb-text a, .breadcrumbs a'))
+                    .map(a => a.innerText.trim())
+                    .filter(t => t);
+                if (breadcrumbs.length > 0) {
+                    detectedCategory = breadcrumbs.join(' > ');
+                }
+            }
 
             return {
                 title,
@@ -259,7 +288,7 @@ const fetchEbayProduct = async (url) => {
                 images,
                 variations,
                 item_specifics,
-                category: getText('.seo-breadcrumb-text span') || '',
+                category: detectedCategory || '',
                 categoryId: categoryId || '',
                 sellerName,
                 sellerFeedback,

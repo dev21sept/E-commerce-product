@@ -296,18 +296,36 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                 {/* Right Column - Sidebar */}
                 <div className="space-y-6">
 
-                    {/* Condition */}
+                    {/* Category & Condition */}
                     <div className="card p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Condition</h3>
-                        <div className="px-4 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-                            <input
-                                type="text"
-                                name="condition_name"
-                                className="bg-transparent w-full text-sm font-semibold text-green-800 focus:outline-none"
-                                placeholder="e.g. New, Used, Refurbished"
-                                value={formData.condition_name}
-                                onChange={handleChange}
-                            />
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Category & Condition</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="form-label text-xs uppercase tracking-wider text-gray-400 font-bold mb-1">Category</label>
+                                <div className="px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                    <input
+                                        type="text"
+                                        name="category"
+                                        className="bg-transparent w-full text-sm font-semibold text-indigo-800 focus:outline-none"
+                                        placeholder="e.g. Electronics"
+                                        value={formData.category}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="form-label text-xs uppercase tracking-wider text-gray-400 font-bold mb-1">Condition</label>
+                                <div className="px-4 py-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+                                    <input
+                                        type="text"
+                                        name="condition_name"
+                                        className="bg-transparent w-full text-sm font-semibold text-green-800 focus:outline-none"
+                                        placeholder="e.g. New, Used, Refurbished"
+                                        value={formData.condition_name}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -358,17 +376,6 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     <div className="card p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Organization</h3>
                         <div className="space-y-4">
-                            <div>
-                                <label className="form-label">Category</label>
-                                <input
-                                    type="text"
-                                    name="category"
-                                    className="form-input"
-                                    placeholder="e.g. Electronics"
-                                    value={formData.category}
-                                    onChange={handleChange}
-                                />
-                            </div>
                             <div>
                                 <label className="form-label">Brand</label>
                                 <input
@@ -466,13 +473,30 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                         </div>
                     </div>
 
-                    {/* Save Button */}
-                    <button
-                        type="submit"
-                        className="w-full btn-primary py-4 text-lg font-bold shadow-xl shadow-[#4F46E5]/20 flex items-center justify-center gap-2"
-                    >
-                        {initialData ? 'Update Product' : 'Save Product'}
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex gap-4">
+                        <button
+                            type="submit"
+                            className="flex-1 btn-primary py-4 text-lg font-bold shadow-xl shadow-[#4F46E5]/20 flex items-center justify-center gap-2"
+                        >
+                            {initialData ? 'Update Product' : 'Save Product'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                window.postMessage({ 
+                                    type: "EbayAutoLister_SendData", 
+                                    payload: formData 
+                                }, "*");
+                                alert('Data sent to eBay Extension!');
+                            }}
+                            className="px-8 bg-indigo-50 text-[#4F46E5] font-bold rounded-2xl border border-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
+                            title="Send to eBay Extension"
+                        >
+                            <ExternalLink className="w-5 h-5" />
+                            List on eBay
+                        </button>
+                    </div>
                 </div>
             </div>
 
