@@ -51,7 +51,7 @@ exports.analyzeProductImage = async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: "You are a world-class eBay SEO expert and high-conversion copywriter. Your goal is to provide maximum detail from ALL provided images of a single product."
+                    content: "You are a world-class eBay SEO expert. Your primary goal is 100% accurate product identification and categorization, followed by detailed copywriting. Zero tolerance for misidentifying basic items like T-Shirts vs Shirts."
                 },
                 {
                     role: "user",
@@ -59,7 +59,7 @@ exports.analyzeProductImage = async (req, res) => {
                         {
                             type: "text",
                             text: `Analyze these product images carefully (check tags, labels, and all angles) to provide a comprehensive eBay listing:
-1. Category - Precise eBay category name.
+1. Category - Complete hierarchical eBay category path. (STRICT REQUIREMENT: Identify precisely. For clothing, distinguish T-Shirts from Shirts by checking for collars and buttons. Accuracy is mandatory.)
 2. Title - Professional, keyword-rich title (Exactly <= 80 chars).
 3. Description - PREMIUM EBAY LISTING TEMPLATE (minimum 350 words). Use a high-conversion, structured HTML layout. 
    Include EXACT sections with <strong>bold titles</strong> and emojis. 
