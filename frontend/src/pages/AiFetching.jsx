@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Sparkles, Image as ImageIcon, Upload, Loader2, Save, ExternalLink, Trash2, Edit3, DollarSign, CheckCircle2, X, Plus } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Upload, Loader2, Save, ExternalLink, Trash2, Edit3, DollarSign, CheckCircle2, X, Plus, GripVertical, FileText, Zap } from 'lucide-react';
+import { Reorder, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
 const AiFetching = () => {
@@ -9,10 +10,39 @@ const AiFetching = () => {
     
     const [condition, setCondition] = useState('New');
     const [gender, setGender] = useState('Male');
+    const [titleStructure, setTitleStructure] = useState([]);
+    const [descriptionStyle, setDescriptionStyle] = useState('AI Generated');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiResult, setAiResult] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    
+    const titleOptions = [
+        'Brand', 
+        'Product Type', 
+        'Gender / Department', 
+        'Size', 
+        'Color', 
+        'Model / Series', 
+        'Key Features', 
+        'Material', 
+        'Style / Use Case'
+    ];
+
+    const templateMeta = {
+        'AI Generated': 'Smart & Creative AI Copy',
+        'Template 1': 'Minimal & Clean Layout',
+        'Template 2': 'Detailed with Measurements',
+        'Template 3': 'Comprehensive Full Specs'
+    };
+
+    const toggleTitleOption = (opt) => {
+        if (titleStructure.includes(opt)) {
+            setTitleStructure(titleStructure.filter(item => item !== opt));
+        } else {
+            setTitleStructure([...titleStructure, opt]);
+        }
+    };
     
     const fileInputRef = useRef(null);
 
@@ -128,6 +158,11 @@ const AiFetching = () => {
             return;
         }
 
+        if (titleStructure.length < 3) {
+            setMessage({ type: 'error', text: 'Please select at least 3 fields for Title Priority before analyzing.' });
+            return;
+        }
+
         setIsAnalyzing(true);
         setMessage({ type: '', text: '' });
         setAiResult(null);
@@ -136,7 +171,9 @@ const AiFetching = () => {
             const response = await axios.post('http://localhost:5000/api/ai/analyze-product', {
                 images: allImages,
                 condition,
-                gender
+                gender,
+                titleStructure,
+                descriptionStyle
             });
 
             if (response.data.success) {
@@ -391,6 +428,75 @@ const AiFetching = () => {
                                     <option>Other</option>
                                     <option>Prefer not to say</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        {/* Title Builder (Draggable) */}
+                        <div className="mt-8 space-y-4">
+                            <label className="block text-sm font-bold text-gray-700 flex justify-between items-center">
+                                <span>Build Title Format <span className="text-xs font-normal text-gray-400 lowercase">(Drag to reorder)</span></span>
+                                {titleStructure.length > 0 && <button onClick={() => setTitleStructure([])} className="text-rose-500 hover:text-rose-600 text-[10px] uppercase font-bold">Clear All</button>}
+                            </label>
+                            
+                            <div className="flex flex-wrap gap-2">
+                                {titleOptions.map(opt => (
+                                    <button
+                                        key={opt}
+                                        onClick={() => toggleTitleOption(opt)}
+                                        className={`px-3 py-1.5 rounded-full text-[10px] font-black transition-all border ${
+                                            titleStructure.includes(opt)
+                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                                : 'bg-white text-gray-400 border-gray-100 hover:border-indigo-200'
+                                        }`}
+                                    >
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                {titleStructure.length === 0 ? (
+                                    <div className="text-center py-4 text-xs text-gray-400 italic">Select fields above to start building...</div>
+                                ) : (
+                                    <Reorder.Group axis="y" values={titleStructure} onReorder={setTitleStructure} className="space-y-2">
+                                        {titleStructure.map((item, idx) => (
+                                            <Reorder.Item key={item} value={item} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors">
+                                                <div className="bg-indigo-50 p-1.5 rounded-lg">
+                                                    <GripVertical className="w-4 h-4 text-indigo-400" />
+                                                </div>
+                                                <span className="text-sm font-bold text-gray-700">{idx + 1}. {item}</span>
+                                            </Reorder.Item>
+                                        ))}
+                                    </Reorder.Group>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Description Style Selection */}
+                        <div className="mt-8 space-y-4">
+                            <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest text-[11px]">
+                                Description Template
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {Object.keys(templateMeta).map(style => (
+                                    <button
+                                        key={style}
+                                        onClick={() => setDescriptionStyle(style)}
+                                        className={`p-4 rounded-2xl border flex flex-col items-center gap-1 transition-all text-center ${
+                                            descriptionStyle === style
+                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl scale-[1.02]'
+                                                : 'bg-white text-gray-500 border-gray-100 hover:border-indigo-200 shadow-sm'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {style === 'AI Generated' ? <Zap className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                            <span className="text-xs font-bold">{style}</span>
+                                        </div>
+                                        <span className={`text-[10px] font-medium block ${descriptionStyle === style ? 'text-indigo-100' : 'text-gray-400'}`}>
+                                            {templateMeta[style]}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
                         

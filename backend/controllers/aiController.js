@@ -28,13 +28,17 @@ exports.analyzeProductImage = async (req, res) => {
             return res.status(500).json({ error: 'OpenAI API key is missing. Please contact administrator.' });
         }
         
-        const { images, condition, gender } = req.body;
-        console.log(`Analyzing ${images ? images.length : 0} images. Condition: ${condition}, Gender: ${gender}`);
+        const { images, condition, gender, titleStructure, descriptionStyle, customTemplateText } = req.body;
+        console.log(`Analyzing ${images ? images.length : 0} images. Condition: ${condition}, Gender: ${gender}, Title Structure: ${titleStructure ? titleStructure.join(' -> ') : 'Default'}, Styling: ${descriptionStyle || 'AI Generated'}`);
 
         if (!images || !Array.isArray(images) || images.length === 0) {
             console.log('Error: Empty or missing images array');
             return res.status(400).json({ error: 'No images provided for analysis.' });
         }
+
+        const structure = (titleStructure && Array.isArray(titleStructure) && titleStructure.length >= 3) 
+            ? titleStructure 
+            : ['Brand', 'Product Type', 'Gender / Department', 'Size', 'Color'];
 
         console.log(`--- Requesting AI analysis for ${images.length} product images ---`);
 
@@ -45,6 +49,82 @@ exports.analyzeProductImage = async (req, res) => {
                 url: img
             }
         }));
+
+        // Description Template Logic - Use custom if provided, otherwise defaults
+        let descriptionInstruction = customTemplateText ? 
+            `Description - Take this custom layout and fill it with accurate product details. 
+            (STRICT REQUIREMENTS:
+            1. TOTAL MINIMUM LENGTH: 500 WORDS. If the provided template is short, you MUST add extra professional paragraphs at the end about 'Product Highlights', 'Style Tips', and 'Market Value Analysis' to make it a long, premium listing.
+            2. FORMATTING: Wrap every label/key in <strong> tags. Use <br><br> (Double HTML Line Breaks) after EVERY SINGLE LINE or point for maximum vertical length.
+            3. NO PLACEHOLDERS: Omit any line if the value is 'N/A' or unknown. DO NOT use brackets in output.
+            4. Preserve the exact vertical sequence of the template provided below).
+            
+            CUSTOM LAYOUT TEMPLATE TO FILL AND EXPAND:
+            ${customTemplateText}` :
+            `Description - HIGH-CONVERSION EBAY LISTING (minimum 600 words). 
+   Use a professional, structured HTML layout with <strong>bold titles</strong> and emojis. 
+   STRICT REQUIREMENT: Use <br><br> (Double HTML Line Breaks) between EVERY SECTION for maximum vertical length and professional spacing.
+   
+   Structure:
+   <strong>🔥 PRODUCT OVERVIEW</strong>: A 100-word persuasive intro about why this item is a must-have.
+   <strong>✨ KEY FEATURES & BENEFITS</strong>: A detailed <ul> list with at least 8-10 points.
+   <strong>📏 SPECIFICATIONS & MATERIALS</strong>: Deep dive into craftsmanship, texture, and origin.
+   <strong>🛡️ CONDITION & QUALITY ASSURANCE</strong>: State condition as "${condition || 'New'}". Mention our 10-point quality check.
+   <strong>🚛 SHIPPING & SERVICE</strong>: Professional trust-building blurb.
+   <strong>🌟 ABOUT THE BRAND</strong>: A short paragraph about the brand's heritage.
+
+   Use professional, persuasive sales language. NO symbols like **. ONLY use <strong> tags.`;
+
+        // If no custom text was provided, we use the predefined styles if selected
+        if (!customTemplateText) {
+            if (descriptionStyle === 'Template 1') {
+                descriptionInstruction = `Description - STAY SIMPLE BUT DETAILED (min 300 words):
+       <strong>{Title}</strong><br><br>
+       ${condition || 'Pre-Owned In Great Condition'}.<br><br>
+       Please refer to all high-resolution photos for exact measurements and visual details.<br><br>
+       <strong>Brand:</strong> {Brand}<br>
+       <strong>Size:</strong> {Size}<br>
+       <strong>Color:</strong> {Color}<br><br>
+       <strong>Condition Note:</strong> Carefully inspected. No major flaws unless noted.<br><br>
+       Sold exactly as pictured. Packaged with care for fast shipping. Thanks for looking!<br><br>
+       <strong>SKU:</strong> {Extract or leave blank}`;
+            } else if (descriptionStyle === 'Template 2') {
+                descriptionInstruction = `Description - DETAILED & RICH (min 450 words):
+       <strong>Details:-</strong><br><br>
+       <strong>Brand:</strong> {Brand}<br>
+       <strong>Size:</strong> {Size}<br>
+       <strong>Color:</strong> {Color}<br>
+       <strong>Style:</strong> {Style}<br><br>
+       <strong>Keywords:</strong> {At least 20 high-value ranking keywords separated by commas}<br><br>
+       <strong>Measurements (Lay Flat):</strong><br>
+       <strong>Pit to pit:</strong> {Value}"<br>
+       <strong>Length:</strong> {Value}"<br>
+       <strong>Sleeve:</strong> {Value}"<br><br>
+       <strong>Condition Report:</strong><br>
+       ${condition || 'Pre Owned in great condition'}. No holes, stains or tears. High quality preservation.<br><br>
+       <strong>Seller Note:</strong> We value your business. Offers are always welcome! Ships fast and packaged with professional care.`;
+            } else if (descriptionStyle === 'Template 3') {
+                descriptionInstruction = `Description - COMPREHENSIVE & LENGTHY (min 600 words):
+       <strong>${condition || 'ITEM CONDITION: EXCELLENT / LIKE NEW'}</strong>.<br><br>
+       <strong>Technical Measurements:</strong><br>
+       • Pit to Pit: {Value}<br>
+       • Shoulder to Shoulder: {Value}<br>
+       • Total Length: {Value}<br>
+       • Sleeve Length: {Value}<br><br>
+       <strong>Item Specifications:</strong><br>
+       - <strong>Brand:</strong> {Brand}<br>
+       - <strong>Department:</strong> {Gender/Dept}<br>
+       - <strong>Size/Fit:</strong> {Size} ({Size Type})<br>
+       - <strong>Actual Type:</strong> {Product Type}<br>
+       - <strong>Style/Aesthetic:</strong> {Style}<br>
+       - <strong>Material Blend:</strong> {Material}<br>
+       - <strong>Visual Pattern:</strong> {Pattern}<br>
+       - <strong>Special Features:</strong> {Features}<br><br>
+       <strong>Expert Analysis:</strong> {Write a 200-word paragraph about the quality and versatility of this specific item}.<br><br>
+       <strong>Our Guarantee:</strong> We want you to have a perfect experience. Please examine all pictures carefully before purchasing. 100% Satisfaction intended!<br><br>
+       Thank You For Shopping!`;
+            }
+        }
 
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
@@ -58,32 +138,18 @@ exports.analyzeProductImage = async (req, res) => {
                     content: [
                         {
                             type: "text",
-                            text: `Analyze these product images carefully (check tags, labels, and all angles) to provide a comprehensive eBay listing:
-1. Category - Complete hierarchical eBay category path. (STRICT REQUIREMENT: Identify precisely. For clothing, distinguish T-Shirts from Shirts by checking for collars and buttons. Accuracy is mandatory.)
-2. Title - Professional, keyword-rich title (Exactly <= 80 chars).
-3. Description - PREMIUM EBAY LISTING TEMPLATE (minimum 350 words). Use a high-conversion, structured HTML layout. 
-   Include EXACT sections with <strong>bold titles</strong> and emojis. 
-   IMPORTANT: Use <br><br> (Double HTML Line Breaks) between ALL sections for maximum readability on eBay:
-
-    <strong>PRODUCT OVERVIEW</strong>: Professional, high-impact intro.
-
-    <strong>KEY FEATURES & BENEFITS</strong>: Detailed bulleted list using <ul> and <li> tags with descriptive points.
-
-    <strong>SPECIFICATIONS</strong>: Materials, measurements (if seen), and craftsmanship.
-
-    <strong>CONDITION & AUTHENTICITY</strong>: State condition as "${condition || 'New'}" and mention quality assurance.
-
-    <strong>SHIPPING & TRUST</strong>: Short professional trust blurb.
-
-   Use professional, persuasive sales language. ALWAYS Use <br> for individual line breaks within sections. DO NOT use markdown like ** for bolding, ONLY use <strong> tags.
-4. Item Specifics (Aspects) - A massive JSON object. These MUST change completely based on the DETECTED CATEGORY to match eBay's specific requirements (Item Aspects). For example:
-     - IF CLOTHING: provide Brand, Style, Size Type, Size, Material, Features, Pattern, Neckline, Sleeve Length, etc.
-     - IF SHOES: provide Brand, Type, Color, Style, US Shoe Size, Shoe Width, Department, Upper Material, Heel Height, etc.
-     - IF ELECTRONICS: provide Brand, Model, Connectivity, Features, Processor, Storage, etc.
-     - DETECT PRECISION: Read tags carefully for "Country of Origin", "Material", "Brand", and "Size".
-    (IMPORTANT: DO NOT include attributes with values like 'None', 'N/A', or 'Unknown'. If a key is not applicable (like 'Lining' for a T-shirt), OMIT it entirely. Focus on providing 25-30 HIGH-VALUE attributes that are actually seen or inferred). 
-5. Price - Real-world estimated market value for selling. 
-   (IMPORTANT: DO NOT include seller, marketplace, or shipping info in the JSON). Provide at least 25-30 attributes in total.
+                            text: `Analyze these product images carefully to provide a comprehensive eBay listing:
+1. Category - Complete hierarchical eBay category path.
+2. Title - Professional, keyword-rich SEO title (Exactly <= 80 chars). 
+   (STRICT REQUIREMENT: Use these product fields in this exact order: ${structure.join(', ')}. 
+    Use only SINGLE SPACES to separate words. DO NOT use arrows (->), dashes, or special symbols.
+    Desired Style Examples:
+    - "Nike Air Mens Max 200 Bordeaux Black Mens Athletic Sneakers Size 10 AQ2568-001"
+    - "Cynthia Rowley Womens White Botanical Leaf Print Linen Cap Sleeve Tee Size Large"
+    - "Talbots Womens Brown High Rise Comfort Corduroy Straight Leg Pants Size 12P")
+3. ${descriptionInstruction}
+4. Item Specifics (Aspects) - A massive JSON object. OMIT any NULL or UNKNOWN values. Maximize relevant attributes (25-30).
+5. Price - Real-world estimated market value.
 
 Context:
 - Gender: ${gender || 'N/A'}
