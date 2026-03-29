@@ -58,29 +58,29 @@ const Dashboard = () => {
     ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700 max-w-7xl mx-auto">
+        <div className="space-y-6 md:space-y-8 animate-in fade-in duration-700 max-w-7xl mx-auto">
             {/* Top Bar with Welcome */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-gray-100">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-                        Welcome Back, Admin <span className="text-2xl animate-bounce">👋</span>
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                        Welcome Back, Admin <span className="text-xl md:text-2xl animate-bounce">👋</span>
                     </h1>
-                    <p className="text-gray-500 mt-1 font-medium italic">VA Help Listing - Real-time inventory insights.</p>
+                    <p className="text-gray-500 mt-1 font-medium italic text-sm">VA Help Listing - Real-time inventory insights.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <button 
                         onClick={handleEbayConnect}
-                        className="flex items-center gap-2 bg-white text-[#0053a0] border border-[#0053a0]/20 px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-[#0053a0]/5 transition-all active:scale-95 shadow-sm"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white text-[#0053a0] border border-[#0053a0]/20 px-4 md:px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-[#0053a0]/5 transition-all active:scale-95 shadow-sm"
                     >
                         <Link2 className="w-4 h-4" />
                         Sync eBay
                     </button>
                     <Link 
                         to="/products/add" 
-                        className="flex items-center gap-2 bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:translate-y-[-2px] transition-all shadow-lg active:scale-95"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white px-4 md:px-6 py-2.5 rounded-2xl font-bold text-sm hover:translate-y-[-2px] transition-all shadow-lg active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Create New Listing
+                        Create Listing
                     </Link>
                 </div>
             </div>
@@ -88,7 +88,7 @@ const Dashboard = () => {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {statCards.map((card) => (
-                    <div key={card.name} className="group relative bg-white rounded-3xl p-6 border border-gray-100 hover:border-[#4F46E5]/20 hover:shadow-xl hover:shadow-[#4F46E5]/5 transition-all duration-300">
+                    <div key={card.name} className="group relative bg-white rounded-3xl p-4 md:p-6 border border-gray-100 hover:border-[#4F46E5]/20 hover:shadow-xl hover:shadow-[#4F46E5]/5 transition-all duration-300">
                         <div className="flex items-start justify-between mb-4">
                             <div className={`p-3 rounded-2xl ${card.bg} ${card.color} group-hover:scale-110 transition-transform duration-500`}>
                                 <card.icon className="w-6 h-6" />
@@ -105,13 +105,13 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Products Table/List */}
-                <div className="lg:col-span-2 bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
-                    <div className="p-8 border-b border-gray-100 flex items-center justify-between">
+                <div className="lg:col-span-2 bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden min-h-[300px] md:min-h-[400px]">
+                    <div className="p-4 md:p-8 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <h3 className="text-lg font-black text-gray-900 tracking-tight">Recently Added Products</h3>
                             <p className="text-xs text-gray-400 mt-0.5">Your latest inventory updates.</p>
                         </div>
-                        <Link to="/products" className="text-xs font-bold text-[#4F46E5] bg-[#4F46E5]/5 px-4 py-2 rounded-xl hover:bg-[#4F46E5]/10 transition-all">View All Products</Link>
+                        <Link to="/products" className="text-center text-xs font-bold text-[#4F46E5] bg-[#4F46E5]/5 px-4 py-2 rounded-xl hover:bg-[#4F46E5]/10 transition-all">View All Products</Link>
                     </div>
                     
                     <div className="relative">
@@ -159,7 +159,7 @@ const Dashboard = () => {
                                         </div>
                                         <Link 
                                             to={`/products/edit/${product.id}`}
-                                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:border-[#4F46E5] hover:text-[#4F46E5]"
+                                            className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm opacity-100 md:opacity-0 group-hover:opacity-100 transition-all hover:border-[#4F46E5] hover:text-[#4F46E5]"
                                         >
                                             <ArrowUpRight className="w-4 h-4" />
                                         </Link>
@@ -173,7 +173,7 @@ const Dashboard = () => {
                 {/* Right Side Column */}
                 <div className="space-y-8">
                     {/* Feature Highlight Card */}
-                    <div className="bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[#4F46E5]/30">
+                    <div className="bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] rounded-[2rem] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl shadow-[#4F46E5]/30">
                         <div className="relative z-10 h-full flex flex-col justify-between">
                             <div>
                                 <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
@@ -196,7 +196,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* System Status / Health */}
-                    <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
+                    <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-gray-100 shadow-sm">
                         <h4 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Connection Health</h4>
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">

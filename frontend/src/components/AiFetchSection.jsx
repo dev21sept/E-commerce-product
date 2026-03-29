@@ -192,7 +192,7 @@ const AiFetchSection = ({ onDataFetched }) => {
     };
 
     return (
-        <div className="card p-8 space-y-8 animate-in fade-in duration-300">
+        <div className="card p-4 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-300">
             <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-full bg-[#4F46E5]/10 flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-[#4F46E5]" />
@@ -203,7 +203,7 @@ const AiFetchSection = ({ onDataFetched }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
                 <div className="space-y-6">
                     <div>
                         <label className="form-label uppercase tracking-widest text-[11px] font-bold text-gray-400 mb-3 block">1. Product Media Sources</label>
@@ -227,14 +227,14 @@ const AiFetchSection = ({ onDataFetched }) => {
                                     )}
                                 </div>
                             ))}
-                            <div className="flex flex-wrap gap-4 pt-1">
-                                <button onClick={handleAddUrlField} className="text-xs font-bold text-[#4F46E5] flex items-center gap-1.5 hover:underline">
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+                                <button onClick={handleAddUrlField} className="text-[11px] font-bold text-[#4F46E5] flex items-center gap-1.5 hover:underline">
                                     <Plus className="w-3.5 h-3.5" /> Add URL
                                 </button>
-                                <button onClick={handleFetchEbayData} className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 hover:underline">
+                                <button onClick={handleFetchEbayData} className="text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 hover:underline">
                                     <ImageIcon className="w-3.5 h-3.5" /> Get Images from eBay Link
                                 </button>
-                                <button onClick={handleClearAll} className="text-xs font-bold text-rose-600 flex items-center gap-1.5 ml-auto hover:underline">
+                                <button onClick={handleClearAll} className="text-[11px] font-bold text-rose-600 flex items-center gap-1.5 sm:ml-auto hover:underline">
                                     <Trash2 className="w-3.5 h-3.5" /> Clear All
                                 </button>
                             </div>
@@ -261,7 +261,7 @@ const AiFetchSection = ({ onDataFetched }) => {
                             </div>
 
                             {localPreviews.length > 0 && (
-                                <div className="grid grid-cols-4 gap-3 mt-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
                                     {localPreviews.map((src, idx) => (
                                         <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                                             <img src={src} alt="" className="w-full h-full object-cover" />
@@ -276,11 +276,11 @@ const AiFetchSection = ({ onDataFetched }) => {
                     </div>
 
                     {/* MOVED: Description Style Selection */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                    <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
                         <label className="form-label text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5" /> 2. Choose Description Template
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {Object.keys(templateMeta).map(style => (
                                 <button
                                     key={style}
@@ -301,15 +301,52 @@ const AiFetchSection = ({ onDataFetched }) => {
                                 </button>
                             ))}
                         </div>
+
+                        {/* Template Editor Box - MOVED HERE */}
+                        <div className="space-y-4 pt-4 border-t border-gray-50">
+                            <label className="form-label text-[11px] font-bold text-gray-400 uppercase tracking-wider flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                <span className="flex items-center gap-2">
+                                    <Edit3 className="w-3.5 h-3.5" />  Edit AI Layout Instructions
+                                </span>
+                                <span className="text-[10px] text-indigo-400 font-normal normal-case">Modify text below to change how AI writes</span>
+                            </label>
+                            <div className="relative group">
+                                <textarea
+                                    value={customTemplates[descriptionStyle]}
+                                    onChange={(e) => setCustomTemplates({...customTemplates, [descriptionStyle]: e.target.value})}
+                                    className="w-full bg-indigo-50/30 p-4 rounded-2xl border border-indigo-100 font-mono text-[10px] text-indigo-900 leading-relaxed min-h-[160px] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all outline-none resize-none scrollbar-thin scrollbar-thumb-indigo-100"
+                                    placeholder="Enter custom instructions for the AI here..."
+                                />
+                                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="bg-indigo-600 text-white text-[9px] px-2 py-1 rounded-md font-bold shadow-sm flex items-center gap-1">
+                                        <Zap className="w-2.5 h-2.5" /> AI TEMPLATE EDITOR
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Legend / Helper for user */}
+                            <div className="flex gap-4 px-2">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase">Fixed Label (Head)</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.4)]"></div>
+                                    <span className="text-[9px] font-bold text-indigo-500 uppercase italic">Dynamic data: {"{Value}"}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div className="space-y-6">
-                    <label className="form-label uppercase tracking-widest text-[11px] font-bold text-gray-400 mb-3 block">2. Analyze & Populate</label>
-                    <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100 space-y-5">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="form-label text-xs">Product Condition</label>
+                    <label className="form-label uppercase tracking-widest text-[11px] font-bold text-gray-400 mb-3 block">3. Analyze & Populate</label>
+                    <div className="bg-gray-50/50 p-4 md:p-6 rounded-2xl border border-gray-100 space-y-5">
+                        <div className="space-y-1">
+                            <label className="form-label text-[11px] font-bold text-gray-400 uppercase tracking-wider">1. Basic Info</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="form-label text-xs">Product Condition</label>
                                 <select 
                                     value={condition}
                                     onChange={(e) => setCondition(e.target.value)}
@@ -356,13 +393,13 @@ const AiFetchSection = ({ onDataFetched }) => {
                                 </select>
                             </div>
                         </div>
+                    </div>
 
                         
-                        {/* Title Priority Selection (Draggable) */}
                         <div className="space-y-4 pt-2">
-                            <label className="form-label text-[11px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
-                                <span>1. Build Title Format <span className="text-[10px] font-normal lowercase">(Click to add, Drag to reorder)</span></span>
-                                {titleStructure.length > 0 && <button onClick={() => setTitleStructure([])} className="text-rose-500 hover:text-rose-600">Clear</button>}
+                            <label className="form-label text-[11px] font-bold text-gray-400 uppercase tracking-wider flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                <span>2. Build Title Format <span className="text-[10px] font-normal lowercase">(Click to add, Drag to reorder)</span></span>
+                                {titleStructure.length > 0 && <button onClick={() => setTitleStructure([])} className="text-rose-500 hover:text-rose-600 text-[10px]">Clear</button>}
                             </label>
                             
                             <div className="flex flex-wrap gap-2">
@@ -399,40 +436,6 @@ const AiFetchSection = ({ onDataFetched }) => {
                             </div>
                         </div>
 
-                        {/* Template Editor Box */}
-                        <div className="space-y-4 pt-2">
-                            <label className="form-label text-[11px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
-                                <span className="flex items-center gap-2">
-                                    <Edit3 className="w-3.5 h-3.5" /> 3. Edit AI Layout Instructions
-                                </span>
-                                <span className="text-[10px] text-indigo-400 font-normal normal-case">Modify text below to change how AI writes</span>
-                            </label>
-                            <div className="relative group">
-                                <textarea
-                                    value={customTemplates[descriptionStyle]}
-                                    onChange={(e) => setCustomTemplates({...customTemplates, [descriptionStyle]: e.target.value})}
-                                    className="w-full bg-indigo-50/30 p-4 rounded-2xl border border-indigo-100 font-mono text-[10px] text-indigo-900 leading-relaxed min-h-[160px] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300 transition-all outline-none resize-none scrollbar-thin scrollbar-thumb-indigo-100"
-                                    placeholder="Enter custom instructions for the AI here..."
-                                />
-                                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <div className="bg-indigo-600 text-white text-[9px] px-2 py-1 rounded-md font-bold shadow-sm flex items-center gap-1">
-                                        <Zap className="w-2.5 h-2.5" /> AI TEMPLATE EDITOR
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Legend / Helper for user */}
-                            <div className="flex gap-4 px-2">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase">Fixed Label (Head)</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(79,70,229,0.4)]"></div>
-                                    <span className="text-[9px] font-bold text-indigo-500 uppercase italic">Dynamic data: {"{Value}"}</span>
-                                </div>
-                            </div>
-                        </div>
                         
                         <button 
                             onClick={handleAnalyze}

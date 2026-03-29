@@ -88,15 +88,15 @@ const ProductList = () => {
                     <h1 className="text-2xl font-bold text-gray-900">Products</h1>
                     <p className="text-gray-500 mt-1">Manage your eBay product inventory.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <button
                         onClick={handleEbayConnect}
-                        className="flex items-center gap-2 bg-[#0053a0] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#004080] transition-all shadow-md active:scale-95"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#0053a0] text-white px-4 md:px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#004080] transition-all shadow-md active:scale-95"
                     >
                         <Link2 className="w-4 h-4" />
                         Connect eBay
                     </button>
-                    <Link to="/products/add" className="btn-primary">
+                    <Link to="/products/add" className="flex-1 sm:flex-none btn-primary justify-center">
                         <Plus className="w-5 h-5" />
                         Add Product
                     </Link>
@@ -104,8 +104,8 @@ const ProductList = () => {
             </div>
 
             <div className="card overflow-hidden">
-                <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
-                    <div className="relative flex-1 max-w-md">
+                <div className="p-4 md:p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
+                    <div className="relative flex-1 w-full md:max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                             type="text"
@@ -117,38 +117,38 @@ const ProductList = () => {
                     </div>
                     
                     {/* Source Filter Buttons */}
-                    <div className="flex p-1 bg-gray-100 rounded-xl w-fit self-start md:self-center">
+                    <div className="flex p-1 bg-gray-100 rounded-xl w-full md:w-fit overflow-x-auto no-scrollbar">
                         <button
                             onClick={() => setSourceFilter('all')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                                 sourceFilter === 'all' 
                                     ? 'bg-white text-gray-900 shadow-sm' 
                                     : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
-                            All Products
+                            All
                         </button>
                         <button
                             onClick={() => setSourceFilter('ebay')}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                                 sourceFilter === 'ebay' 
                                     ? 'bg-white text-blue-600 shadow-sm' 
                                     : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
                             <Link2 className="w-3.5 h-3.5" />
-                            eBay Imports
+                            eBay
                         </button>
                         <button
                             onClick={() => setSourceFilter('ai')}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                                 sourceFilter === 'ai' 
                                     ? 'bg-white text-emerald-600 shadow-sm' 
                                     : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
                             <Sparkles className="w-3.5 h-3.5" />
-                            AI Listings
+                            AI
                         </button>
                     </div>
                 </div>
@@ -282,17 +282,17 @@ const ProductList = () => {
             {previewProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                        <div className="p-4 md:p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                             <div>
-                                <h2 className="text-xl font-bold text-gray-900">Preview eBay Listing</h2>
-                                <p className="text-xs text-gray-500 mt-1">Check details before publishing to eBay</p>
+                                <h2 className="text-lg md:text-xl font-bold text-gray-900">Preview eBay Listing</h2>
+                                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">Check details before publishing to eBay</p>
                             </div>
-                            <button onClick={() => setPreviewProduct(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">&times;</button>
+                            <button onClick={() => setPreviewProduct(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors font-bold">&times;</button>
                         </div>
 
-                        <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
-                            <div className="flex gap-6">
-                                <div className="w-32 h-32 rounded-2xl bg-gray-100 overflow-hidden border border-gray-100 shrink-0">
+                        <div className="p-4 md:p-6 max-h-[70vh] overflow-y-auto space-y-6">
+                            <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
+                                <div className="w-full sm:w-32 aspect-square sm:h-32 rounded-2xl bg-gray-100 overflow-hidden border border-gray-100 shrink-0">
                                     {previewProduct.images?.[0] ? (
                                         <img src={previewProduct.images[0]} alt="" className="w-full h-full object-cover" />
                                     ) : (
@@ -302,12 +302,12 @@ const ProductList = () => {
                                     )}
                                 </div>
                                 <div className="space-y-3">
-                                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{previewProduct.title}</h3>
+                                    <h3 className="text-base md:text-lg font-bold text-gray-900 leading-tight">{previewProduct.title}</h3>
                                     <div className="flex flex-wrap gap-2">
                                         <span className="px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md uppercase tracking-wider">{previewProduct.brand || 'No Brand'}</span>
                                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md uppercase tracking-wider">{previewProduct.category || 'General'}</span>
                                     </div>
-                                    <div className="text-2xl font-black text-gray-900">${previewProduct.selling_price}</div>
+                                    <div className="text-xl md:text-2xl font-black text-gray-900">${previewProduct.selling_price}</div>
                                 </div>
                             </div>
 
@@ -352,11 +352,11 @@ const ProductList = () => {
                                                     <Filter className="w-4 h-4 text-indigo-600" />
                                                     Item Specifics (Aspects)
                                                 </h4>
-                                                <div className="grid grid-cols-2 gap-2">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                     {Object.entries(itemAspects).map(([key, value]) => (
-                                                        <div key={key} className="flex justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 text-[11px]">
-                                                            <span className="text-gray-500 font-medium capitalize">{key}:</span>
-                                                            <span className="text-gray-900 font-bold">{Array.isArray(value) ? value.join(', ') : value}</span>
+                                                        <div key={key} className="flex justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 text-[11px] gap-4">
+                                                            <span className="text-gray-500 font-medium capitalize shrink-0">{key}:</span>
+                                                            <span className="text-gray-900 font-bold text-right truncate">{Array.isArray(value) ? value.join(', ') : value}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -422,10 +422,10 @@ const ProductList = () => {
                             )}
                         </div>
 
-                        <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                        <div className="p-4 md:p-6 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
                             <button
                                 onClick={() => setPreviewProduct(null)}
-                                className="flex-1 px-6 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                                className="order-2 sm:order-1 flex-1 px-6 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
                             >
                                 Cancel
                             </button>
@@ -434,10 +434,10 @@ const ProductList = () => {
                                     handleSendToEbay(previewProduct);
                                     setPreviewProduct(null);
                                 }}
-                                className="flex-[2] px-6 py-3 rounded-2xl bg-[#0053a0] font-bold text-white hover:bg-[#004080] transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                                className="order-1 sm:order-2 flex-[2] px-6 py-3 rounded-2xl bg-[#0053a0] font-bold text-white hover:bg-[#004080] transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
                             >
-                                <ExternalLink className="w-5 h-5" />
-                                Everything is Correct - Fill on eBay
+                                <ExternalLink className="w-5 h-5 shrink-0" />
+                                <span className="text-sm md:text-base">Everything is Correct - Fill on eBay</span>
                             </button>
                         </div>
                         <div className="px-6 pb-4 bg-gray-50/50 text-center">

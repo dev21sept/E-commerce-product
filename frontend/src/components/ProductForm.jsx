@@ -136,14 +136,14 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 pb-20">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8 pb-20">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
 
                 {/* Left Column - Main Details */}
                 <div className="lg:col-span-2 space-y-6">
 
                     {/* Product Title */}
-                    <div className="card p-8">
+                    <div className="card p-4 md:p-8">
                         <h3 className="text-lg font-bold text-gray-900 mb-6">Product Information</h3>
                         <div className="space-y-4">
                             <div>
@@ -172,7 +172,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* Item description UI Section (Visual Editor) */}
-                    <div className="card p-8">
+                    <div className="card p-4 md:p-8">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-900">
                                 Product Description
@@ -184,7 +184,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
 
                         <div
                             contentEditable={true}
-                            className="form-input min-h-[300px] p-6 bg-white overflow-y-auto focus:ring-2 focus:ring-[#4F46E5]/20 focus:outline-none cursor-text prose prose-sm max-w-none"
+                            className="form-input min-h-[250px] md:min-h-[300px] p-4 md:p-6 bg-white overflow-y-auto focus:ring-2 focus:ring-[#4F46E5]/20 focus:outline-none cursor-text prose prose-sm max-w-none"
                             onBlur={(e) => {
                                 setFormData(prev => ({ ...prev, description: e.target.innerHTML }));
                             }}
@@ -201,7 +201,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
 
 
                     {/* Item Specifics */}
-                    <div className="card p-8">
+                    <div className="card p-4 md:p-8">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold text-gray-900">Item Specifics</h3>
                             <button type="button" onClick={handleAddSpecific} className="text-[#4F46E5] text-sm font-bold flex items-center gap-1 hover:underline">
@@ -233,7 +233,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* Media Gallery */}
-                    <div className="card p-8">
+                    <div className="card p-4 md:p-8">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold text-gray-900">Product Images</h3>
                             <div className="flex gap-2">
@@ -269,7 +269,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* YouTube/Video Link */}
-                    <div className="card p-8">
+                    <div className="card p-4 md:p-8">
                         <div className="flex items-center gap-2 mb-6">
                             <Sparkles className="w-5 h-5 text-[#4F46E5]" />
                             <h3 className="text-lg font-bold text-gray-900">Product Video</h3>
@@ -297,7 +297,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                 <div className="space-y-6">
 
                     {/* Category & Condition */}
-                    <div className="card p-6">
+                    <div className="card p-4 md:p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Category & Condition</h3>
                         <div className="space-y-4">
                             <div>
@@ -330,7 +330,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* Pricing */}
-                    <div className="card p-6">
+                    <div className="card p-4 md:p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Pricing</h3>
                         <div className="space-y-4">
                             <div>
@@ -373,7 +373,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* Organization */}
-                    <div className="card p-6">
+                    <div className="card p-4 md:p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Organization</h3>
                         <div className="space-y-4">
                             <div>
@@ -391,7 +391,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* Variations */}
-                    <div className="card p-6">
+                    <div className="card p-4 md:p-6">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-900">Attributes</h3>
                             <button type="button" onClick={handleAddVariation} className="text-[#4F46E5] text-xs font-bold flex items-center gap-1 hover:underline">
@@ -445,7 +445,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* Seller Info */}
-                    <div className="card p-6">
+                    <div className="card p-4 md:p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">About this Seller</h3>
                         <div className="space-y-3">
                             <div className="flex items-center gap-3">
@@ -474,10 +474,10 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
                         <button
                             type="submit"
-                            className="flex-1 btn-primary py-4 text-lg font-bold shadow-xl shadow-[#4F46E5]/20 flex items-center justify-center gap-2"
+                            className="flex-1 btn-primary py-4 text-base md:text-lg font-bold shadow-xl shadow-[#4F46E5]/20 flex items-center justify-center gap-2"
                         >
                             {initialData ? 'Update Product' : 'Save Product'}
                         </button>
@@ -490,10 +490,10 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                                 }, "*");
                                 alert('Data sent to eBay Extension!');
                             }}
-                            className="px-8 bg-indigo-50 text-[#4F46E5] font-bold rounded-2xl border border-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
+                            className="flex-1 px-8 py-4 bg-indigo-50 text-[#4F46E5] font-bold rounded-2xl border border-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
                             title="Send to eBay Extension"
                         >
-                            <ExternalLink className="w-5 h-5" />
+                            <ExternalLink className="w-5 h-5 shrink-0" />
                             List on eBay
                         </button>
                     </div>

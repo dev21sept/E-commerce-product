@@ -98,43 +98,43 @@ const AddProduct = () => {
     };
 
     return (
-        <div className="space-y-8 animate-in slide-in-from-bottom duration-500 max-w-7xl mx-auto px-4 pb-20">
-            <div className="flex items-end justify-between">
+        <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom duration-500 max-w-7xl mx-auto md:px-4 pb-20">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Add New Product</h1>
-                    <p className="text-gray-500 mt-1 font-medium italic">Select a method to import product details automatically.</p>
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Add Product</h1>
+                    <p className="text-gray-400 mt-1 font-medium italic text-sm">Select import method to automate details.</p>
                 </div>
             </div>
 
             {/* Fetch Method Selector */}
-            <div className="flex gap-4 p-1.5 bg-gray-100 rounded-2xl w-fit">
+            <div className="flex p-1 bg-gray-100 rounded-2xl w-full sm:w-fit">
                 <button
                     onClick={() => handleMethodSwitch('ebay')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all transition-duration-300 ${
                         fetchMethod === 'ebay' 
                             ? 'bg-white text-[#4F46E5] shadow-sm ring-1 ring-black/5' 
                             : 'text-gray-500 hover:text-gray-700'
                     }`}
                 >
-                    <LinkIcon className="w-4 h-4" />
-                    eBay Link Fetch
+                    <LinkIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    eBay Link
                 </button>
                 <button
                     onClick={() => handleMethodSwitch('ai')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all transition-duration-300 ${
                         fetchMethod === 'ai' 
                             ? 'bg-white text-[#4F46E5] shadow-sm ring-1 ring-black/5' 
                             : 'text-gray-500 hover:text-gray-700'
                     }`}
                 >
-                    <Sparkles className="w-4 h-4" />
-                    AI Fetching
+                    <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    AI Fetch
                 </button>
             </div>
 
             {/* eBay Import Tool - Conditional */}
             {fetchMethod === 'ebay' && (
-                <div className="card border-[#4F46E5]/20 bg-[#4F46E5]/[0.02] p-8 animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="card border-[#4F46E5]/20 bg-[#4F46E5]/[0.02] p-4 md:p-8 animate-in fade-in slide-in-from-top-4 duration-300">
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 relative">
                             <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -149,11 +149,11 @@ const AddProduct = () => {
                         <button
                             onClick={handleFetchEbay}
                             disabled={isFetching}
-                            className="btn-primary shrink-0"
+                            className="btn-primary shrink-0 justify-center h-[54px]"
                         >
                             {isFetching ? 'Fetching...' : (
                                 <>
-                                    <Sparkles className="w-5 h-5" />
+                                    <Sparkles className="w-5 h-5 shrink-0" />
                                     Import from eBay
                                 </>
                             )}
