@@ -150,8 +150,8 @@ const AiFetchSection = ({ onDataFetched }) => {
             return;
         }
 
-        if (titleStructure.length < 3) {
-            setMessage({ type: 'error', text: 'Please select at least 3 fields for Title Priority before analyzing.' });
+        if (titleStructure.length === 0) {
+            setMessage({ type: 'error', text: 'Please select at least 1 field for Title Priority before analyzing.' });
             return;
         }
 
@@ -398,7 +398,7 @@ const AiFetchSection = ({ onDataFetched }) => {
                         
                         <div className="space-y-4 pt-2">
                             <label className="form-label text-[11px] font-bold text-gray-400 uppercase tracking-wider flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                                <span>2. Build Title Format <span className="text-[10px] font-normal lowercase">(Click to add, Drag to reorder)</span></span>
+                                <span>2. Build Title Format <span className="text-[10px] font-normal lowercase">(Click to add, Drag items to prioritize)</span></span>
                                 {titleStructure.length > 0 && <button onClick={() => setTitleStructure([])} className="text-rose-500 hover:text-rose-600 text-[10px]">Clear</button>}
                             </label>
                             
@@ -409,7 +409,7 @@ const AiFetchSection = ({ onDataFetched }) => {
                                         onClick={() => toggleTitleOption(opt)}
                                         className={`px-3 py-1.5 rounded-full text-[10px] font-black transition-all border ${
                                             titleStructure.includes(opt)
-                                                ? 'bg-[#4F46E5] text-white border-[#4F46E5]'
+                                                ? 'bg-[#4F46E5] text-white border-[#4F46E5] shadow-sm'
                                                 : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'
                                         }`}
                                     >
@@ -420,15 +420,19 @@ const AiFetchSection = ({ onDataFetched }) => {
                             
                             {/* Sequence Reorderer */}
                             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase">Selected Order:</p>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase">Selected Order (Top item starts the title):</p>
                                 {titleStructure.length === 0 ? (
                                     <div className="py-2 text-center text-xs text-gray-400 italic">No fields selected yet.</div>
                                 ) : (
                                     <Reorder.Group axis="y" values={titleStructure} onReorder={setTitleStructure} className="space-y-2">
                                         {titleStructure.map((item, idx) => (
-                                            <Reorder.Item key={item} value={item} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-200 transition-colors">
+                                            <Reorder.Item key={item} value={item} className={`flex items-center gap-3 bg-white p-3 rounded-xl border shadow-sm cursor-grab active:cursor-grabbing transition-colors ${idx === 0 ? 'border-indigo-400 ring-1 ring-indigo-100' : 'border-gray-100 hover:border-indigo-200'}`}>
+                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                                    {idx + 1}
+                                                </div>
                                                 <GripVertical className="w-4 h-4 text-gray-300" />
-                                                <span className="text-xs font-bold text-gray-700">{idx + 1}. {item}</span>
+                                                <span className={`text-xs font-bold ${idx === 0 ? 'text-indigo-900' : 'text-gray-700'}`}>{item}</span>
+                                                {idx === 0 && <span className="text-[9px] font-bold text-indigo-500 uppercase ml-auto">Title Start</span>}
                                             </Reorder.Item>
                                         ))}
                                     </Reorder.Group>

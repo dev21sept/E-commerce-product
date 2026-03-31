@@ -36,7 +36,7 @@ exports.analyzeProductImage = async (req, res) => {
             return res.status(400).json({ error: 'No images provided for analysis.' });
         }
 
-        const structure = (titleStructure && Array.isArray(titleStructure) && titleStructure.length >= 3) 
+        const structure = (titleStructure && Array.isArray(titleStructure) && titleStructure.length > 0) 
             ? titleStructure 
             : ['Brand', 'Product Type', 'Gender / Department', 'Size', 'Color'];
 
@@ -72,7 +72,7 @@ exports.analyzeProductImage = async (req, res) => {
    <strong>🛡️ CONDITION & QUALITY ASSURANCE</strong>: State condition as "${condition || 'New'}". Mention our 10-point quality check.
    <strong>🚛 SHIPPING & SERVICE</strong>: Professional trust-building blurb.
    <strong>🌟 ABOUT THE BRAND</strong>: A short paragraph about the brand's heritage.
-
+ 
    Use professional, persuasive sales language. NO symbols like **. ONLY use <strong> tags.`;
 
         // If no custom text was provided, we use the predefined styles if selected
@@ -131,7 +131,7 @@ exports.analyzeProductImage = async (req, res) => {
             messages: [
                 {
                     role: "system",
-                    content: "You are a world-class eBay SEO expert. Your primary goal is 100% accurate product identification and categorization, followed by detailed copywriting. Zero tolerance for misidentifying basic items like T-Shirts vs Shirts."
+                    content: "You are a world-class eBay SEO expert. You are a master at identifying eBay-standard item specifics for any category. Your primary goal is 100% accurate product identification and categorization, followed by extremely detailed copywriting. Zero tolerance for misidentifying basic items like T-Shirts vs Shirts."
                 },
                 {
                     role: "user",
@@ -141,14 +141,15 @@ exports.analyzeProductImage = async (req, res) => {
                             text: `Analyze these product images carefully to provide a comprehensive eBay listing:
 1. Category - Complete hierarchical eBay category path.
 2. Title - Professional, keyword-rich SEO title (Exactly <= 80 chars). 
-   (STRICT REQUIREMENT: Use these product fields in this exact order: ${structure.join(', ')}. 
-    Use only SINGLE SPACES to separate words. DO NOT use arrows (->), dashes, or special symbols.
-    Desired Style Examples:
-    - "Nike Air Mens Max 200 Bordeaux Black Mens Athletic Sneakers Size 10 AQ2568-001"
-    - "Cynthia Rowley Womens White Botanical Leaf Print Linen Cap Sleeve Tee Size Large"
-    - "Talbots Womens Brown High Rise Comfort Corduroy Straight Leg Pants Size 12P")
+   (CRITICAL STRICT REQUIREMENT: You MUST build the title by placing these fields in this EXACT LEFT-TO-RIGHT sequence: ${structure.join(', ')}. 
+    Do NOT combine fields like Brand and Model if the sequence says otherwise. 
+    If you see 'Material' before 'Brand' in my list, you MUST put 'Material' before 'Brand' in the title. 
+    Use only SINGLE SPACES to separate words. DO NOT use arrows (->), dashes, or special symbols.)
 3. ${descriptionInstruction}
-4. Item Specifics (Aspects) - A massive JSON object. OMIT any NULL or UNKNOWN values. Maximize relevant attributes (25-30).
+4. Item Specifics (Aspects) - An extensive JSON object. 
+   (STRICT REQUIREMENT: Identify the eBay-standard attribute names for the detected category and use them. 
+    Maximize detail by including at least 30-35 attributes like Brand, MPN, Theme, Occasion, Accents, Performance/Activity, Material, Fit, Style, Color, Pattern, etc. 
+    OMIT any NULL, UNKNOWN, or 'N/A' values. DO NOT guess if not visible in photo).
 5. Price - Real-world estimated market value.
 
 Context:
