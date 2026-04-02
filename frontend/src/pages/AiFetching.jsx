@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Sparkles, Image as ImageIcon, Upload, Loader2, Save, ExternalLink, Trash2, Edit3, DollarSign, CheckCircle2, X, Plus, GripVertical, FileText, Zap } from 'lucide-react';
 import { Reorder, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { fetchEbayProduct, analyzeProduct, saveAiListing } from '../services/api';
 
 const AiFetching = () => {
     // Media States
@@ -113,8 +114,7 @@ const AiFetching = () => {
         setMessage({ type: 'info', text: 'Fetching product data from eBay...' });
 
         try {
-            const response = await axios.post('http://localhost:5000/api/fetch-ebay-product', { url });
-            const data = response.data;
+            const data = await fetchEbayProduct(url);
 
             if (data.images && data.images.length > 0) {
                 setImageUrls(data.images);
@@ -168,16 +168,16 @@ const AiFetching = () => {
         setAiResult(null);
 
         try {
-            const response = await axios.post('http://localhost:5000/api/ai/analyze-product', {
+            const result = await analyzeProduct({
                 images: allImages,
                 condition,
                 gender,
                 titleStructure,
                 descriptionStyle
             });
-
-            if (response.data.success) {
-                setAiResult(response.data.data);
+            
+            if (result.success) {
+                setAiResult(result.data);
                 setMessage({ type: 'success', text: `AI analysis complete using ${allImages.length} images!` });
             } else {
                 setMessage({ type: 'error', text: 'AI analysis failed.' });
@@ -208,12 +208,12 @@ const AiFetching = () => {
                 selling_price: aiResult.selling_price
             };
 
-            const response = await axios.post('http://localhost:5000/api/ai/save-listing', dataToSave);
+            const response = await saveAiListing(dataToSave);
             
-            if (response.data.duplicate) {
+            if (response.duplicate) {
                 const shouldOverwrite = window.confirm('Product with these images already exists! Update existing listing instead?');
                 if (shouldOverwrite) {
-                    await axios.post('http://localhost:5000/api/ai/save-listing', { ...dataToSave, overwrite: true });
+                    await saveAiListing({ ...dataToSave, overwrite: true });
                     setMessage({ type: 'success', text: 'Existing listing updated successfully!' });
                 } else {
                     setMessage({ type: 'error', text: 'Save cancelled: Duplicate found.' });
@@ -221,7 +221,7 @@ const AiFetching = () => {
                 return;
             }
 
-            if (response.data.success) {
+            if (response.success) {
                 setMessage({ type: 'success', text: 'Listing saved to MongoDB successfully!' });
             }
         } catch (error) {
@@ -398,12 +398,15 @@ const AiFetching = () => {
                                         <option>For parts or not working</option>
                                     </optgroup>
                                     <optgroup label="Clothing, Shoes & Accessories">
+                                        <option>New with box</option>
+                                        <option>New without box</option>
                                         <option>New with tags</option>
                                         <option>New without tags</option>
+                                        <option>New with defects</option>
                                         <option>New with imperfections</option>
-                                        <option>Pre-owned: Excellent</option>
-                                        <option>Pre-owned: Good</option>
-                                        <option>Pre-owned: Fair</option>
+                                        <option>Pre-owned - Excellent</option>
+                                        <option>Pre-owned - Good</option>
+                                        <option>Pre-owned - Fair</option>
                                     </optgroup>
                                     <optgroup label="Electronics, Home & Industrial">
                                         <option>Certified - Refurbished</option>

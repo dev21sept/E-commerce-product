@@ -9,7 +9,8 @@ window.addEventListener("message", (event) => {
     } catch (error) {
         return;
     }
-    if (!["localhost", "127.0.0.1"].includes(originUrl.hostname)) return;
+    // Allowing all origins for the data transmission (Needed for Railway deployments)
+    // if (!["localhost", "127.0.0.1"].includes(originUrl.hostname)) return;
     if (!event.data || event.data.type !== "EbayAutoLister_SendData") return;
     
     console.log("[eBay AutoLister] 🎯 Message RECEIVED from Frontend:", event.data.type);

@@ -362,12 +362,14 @@ const AiFetchSection = ({ onDataFetched }) => {
                                         <option>For parts or not working</option>
                                     </optgroup>
                                     <optgroup label="Clothing, Shoes & Accessories">
+                                        <option>New with box</option>
+                                        <option>New without box</option>
                                         <option>New with tags</option>
                                         <option>New without tags</option>
-                                        <option>New with imperfections</option>
-                                        <option>Pre-owned: Excellent</option>
-                                        <option>Pre-owned: Good</option>
-                                        <option>Pre-owned: Fair</option>
+                                        <option>New with defects</option>
+                                        <option>Pre-owned - Excellent</option>
+                                        <option>Pre-owned - Good</option>
+                                        <option>Pre-owned - Fair</option>
                                     </optgroup>
                                     <optgroup label="Electronics, Home & Industrial">
                                         <option>Certified - Refurbished</option>

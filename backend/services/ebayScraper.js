@@ -41,7 +41,7 @@ const fetchEbayProduct = async (url) => {
             const price = getText('.x-price-primary') || getText('#prcIsum') || getText('.x-bin-price__content');
 
             // ---- CONDITION ----
-            const condition = getText('.x-item-condition-text .ux-textual-display') ||
+            let condition = getText('.x-item-condition-text .ux-textual-display') ||
                 getText('.x-item-condition-text') ||
                 getText('.x-additional-info__textual-display') ||
                 getText('#itemCond') ||
@@ -90,6 +90,11 @@ const fetchEbayProduct = async (url) => {
             });
 
             const brand = item_specifics['Brand'] || '';
+            
+            // Re-check condition from item specifics if not found at top level
+            if (!condition) {
+                condition = item_specifics['Condition'] || item_specifics['Condition Name'] || '';
+            }
 
             // ---- DESCRIPTION (placeholder) ----
             let description = '';
