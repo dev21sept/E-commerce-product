@@ -29,8 +29,8 @@ exports.analyzeProductImage = async (req, res) => {
             return res.status(500).json({ error: 'OpenAI API key is missing. Please contact administrator.' });
         }
         
-        const { images, condition, gender, titleStructure, descriptionStyle, customTemplateText } = req.body;
-        console.log(`Analyzing ${images ? images.length : 0} images. Condition: ${condition}, Gender: ${gender}, Title Structure: ${titleStructure ? titleStructure.join(' -> ') : 'Default'}, Styling: ${descriptionStyle || 'AI Generated'}`);
+        const { images, condition, gender, titleStructure, descriptionStyle, customTemplateText, platform = 'ebay' } = req.body;
+        console.log(`Analyzing for ${platform.toUpperCase()}. ${images ? images.length : 0} images. Condition: ${condition}, Gender: ${gender}, Title Structure: ${titleStructure ? titleStructure.join(' -> ') : 'Default'}, Styling: ${descriptionStyle || 'AI Generated'}`);
 
         if (!images || !Array.isArray(images) || images.length === 0) {
             console.log('Error: Empty or missing images array');
@@ -128,20 +128,22 @@ exports.analyzeProductImage = async (req, res) => {
         }
 
         // --- PHASE 1: CATEGORY IDENTIFICATION ---
-        console.log('--- Phase 1: Identifying Category ---');
+        console.log(`--- Phase 1: Identifying ${platform} Category ---`);
         const idResponse = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
                 {
                     role: "system",
-                    content: "You are an eBay categorization expert. Your ONLY task is to identify the accurate eBay leaf category path and numeric ID for the given product."
+                    content: `You are an expert in marketplace categorization for ${platform}. Your ONLY task is to identify the accurate category path for the given product.`
                 },
                 {
                     role: "user",
                     content: [
                         {
                             type: "text",
-                            text: "Identify the eBay hierarchical category path and numeric Leaf Category ID for this product. Return your response ONLY as a JSON object with 'category' and 'category_id'. Keep it accurate."
+                            text: platform === 'ebay' 
+                                ? "Identify the eBay hierarchical category path and numeric Leaf Category ID for this product. Return your response ONLY as a JSON object with 'category' and 'category_id'. Keep it accurate."
+                                : `Identify the ${platform} category path for this product. Return your response ONLY as a JSON object with 'category'. Keep it accurate for ${platform}'s structure.`
                         },
                         ...imageContent
                     ]
@@ -153,12 +155,13 @@ exports.analyzeProductImage = async (req, res) => {
         const idData = JSON.parse(idResponse.choices[0].message.content);
         const categoryId = idData.category_id || idData.categoryId || '';
         const categoryPath = idData.category || '';
-        console.log(`✅ Phase 1 Result: Category ID ${categoryId} (${categoryPath})`);
+        console.log(`✅ Phase 1 Result (${platform}): Category ${categoryId ? 'ID ' + categoryId : ''} (${categoryPath})`);
 
-        // --- PHASE 2: FETCH OFFICIAL ASPECTS ---
+        // --- PHASE 2: FETCH OFFICIAL ASPECTS (EBAY ONLY) ---
         let officialAspects = [];
         let aspectNamesList = [];
-        if (categoryId) {
+        
+        if (platform === 'ebay' && categoryId) {
             try {
                 console.log(`--- Fetching official eBay aspects for Category: ${categoryId} ---`);
                 const appToken = await ebayApiService.getAppToken();
@@ -188,43 +191,48 @@ exports.analyzeProductImage = async (req, res) => {
                             });
                         }
                     });
-                    console.log(`✅ Successfully fetched ${officialAspects.length} official aspects.`);
+                    console.log(`✅ Successfully fetched ${officialAspects.length} official eBay aspects.`);
                 }
             } catch (aspectError) {
                 console.error('⚠️ Could not fetch eBay official aspects:', aspectError.message);
             }
         }
 
-        // If fetch failed, fallback to a basic list
+        // If not eBay or eBay fetch failed, use platform-specific fallback list
         if (aspectNamesList.length === 0) {
-            aspectNamesList = ['Brand', 'Type', 'Size', 'Color', 'Material', 'Condition', 'Country/Region of Manufacture', 'Country of Origin', 'Style', 'Pattern', 'Vintage', 'Season', 'Department', 'Theme'];
+            if (platform === 'poshmark') {
+                aspectNamesList = ['Brand', 'Size', 'Color', 'Style Tags (max 3)', 'Sub-category', 'Original Price', 'Condition'];
+            } else if (platform === 'vinted') {
+                aspectNamesList = ['Brand', 'Size', 'Condition', 'Color', 'Material', 'Style', 'Parcel Size'];
+            } else {
+                aspectNamesList = ['Brand', 'Type', 'Size', 'Color', 'Material', 'Condition', 'Country/Region of Manufacture', 'Country of Origin', 'Style', 'Pattern', 'Vintage', 'Season', 'Department', 'Theme'];
+            }
         }
 
         // --- PHASE 3: FULL ANALYSIS & DATA FILLING ---
-        console.log('--- Phase 3: Detailed AI Analysis (Filling Official Aspects) ---');
+        console.log(`--- Phase 3: Detailed AI Analysis for ${platform} ---`);
         const mainResponse = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
                 {
                     role: "system",
-                    content: "You are a world-class eBay SEO expert. You provide high-conversion listing data by filling official eBay aspects with 100% accuracy based on visual inspection."
+                    content: `You are a world-class ${platform} listing expert. You provide high-conversion listing data by filling product details with 100% accuracy based on visual inspection.`
                 },
                 {
                     role: "user",
                     content: [
                         {
                             type: "text",
-                            text: `Analyze these product images to generate a professional eBay listing.
+                            text: `Analyze these product images to generate a professional ${platform} listing.
                             
 1. Title - SE0 Title (Max 80 chars). Structure: ${structure.join(' -> ')}.
 2. ${descriptionInstruction}
-3. Item Specifics - YOU MUST FILL EVERY SINGLE ONE OF THESE ${aspectNamesList.length} OFFICIAL FIELDS. 
-   STRICT RULE: DO NOT SKIP ANY FIELD. If you omit even one field from the list, the system will fail. 
+3. Item Details - FILL EVERY FIELD LISTED BELOW. 
    FIELDS TO FILL: ${aspectNamesList.join(', ')}
    
    (STRICT REQUIREMENTS: 
-   - YOUR 'item_specifics' OBJECT MUST HAVE EXACTLY ${aspectNamesList.length} KEYS.
-   - If a value is unknown, use your expert product knowledge to provide the most common/standard industry value (e.g. 'Regular' for Fit, 'Standard' for Style). 
+   - YOUR 'item_specifics' OBJECT MUST HAVE EVERY FIELD LISTED ABOVE. 
+   - If a value is unknown, use your expert product knowledge to provide the most common/standard industry value. 
    - For Materials/Country of Origin, use high-confidence estimates based on visuals. 
    - NEVER leave a field empty or null.
    - Do NOT use brackets or 'N/A'.)
@@ -232,7 +240,8 @@ exports.analyzeProductImage = async (req, res) => {
 Context:
 - Gender: ${gender || 'N/A'}
 - Condition: ${condition || 'New'}
-- Category: ${categoryPath} (ID: ${categoryId})
+- Category: ${categoryPath} ${categoryId ? `(ID: ${categoryId})` : ''}
+- Platform: ${platform}
 
 Format your response STRICTLY as a JSON object: {
   "title": "",
@@ -280,7 +289,8 @@ Format your response STRICTLY as a JSON object: {
             description: rawAiData.description || '',
             item_specifics: cleanItemSpecifics,
             selling_price: rawAiData.selling_price || 0,
-            official_aspects: officialAspects
+            official_aspects: officialAspects,
+            target_platform: platform
         };
 
         console.log('Final AI Logic Result:', aiData);
@@ -333,6 +343,7 @@ exports.saveAiListing = async (req, res) => {
             ...listingData,
             ai_generated: true,
             source: 'ai',
+            target_platform: listingData.target_platform || 'ebay',
             created_at: new Date(),
             updated_at: new Date()
         });

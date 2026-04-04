@@ -13,6 +13,15 @@ const AiFetchSection = ({ onDataFetched }) => {
     const [gender, setGender] = useState('Male');
     const [titleStructure, setTitleStructure] = useState([]);
     const [descriptionStyle, setDescriptionStyle] = useState('AI Generated');
+    const [platform, setPlatform] = useState('ebay'); // 'ebay', 'poshmark', 'vinted'
+    
+    // Auto-reset condition when platform changes
+    React.useEffect(() => {
+        if (platform === 'poshmark') setCondition('New with tags (NWT)');
+        else if (platform === 'vinted') setCondition('Very good');
+        else setCondition('New');
+    }, [platform]);
+
     const [customTemplates, setCustomTemplates] = useState({
         'AI Generated': `Description - Generate a high-conversion eBay listing with a professional layout, product overview, key features, specifications, and shipping details.`,
         'Template 1': `{Title}\n\nPre-Owned In Great Condition.\n\nPlease refer to the photos for measurements.\n\nBrand: {Brand}\nSize: {Size}\nColor: {Color}\n\nSold as pictured. Thanks for looking!\nSKU: {SKU}`,
@@ -165,7 +174,8 @@ const AiFetchSection = ({ onDataFetched }) => {
                 gender,
                 titleStructure,
                 descriptionStyle,
-                customTemplateText: customTemplates[descriptionStyle]
+                customTemplateText: customTemplates[descriptionStyle],
+                platform
             });
 
             if (result.success) {
@@ -199,8 +209,30 @@ const AiFetchSection = ({ onDataFetched }) => {
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-gray-900 leading-tight">AI Vision Fetching</h3>
-                    <p className="text-xs text-gray-500 font-medium">Scan images and detect details automatically</p>
+                    <p className="text-xs text-gray-500 font-medium">Scan images and detect details for {platform === 'ebay' ? 'eBay' : platform === 'poshmark' ? 'Poshmark' : 'Vinted'}</p>
                 </div>
+            </div>
+
+            {/* Platform Selection */}
+            <div className="bg-[#4F46E5]/5 p-2 rounded-2xl border border-[#4F46E5]/10 flex flex-wrap gap-2">
+                {[
+                    { id: 'ebay', label: 'eBay', colors: 'from-[#0064D2] to-[#004B9B]' },
+                    { id: 'poshmark', label: 'Poshmark', colors: 'from-[#8D182E] to-[#6A1222]' },
+                    { id: 'vinted', label: 'Vinted', colors: 'from-[#09B1BA] to-[#078E95]' }
+                ].map(p => (
+                    <button
+                        key={p.id}
+                        onClick={() => setPlatform(p.id)}
+                        className={`flex-1 min-w-[120px] py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                            platform === p.id 
+                                ? 'bg-[#4F46E5] text-white shadow-md' 
+                                : 'bg-white text-gray-500 border border-gray-100 hover:border-indigo-200'
+                        }`}
+                    >
+                        {platform === p.id && <Sparkles className="w-3.5 h-3.5" />}
+                        {p.label}
+                    </button>
+                ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
@@ -231,9 +263,11 @@ const AiFetchSection = ({ onDataFetched }) => {
                                 <button onClick={handleAddUrlField} className="text-[11px] font-bold text-[#4F46E5] flex items-center gap-1.5 hover:underline">
                                     <Plus className="w-3.5 h-3.5" /> Add URL
                                 </button>
-                                <button onClick={handleFetchEbayData} className="text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 hover:underline">
-                                    <ImageIcon className="w-3.5 h-3.5" /> Get Images from eBay Link
-                                </button>
+                                {platform === 'ebay' && (
+                                    <button onClick={handleFetchEbayData} className="text-[11px] font-bold text-emerald-600 flex items-center gap-1.5 hover:underline">
+                                        <ImageIcon className="w-3.5 h-3.5" /> Get Images from eBay Link
+                                    </button>
+                                )}
                                 <button onClick={handleClearAll} className="text-[11px] font-bold text-rose-600 flex items-center gap-1.5 sm:ml-auto hover:underline">
                                     <Trash2 className="w-3.5 h-3.5" /> Clear All
                                 </button>
@@ -352,33 +386,46 @@ const AiFetchSection = ({ onDataFetched }) => {
                                     onChange={(e) => setCondition(e.target.value)}
                                     className="form-input text-sm"
                                 >
-                                    <optgroup label="General">
-                                        <option>New</option>
-                                        <option>New other (see details)</option>
-                                        <option>Open box</option>
-                                        <option>Used - Good</option>
-                                        <option>Used - Very Good</option>
-                                        <option>Used - Like New</option>
-                                        <option>For parts or not working</option>
-                                    </optgroup>
-                                    <optgroup label="Clothing, Shoes & Accessories">
-                                        <option>New with box</option>
-                                        <option>New without box</option>
-                                        <option>New with tags</option>
-                                        <option>New without tags</option>
-                                        <option>New with defects</option>
-                                        <option>Pre-owned - Excellent</option>
-                                        <option>Pre-owned - Good</option>
-                                        <option>Pre-owned - Fair</option>
-                                    </optgroup>
-                                    <optgroup label="Electronics, Home & Industrial">
-                                        <option>Certified - Refurbished</option>
-                                        <option>Excellent - Refurbished</option>
-                                        <option>Very Good - Refurbished</option>
-                                        <option>Good - Refurbished</option>
-                                        <option>Seller refurbished</option>
-                                        <option>Remanufactured</option>
-                                    </optgroup>
+                                    {platform === 'ebay' ? (
+                                        <>
+                                            <optgroup label="General">
+                                                <option>New</option>
+                                                <option>New other (see details)</option>
+                                                <option>Open box</option>
+                                                <option>Used - Good</option>
+                                                <option>Used - Very Good</option>
+                                                <option>Used - Like New</option>
+                                                <option>For parts or not working</option>
+                                            </optgroup>
+                                            <optgroup label="Clothing, Shoes & Accessories">
+                                                <option>New with box</option>
+                                                <option>New without box</option>
+                                                <option>New with tags</option>
+                                                <option>New without tags</option>
+                                                <option>New with defects</option>
+                                                <option>Pre-owned - Excellent</option>
+                                                <option>Pre-owned - Good</option>
+                                                <option>Pre-owned - Fair</option>
+                                            </optgroup>
+                                        </>
+                                    ) : platform === 'poshmark' ? (
+                                        <>
+                                            <option>NWT (New with tags)</option>
+                                            <option>NWOT (New without tags)</option>
+                                            <option>Like New</option>
+                                            <option>Good</option>
+                                            <option>Fair</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option>New with tags</option>
+                                            <option>New without tags</option>
+                                            <option>New with box</option>
+                                            <option>Very good</option>
+                                            <option>Good</option>
+                                            <option>Satisfactory</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                             <div>
