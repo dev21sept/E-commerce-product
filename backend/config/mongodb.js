@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 const path = require('path');
+const dns = require('dns');
+
+// Fix for querySrv ECONNREFUSED in restricted networks
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const connectMongoDB = async () => {

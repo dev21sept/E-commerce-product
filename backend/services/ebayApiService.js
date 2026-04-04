@@ -297,6 +297,24 @@ async function initDefaultReturnPolicy(token) {
     return res.data;
 }
 
+/**
+ * Gets Item Aspects for a specific Category from Taxonomy API
+ */
+async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0') {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_aspects_for_category?category_id=${categoryId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Error getting item aspects for category ${categoryId}:`, error.response?.data || error.message);
+        // Return null or empty instead of throwing to prevent breaking the flow
+        return null;
+    }
+}
+
 module.exports = {
     getAppToken,
     getUserConsentUrl,
@@ -311,5 +329,6 @@ module.exports = {
     getReturnPolicies,
     initDefaultFulfillmentPolicy,
     initDefaultPaymentPolicy,
-    initDefaultReturnPolicy
+    initDefaultReturnPolicy,
+    getItemAspectsForCategory
 };

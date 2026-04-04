@@ -1,5 +1,6 @@
 const { OpenAI } = require('openai');
 const Product = require('../models/Product');
+const ebayApiService = require('../services/ebayApiService');
 const path = require('path');
 
 // Dotenv is handled in index.js for the main app.
@@ -126,41 +127,117 @@ exports.analyzeProductImage = async (req, res) => {
             }
         }
 
-        const response = await openai.chat.completions.create({
+        // --- PHASE 1: CATEGORY IDENTIFICATION ---
+        console.log('--- Phase 1: Identifying Category ---');
+        const idResponse = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
                 {
                     role: "system",
-                    content: "You are a world-class eBay SEO expert. You are a master at identifying eBay-standard item specifics for any category. Your primary goal is 100% accurate product identification and categorization, followed by extremely detailed copywriting. Zero tolerance for misidentifying basic items like T-Shirts vs Shirts."
+                    content: "You are an eBay categorization expert. Your ONLY task is to identify the accurate eBay leaf category path and numeric ID for the given product."
                 },
                 {
                     role: "user",
                     content: [
                         {
                             type: "text",
-                            text: `Analyze these product images carefully to provide a comprehensive eBay listing:
-1. Category - Complete hierarchical eBay category path.
-2. Title - Professional, keyword-rich SEO title (Exactly <= 80 chars). 
-   (CRITICAL STRICT REQUIREMENT: You MUST build the title by placing these fields in this EXACT LEFT-TO-RIGHT sequence: ${structure.join(', ')}. 
-    Do NOT combine fields like Brand and Model if the sequence says otherwise. 
-    If you see 'Material' before 'Brand' in my list, you MUST put 'Material' before 'Brand' in the title. 
-    Use only SINGLE SPACES to separate words. DO NOT use arrows (->), dashes, or special symbols.)
-3. ${descriptionInstruction}
-4. Item Specifics (Aspects) - An extensive JSON object. 
-   (STRICT REQUIREMENT: Identify the eBay-standard attribute names for the detected category and use them. 
-    Maximize detail by including at least 30-35 attributes like Brand, MPN, Theme, Occasion, Accents, Performance/Activity, Material, Fit, Style, Color, Pattern, etc. 
-    OMIT any NULL, UNKNOWN, or 'N/A' values. DO NOT guess if not visible in photo).
-5. Price - Real-world estimated market value.
+                            text: "Identify the eBay hierarchical category path and numeric Leaf Category ID for this product. Return your response ONLY as a JSON object with 'category' and 'category_id'. Keep it accurate."
+                        },
+                        ...imageContent
+                    ]
+                }
+            ],
+            response_format: { type: "json_object" }
+        });
+
+        const idData = JSON.parse(idResponse.choices[0].message.content);
+        const categoryId = idData.category_id || idData.categoryId || '';
+        const categoryPath = idData.category || '';
+        console.log(`✅ Phase 1 Result: Category ID ${categoryId} (${categoryPath})`);
+
+        // --- PHASE 2: FETCH OFFICIAL ASPECTS ---
+        let officialAspects = [];
+        let aspectNamesList = [];
+        if (categoryId) {
+            try {
+                console.log(`--- Fetching official eBay aspects for Category: ${categoryId} ---`);
+                const appToken = await ebayApiService.getAppToken();
+                const aspectsData = await ebayApiService.getItemAspectsForCategory(appToken, categoryId);
+                
+                if (aspectsData && aspectsData.aspects) {
+                    officialAspects = aspectsData.aspects.map(aspect => ({
+                        localizedAspectName: aspect.localizedAspectName,
+                        required: aspect.aspectConstraint?.aspectRequired || false,
+                        usage: aspect.aspectConstraint?.aspectUsage || 'OPTIONAL',
+                        dataType: aspect.aspectConstraint?.aspectDataType || 'STRING',
+                        values: aspect.aspectValues ? aspect.aspectValues.map(v => v.localizedValue) : []
+                    }));
+                    aspectNamesList = officialAspects.map(a => a.localizedAspectName);
+                    
+                    // Force include Country/Region of Manufacture and Country of Origin if missing
+                    const requiredFields = ['Country/Region of Manufacture', 'Country of Origin'];
+                    requiredFields.forEach(field => {
+                        if (!aspectNamesList.includes(field)) {
+                            aspectNamesList.push(field);
+                            officialAspects.push({
+                                localizedAspectName: field,
+                                required: false,
+                                usage: 'RECOMMENDED',
+                                dataType: 'STRING',
+                                values: []
+                            });
+                        }
+                    });
+                    console.log(`✅ Successfully fetched ${officialAspects.length} official aspects.`);
+                }
+            } catch (aspectError) {
+                console.error('⚠️ Could not fetch eBay official aspects:', aspectError.message);
+            }
+        }
+
+        // If fetch failed, fallback to a basic list
+        if (aspectNamesList.length === 0) {
+            aspectNamesList = ['Brand', 'Type', 'Size', 'Color', 'Material', 'Condition', 'Country/Region of Manufacture', 'Country of Origin', 'Style', 'Pattern', 'Vintage', 'Season', 'Department', 'Theme'];
+        }
+
+        // --- PHASE 3: FULL ANALYSIS & DATA FILLING ---
+        console.log('--- Phase 3: Detailed AI Analysis (Filling Official Aspects) ---');
+        const mainResponse = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a world-class eBay SEO expert. You provide high-conversion listing data by filling official eBay aspects with 100% accuracy based on visual inspection."
+                },
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "text",
+                            text: `Analyze these product images to generate a professional eBay listing.
+                            
+1. Title - SE0 Title (Max 80 chars). Structure: ${structure.join(' -> ')}.
+2. ${descriptionInstruction}
+3. Item Specifics - YOU MUST FILL EVERY SINGLE ONE OF THESE ${aspectNamesList.length} OFFICIAL FIELDS. 
+   STRICT RULE: DO NOT SKIP ANY FIELD. If you omit even one field from the list, the system will fail. 
+   FIELDS TO FILL: ${aspectNamesList.join(', ')}
+   
+   (STRICT REQUIREMENTS: 
+   - YOUR 'item_specifics' OBJECT MUST HAVE EXACTLY ${aspectNamesList.length} KEYS.
+   - If a value is unknown, use your expert product knowledge to provide the most common/standard industry value (e.g. 'Regular' for Fit, 'Standard' for Style). 
+   - For Materials/Country of Origin, use high-confidence estimates based on visuals. 
+   - NEVER leave a field empty or null.
+   - Do NOT use brackets or 'N/A'.)
 
 Context:
 - Gender: ${gender || 'N/A'}
 - Condition: ${condition || 'New'}
+- Category: ${categoryPath} (ID: ${categoryId})
 
-Format your response STRICTLY as: {
-  "category": "",
+Format your response STRICTLY as a JSON object: {
   "title": "",
   "description": "",
-  "item_specifics": {},
+  "item_specifics": { "FieldName": "Value", ... },
   "selling_price": 0.00
 }`
                         },
@@ -171,18 +248,42 @@ Format your response STRICTLY as: {
             response_format: { type: "json_object" }
         });
 
-        const rawAiData = JSON.parse(response.choices[0].message.content);
+        const rawAiData = JSON.parse(mainResponse.choices[0].message.content);
         
-        // Sanitize keys (ensure everything is lowercase for safety)
+        // --- SANITIZATION STEP: Clean common AI placeholders ---
+        const cleanItemSpecifics = {};
+        const placeholders = ['n/a', 'unknown', 'none', 'null', '[]', '()', 'not available', 'empty'];
+        
+        if (rawAiData.item_specifics) {
+            Object.entries(rawAiData.item_specifics).forEach(([key, val]) => {
+                const lowVal = String(val).toLowerCase().trim();
+                // If value is a placeholder or too short, replace with 'Standard' to avoid empty fields
+                if (placeholders.includes(lowVal) || !val || val === "") {
+                    cleanItemSpecifics[key] = "Standard"; 
+                } else {
+                    cleanItemSpecifics[key] = val;
+                }
+            });
+        }
+        
+        // Ensure all fetched aspects have AT LEAST a "Standard" value if missing
+        aspectNamesList.forEach(name => {
+            if (!cleanItemSpecifics[name]) {
+                cleanItemSpecifics[name] = "Standard";
+            }
+        });
+
         const aiData = {
-            category: rawAiData.category || rawAiData.Category || rawAiData.ebay_category || '',
-            title: rawAiData.title || rawAiData.Title || '',
-            description: rawAiData.description || rawAiData.Description || '',
-            item_specifics: rawAiData.item_specifics || rawAiData.Item_Specifics || {},
-            selling_price: rawAiData.selling_price || rawAiData.Price || 0
+            category: categoryPath,
+            category_id: categoryId,
+            title: rawAiData.title || '',
+            description: rawAiData.description || '',
+            item_specifics: cleanItemSpecifics,
+            selling_price: rawAiData.selling_price || 0,
+            official_aspects: officialAspects
         };
 
-        console.log('AI Logic Result (Sanitized):', aiData);
+        console.log('Final AI Logic Result:', aiData);
 
         res.json({
             success: true,

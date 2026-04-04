@@ -619,11 +619,74 @@ const AiFetching = () => {
                                         />
                                     </div>
 
-                                    <div className="space-y-4">
-                                        <span className="text-sm font-bold text-gray-900">Extracted Item Specifics</span>
+                                    {/* Official eBay Aspects Section */}
+                                    {aiResult.official_aspects && aiResult.official_aspects.length > 0 && (
+                                        <div className="space-y-4 pt-6 border-t border-gray-100">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">Official eBay Aspects</span>
+                                                    <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold">Taxonomy API</span>
+                                                </div>
+                                                <span className="text-[10px] text-gray-400 font-medium">Verify required fields</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {aiResult.official_aspects.map((aspect) => {
+                                                    const aiValue = aiResult.item_specifics[aspect.localizedAspectName];
+                                                    const isRequired = aspect.required;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={aspect.localizedAspectName} 
+                                                            className={`flex flex-col p-3 rounded-xl border transition-all ${
+                                                                isRequired && !aiValue 
+                                                                    ? 'bg-rose-50 border-rose-200' 
+                                                                    : 'bg-white border-gray-100'
+                                                            }`}
+                                                        >
+                                                            <div className="flex justify-between items-start mb-1">
+                                                                <span className={`text-[10px] font-bold ${isRequired ? 'text-rose-600' : 'text-gray-400'}`}>
+                                                                    {aspect.localizedAspectName} {isRequired && '*'}
+                                                                </span>
+                                                                {isRequired && (
+                                                                    <span className="text-[8px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded uppercase font-black">Required</span>
+                                                                )}
+                                                            </div>
+                                                            <input 
+                                                                value={aiValue || ''}
+                                                                onChange={(e) => handleEditSpecific(aspect.localizedAspectName, e.target.value)}
+                                                                placeholder={aspect.values?.length > 0 ? `e.g. ${aspect.values[0]}` : 'Enter value...'}
+                                                                className="text-sm font-semibold text-gray-900 bg-transparent border-none outline-none p-0 focus:ring-0"
+                                                            />
+                                                            {aspect.values?.length > 0 && (
+                                                                <div className="mt-1 flex flex-wrap gap-1">
+                                                                    {aspect.values.slice(0, 3).map(v => (
+                                                                        <button 
+                                                                            key={v}
+                                                                            onClick={() => handleEditSpecific(aspect.localizedAspectName, v)}
+                                                                            className="text-[8px] bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-600 px-1.5 py-0.5 rounded transition-colors"
+                                                                        >
+                                                                            {v}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-4 pt-6 border-t border-gray-100">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">AI Extracted Details</span>
+                                            <span className="text-[10px] text-gray-400 font-medium">Extra information detected</span>
+                                        </div>
                                         <div className="grid grid-cols-2 gap-4">
-                                            {Object.entries(aiResult.item_specifics).map(([key, value]) => (
-                                                <div key={key} className="flex flex-col p-3 bg-gray-50 rounded-xl">
+                                            {Object.entries(aiResult.item_specifics)
+                                                .filter(([key]) => !aiResult.official_aspects?.some(oa => oa.localizedAspectName === key))
+                                                .map(([key, value]) => (
+                                                <div key={key} className="flex flex-col p-3 bg-gray-50 rounded-xl border border-transparent">
                                                     <span className="text-[10px] text-gray-400 font-bold">{key}</span>
                                                     <input 
                                                         value={value}
@@ -635,7 +698,7 @@ const AiFetching = () => {
                                         </div>
                                     </div>
 
-                                    <div className="flex gap-4 pt-4">
+                                    <div className="flex gap-4 pt-6">
                                         <button 
                                             onClick={handleSave}
                                             disabled={isSaving}
