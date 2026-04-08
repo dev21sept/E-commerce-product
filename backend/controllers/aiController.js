@@ -80,7 +80,7 @@ exports.analyzeProductImage = async (req, res) => {
                         {
                             type: "text",
                             text: platform === 'ebay' 
-                                ? "Identify the eBay hierarchical category path and numeric Leaf Category ID for this product. Return your response ONLY as a JSON object with 'category' and 'category_id'. Keep it accurate."
+                                ? "Identify the most specific, concise search phrase or category name for this product (e.g. 'Mens Print T-Shirts' or 'Portable Fans'). Return your response ONLY as a JSON object with 'category_query'. Keep it highly accurate."
                                 : platform === 'vinted'
                                 ? "Identify the ABSOLUTE LEAF CATEGORY (deepest possible sub-category) for Vinted for ANY product (e.g., T-shirts, Shirts, Pants, Shoes). NEVER stop at a general category; always identify the final specific sub-category based on the product's visual features (e.g., instead of just 'Shirts', identify if it's 'Long-sleeved shirts' or 'Button-down shirts'). Return the full hierarchical path separated by '>' (e.g., Men > Clothing > Tops & T-shirts > T-shirts > Print T-shirts). Response ONLY as JSON: { \"category\": \"...\" }"
                                 : `Identify the ${platform} category path for this product. Return your response ONLY as a JSON object with 'category'. Keep it accurate for ${platform}'s structure.`
@@ -93,8 +93,28 @@ exports.analyzeProductImage = async (req, res) => {
         });
 
         const categoryResult = JSON.parse(categoryResponse.choices[0].message.content);
-        const categoryPath = categoryResult?.category || 'General';
-        const categoryId = platform === 'ebay' ? (categoryResult?.category_id || '') : '';
+        
+        let categoryId = '';
+        let categoryPath = 'General';
+
+        if (platform === 'ebay') {
+            const query = categoryResult?.category_query || 'General';
+            try {
+                const appToken = await ebayApiService.getAppToken();
+                const suggestions = await ebayApiService.getCategorySuggestions(appToken, query);
+                if (suggestions && suggestions.length > 0) {
+                    categoryId = suggestions[0].category.categoryId;
+                    categoryPath = suggestions[0].categoryTreeNodeAncestors?.map(a => a.categoryName).concat(suggestions[0].category.categoryName).join(' > ') || suggestions[0].category.categoryName;
+                } else {
+                    categoryPath = query;
+                }
+            } catch (err) {
+                console.error("Failed to fetch official category suggestions:", err.message);
+                categoryPath = query;
+            }
+        } else {
+            categoryPath = categoryResult?.category || 'General';
+        }
 
         console.log(`✅ Phase 1: ${categoryPath} (ID: ${categoryId})`);
 
