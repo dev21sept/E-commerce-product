@@ -17,31 +17,31 @@ exports.analyzeProductImage = async (req, res) => {
         }));
 
         let descriptionInstruction = '';
-        if (customTemplateText && customTemplateText.trim() !== '') {
+        if (descriptionStyle === 'AI Generated') {
+            descriptionInstruction = `Description - HIGH-CONVERSION & PERSUASIVE (min 300 words):
+        - Use HTML <b> for section headers.
+        - Use HTML <br><br> for spacing.
+        - Analyze the item to write a detailed, professional summary. Include:
+        - 1. Hook: <b>The Ultimate Look / Perfect Upgrade:</b> {Engaging intro}.<br>
+        - 2. Brand Story: <b>About {Brand}:</b> {Quality/Heritage info}.<br>
+        - 3. Features: <b>Key Features:</b> Bullet points for material, design, & durability.<br>
+        - 4. Versatility / Usage: <b>Wear It Anywhere / Usage:</b> {Styling or functional tips}.<br>
+        - 5. Satisfaction: <b>Our Guarantee:</b> Professional and fast shipping.`;
+        } else if (customTemplateText && customTemplateText.trim() !== '') {
             descriptionInstruction = `Description - USE THIS EXACT CUSTOM TEMPLATE:
             "${customTemplateText}"
             
             (STRICT: Replace all placeholders like {Brand}, {Size}, {Color}, {Condition}, {Title} etc. with data from the images. 
              If a placeholder is not provided in your analysis, use a professional default. 
              Maintain the EXACT visual layout and spacing of the template. Use HTML tags like <b> and <br> for formatting.)`;
-        } else {
-            if (descriptionStyle === 'AI Generated') {
-                descriptionInstruction = `Description - HIGH-CONVERSION & PERSUASIVE (min 300 words):
-        - Use HTML <b> for section headers.
-        - Use HTML <br><br> for spacing.
-        - 1. Hook: <b>The Ultimate Look:</b> {Engaging intro}.<br>
-        - 2. Brand Story: <b>About {Brand}:</b> {Quality/Heritage info}.<br>
-        - 3. Features: <b>Key Features:</b> Bullet points for material, design, & durability.<br>
-        - 4. Versatility: <b>Wear It Anywhere:</b> {Styling tips}.<br>
-        - 5. Satisfaction: <b>Our Guarantee:</b> Professional and fast shipping.`;
-            } else if (descriptionStyle === 'Template 1') {
-                descriptionInstruction = `Description - PROFESSIONAL EBAY LISTING:
+        } else if (descriptionStyle === 'Template 1') {
+            descriptionInstruction = `Description - PROFESSIONAL EBAY LISTING:
         - <b>Product Overview:</b> Detailed summary.<br>
         - <b>Key Specifications:</b> Brand, Material, Color, Origin.<br>
         - <b>Performance & Style:</b> {How it looks/feels}.<br>
         - <b>Shipping & Handling:</b> Fast & professional packaging.`;
-            } else if (descriptionStyle === 'Template 2') {
-                descriptionInstruction = `Description - DETAILED WITH MEASUREMENTS:
+        } else if (descriptionStyle === 'Template 2') {
+            descriptionInstruction = `Description - DETAILED WITH MEASUREMENTS:
         <strong>Measurements (Lay Flat):</strong><br>
         <strong>Pit to pit:</strong> {Value}"<br>
         <strong>Length:</strong> {Value}"<br>
@@ -49,8 +49,8 @@ exports.analyzeProductImage = async (req, res) => {
         <strong>Condition Report:</strong><br>
         ${condition || 'Pre Owned in great condition'}. No holes, stains or tears. High quality preservation.<br><br>
         <strong>Seller Note:</strong> We value your business. Offers are always welcome! Ships fast and packaged with professional care.`;
-            } else if (descriptionStyle === 'Template 3') {
-                descriptionInstruction = `Description - COMPREHENSIVE & LENGTHY (min 600 words):
+        } else if (descriptionStyle === 'Template 3') {
+            descriptionInstruction = `Description - COMPREHENSIVE & LENGTHY (min 600 words):
         <strong>${condition || 'ITEM CONDITION: EXCELLENT / LIKE NEW'}</strong>.<br><br>
         <strong>Technical Measurements:</strong><br>
         • Pit to Pit: {Value}<br>
@@ -62,7 +62,6 @@ exports.analyzeProductImage = async (req, res) => {
         - <b>Style:</b> {Style}<br><br>
         <strong>Expert Analysis:</strong> {Write a professional 200-word paragraph about the quality, texture, and lasting value of this specific piece}.<br><br>
         <strong>100% Satisfaction Guarantee:</strong> We pack with care and ship within 24 hours!`;
-            }
         }
 
         // --- PHASE 1: CATEGORY IDENTIFICATION ---
@@ -104,7 +103,10 @@ exports.analyzeProductImage = async (req, res) => {
                 const suggestions = await ebayApiService.getCategorySuggestions(appToken, query);
                 if (suggestions && suggestions.length > 0) {
                     categoryId = suggestions[0].category.categoryId;
-                    categoryPath = suggestions[0].categoryTreeNodeAncestors?.map(a => a.categoryName).concat(suggestions[0].category.categoryName).join(' > ') || suggestions[0].category.categoryName;
+                    
+                    let ancestors = suggestions[0].categoryTreeNodeAncestors || [];
+                    ancestors.sort((a, b) => a.categoryTreeNodeLevel - b.categoryTreeNodeLevel);
+                    categoryPath = ancestors.map(a => a.categoryName).concat(suggestions[0].category.categoryName).join(' > ');
                 } else {
                     categoryPath = query;
                 }
@@ -164,9 +166,23 @@ exports.analyzeProductImage = async (req, res) => {
                             type: "text",
                             text: `Analyze images for a professional ${platform} listing.
                             
-1. Title Components - EXTRACT ONLY these attributes: ${structure.join(', ')}. 
-   - DO NOT extract anything else. NO Size, NO Color, NO Model unless it's in the list.
-   - Return these as a JSON object inside 'title_parts'.
+1. Title Components - Extract these precise attributes: [${structure.join(', ')}]
+   Use these strict definitions for what each attribute means:
+   - "Brand": Company name (e.g., Nike, Apple, Levi's)
+   - "Product Type": What the item physically is (e.g., Sneakers, T-Shirt, Portable Fan, Laptop)
+   - "Model / Series": The specific named model (e.g., Air Max 97, ThinkPad T480, 501)
+   - "Size": The specific size tag (e.g., 9, XL, 36x30)
+   - "Color": Outer color (e.g., Black, Red)
+   - "Material": What it's made of (e.g., Leather, Denim, Stainless Steel)
+   - "Style / Use Case": The fashion sub-style or functional purpose (e.g., Running, Athletic, Vintage, Business)
+   - "Key Features": 1-2 words for a standout detail (e.g., Wireless, Waterproof, Graphic)
+   - "Gender / Department": (e.g., Men's, Women's, Unisex)
+
+   CRITICAL RULES FOR TITLE PARTS:
+   - Make your best professional guess for every requested attribute based on the image. (e.g., if you see running shoes, the Product Type is "Sneakers" and Style is "Running").
+   - DO NOT leave requested attributes blank if you can logically infer them.
+   - Return ONLY the exact attributes requested in the list. Do not include unrequested ones.
+   - Output these as a JSON object inside 'title_parts'.
    
 2. ${descriptionInstruction}
 3. Item Specifics - FILL EVERY FIELD: ${aspectNamesList.join(', ')}. 
@@ -198,10 +214,15 @@ Response ONLY as JSON: {
         // This ensures the AI CANNOT inject extra fields into the final string
         const titleParts = finalData.title_parts || {};
         const titleString = structure
-            .map(key => titleParts[key] || '')
+            .map(key => {
+                let val = titleParts[key] || '';
+                return val.replace(/,/g, ''); // Remove commas from any title part
+            })
             .filter(val => val.trim() !== '')
             .join(' ')
-            .substring(0, 80);
+            .replace(/\s+/g, ' ') // Clean up multiple spaces
+            .substring(0, 80)
+            .trim();
 
         return res.json({
             success: true,
@@ -240,10 +261,14 @@ exports.searchCategories = async (req, res) => {
         const suggestions = await ebayApiService.getCategorySuggestions(appToken, query);
         
         // Format for frontend
-        const formatted = suggestions.map(s => ({
-            id: s.category.categoryId,
-            fullName: s.categoryTreeNodeAncestors?.map(a => a.categoryName).concat(s.category.categoryName).join(' > ') || s.category.categoryName
-        }));
+        const formatted = suggestions.map(s => {
+            let ancestors = s.categoryTreeNodeAncestors || [];
+            ancestors.sort((a, b) => a.categoryTreeNodeLevel - b.categoryTreeNodeLevel);
+            return {
+                id: s.category.categoryId,
+                fullName: ancestors.map(a => a.categoryName).concat(s.category.categoryName).join(' > ')
+            };
+        });
         
         res.json(formatted);
     } catch (error) {
