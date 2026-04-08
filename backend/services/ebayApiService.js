@@ -13,11 +13,18 @@ const AUTH_BASE_URL = EBAY_ENVIRONMENT === 'sandbox'
     ? 'https://auth.sandbox.ebay.com'
     : 'https://auth.ebay.com';
 
+let cachedAppToken = null;
+let appTokenExpiry = null;
+
 /**
  * Gets an App-Only Access Token (Client Credentials Grant)
- * Useful for public data like finding items.
+ * Uses caching to prevent rate-limiting and 'invalid_client' errors on high frequency calls.
  */
 async function getAppToken() {
+    if (cachedAppToken && appTokenExpiry && Date.now() < appTokenExpiry) {
+        return cachedAppToken;
+    }
+
     const authHeader = Buffer.from(`${EBAY_APP_ID}:${EBAY_CERT_ID}`).toString('base64');
     
     try {
@@ -33,7 +40,12 @@ async function getAppToken() {
                 }
             }
         );
-        return response.data.access_token;
+        
+        cachedAppToken = response.data.access_token;
+        // eBay tokens are usually valid for 7200 seconds (2 hours), cache for 1 hour (3600000 ms) to be safe
+        appTokenExpiry = Date.now() + 3600000; 
+        
+        return cachedAppToken;
     } catch (error) {
         console.error('Error getting eBay App Token:', error.response?.data || error.message);
         throw error;
