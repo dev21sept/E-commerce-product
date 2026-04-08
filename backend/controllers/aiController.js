@@ -68,10 +68,11 @@ exports.analyzeProductImage = async (req, res) => {
         console.log(`--- Phase 1: Identifying ${platform} Category ---`);
         const categoryResponse = await openai.chat.completions.create({
             model: "gpt-4o",
+            temperature: 0, // Make it deterministic so the same image gives the same category every time
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert in marketplace categorization for ${platform}.`
+                    content: `You are an expert in marketplace categorization for ${platform}. Your goal is to identify the deepest, most accurate leaf-category for ANY type of product (clothing, electronics, tools, etc.).`
                 },
                 {
                     role: "user",
@@ -79,7 +80,11 @@ exports.analyzeProductImage = async (req, res) => {
                         {
                             type: "text",
                             text: platform === 'ebay' 
-                                ? "Identify the most specific, concise search phrase or category name for this product (e.g. 'Mens Print T-Shirts' or 'Portable Fans'). Return your response ONLY as a JSON object with 'category_query'. Keep it highly accurate."
+                                ? `1. Analyze ALL provided images thoroughly.
+2. Carefully read ALL visible tags, brand logos, model numbers, and text on the product/box.
+3. Use this deep visual and textual evidence to determine the exact product identity.
+4. Provide a highly specific, concise search query (2-5 words) that matches its exact eBay Leaf Category (e.g., 'Mens Graphic T-Shirts', 'Wireless In-Ear Headphones', 'Portable Electric Fans').
+5. Return your response ONLY as a JSON object with 'category_query'. Be ruthlessly accurate.`
                                 : platform === 'vinted'
                                 ? "Identify the ABSOLUTE LEAF CATEGORY (deepest possible sub-category) for Vinted for ANY product (e.g., T-shirts, Shirts, Pants, Shoes). NEVER stop at a general category; always identify the final specific sub-category based on the product's visual features (e.g., instead of just 'Shirts', identify if it's 'Long-sleeved shirts' or 'Button-down shirts'). Return the full hierarchical path separated by '>' (e.g., Men > Clothing > Tops & T-shirts > T-shirts > Print T-shirts). Response ONLY as JSON: { \"category\": \"...\" }"
                                 : `Identify the ${platform} category path for this product. Return your response ONLY as a JSON object with 'category'. Keep it accurate for ${platform}'s structure.`
@@ -154,10 +159,11 @@ exports.analyzeProductImage = async (req, res) => {
 
         const mainResponse = await openai.chat.completions.create({
             model: "gpt-4o",
+            temperature: 0, // Enforce strict consistency across repeated requests
             messages: [
                 {
-                    role: "system",
-                    content: `You are a world-class ${platform} listing expert. You strictly follow instructions.`
+                   role: "system",
+                   content: `You are a world-class ${platform} listing expert. You strictly follow instructions.`
                 },
                 {
                     role: "user",
