@@ -172,7 +172,7 @@ const AiFetchSection = ({ onDataFetched }) => {
                 images: allImages,
                 condition,
                 gender,
-                titleStructure,
+                structure: titleStructure, // Rename here to match backend expected field
                 descriptionStyle,
                 customTemplateText: customTemplates[descriptionStyle],
                 platform

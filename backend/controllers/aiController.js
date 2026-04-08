@@ -115,6 +115,7 @@ exports.analyzeProductImage = async (req, res) => {
                         values: aspect.aspectValues ? aspect.aspectValues.map(v => v.localizedValue) : []
                     }));
                     aspectNamesList = officialAspects.map(a => a.localizedAspectName);
+                    console.log(`✅ Successfully fetched ${officialAspects.length} official eBay aspects.`);
                 }
             } catch (e) {
                 console.error('⚠️ eBay API Error:', e.message);
@@ -127,12 +128,14 @@ exports.analyzeProductImage = async (req, res) => {
 
         // --- PHASE 3: FULL ANALYSIS & DATA FILLING ---
         console.log(`--- Phase 3: Detailed AI Analysis for ${platform} ---`);
+        console.log(`Structure requested:`, structure); // Debugging
+
         const mainResponse = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
                 {
                     role: "system",
-                    content: `You are a world-class ${platform} listing expert.`
+                    content: `You are a world-class ${platform} listing expert. You strictly follow instructions.`
                 },
                 {
                     role: "user",
@@ -141,18 +144,17 @@ exports.analyzeProductImage = async (req, res) => {
                             type: "text",
                             text: `Analyze images for a professional ${platform} listing.
                             
-1. Title - STRICT SEQUENCE (Max 80 chars). ONLY USE THESE ATTRIBUTES IN THIS EXACT ORDER: ${structure.join(', ')}. 
-   - DO NOT add any extra information (like Size, Color, or Model) if they are NOT in the list below.
-   - If an attribute exists in the list but NOT in the product, skip it.
-   - Separate items with simple spaces only.
+1. Title Components - EXTRACT ONLY these attributes: ${structure.join(', ')}. 
+   - DO NOT extract anything else. NO Size, NO Color, NO Model unless it's in the list.
+   - Return these as a JSON object inside 'title_parts'.
+   
 2. ${descriptionInstruction}
 3. Item Specifics - FILL EVERY FIELD: ${aspectNamesList.join(', ')}. 
-   - NEVER leave a field empty. Use expert guesses based on photos.
-   
+
 Context: Gender: ${gender}, Condition: ${condition}, Category: ${categoryPath}.
 
 Response ONLY as JSON: {
-  "title": "",
+  "title_parts": { "AttributeName": "Value", ... },
   "description": "",
   "item_specifics": { "FieldName": "Value", ... },
   "selling_price": 0.00,
@@ -168,10 +170,20 @@ Response ONLY as JSON: {
 
         const finalData = JSON.parse(mainResponse.choices[0].message.content);
         
+        // --- MANUALLY BUILD THE TITLE BASED ON STRUCTURE ---
+        // This ensures the AI CANNOT inject extra fields into the final string
+        const titleParts = finalData.title_parts || {};
+        const titleString = structure
+            .map(key => titleParts[key] || '')
+            .filter(val => val.trim() !== '')
+            .join(' ')
+            .substring(0, 80);
+
         return res.json({
             success: true,
             data: {
                 ...finalData,
+                title: titleString, // Overwrite with our strictly built string
                 category: categoryPath,
                 categoryId: categoryId,
                 officialAspects: officialAspects

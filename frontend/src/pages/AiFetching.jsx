@@ -104,7 +104,7 @@ const AiFetching = () => {
         if (allImages.length === 0) return setMessage({ type: 'error', text: 'No images provided.' });
         setIsAnalyzing(true); setAiResult(null);
         try {
-            const result = await analyzeProduct({ images: allImages, platform: 'ebay', structure: ['Brand', 'Size', 'Color'] });
+            const result = await analyzeProduct({ images: allImages, platform: 'ebay', structure: [] }); // Removed hardcoded defaults
             if (result.success) {
                 setAiResult(result.data);
                 setMessage({ type: 'success', text: 'Listing Analyzed with eBay Taxonomy!' });
@@ -149,9 +149,6 @@ const AiFetching = () => {
                     </div>
                 </div>
                 <div className="flex gap-4">
-                    <button onClick={handleAnalyze} disabled={isAnalyzing} className="px-10 py-3.5 bg-[#0064D2] text-white rounded-full font-black text-sm hover:shadow-2xl hover:bg-blue-700 transition-all flex items-center gap-3">
-                        {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin"/> : <Sparkles className="w-4 h-4"/>} Analyze Product
-                    </button>
                     <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-gray-50 text-gray-400 font-bold text-sm rounded-full border border-gray-100">Clear</button>
                 </div>
             </div>
