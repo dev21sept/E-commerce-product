@@ -150,6 +150,10 @@ exports.analyzeProductImage = async (req, res) => {
    
 2. ${descriptionInstruction}
 3. Item Specifics - FILL EVERY FIELD: ${aspectNamesList.join(', ')}. 
+   - For Clothing/Shoes: Rely strictly on visual cues, tags, material textures, and physical design to fill fields.
+   - For Electronics/Other: Use your vast knowledge base to infer missing technical specifics (e.g., connectivity, wattage, specs) based on the visual model or type of the product if text is not visible. Fill as many as you logically can.
+   
+4. Pricing: Estimate a realistic 'selling_price' (e.g. 25.00) in USD based on the item's brand, model, and condition. Do NOT return 0.00 if you can guess a market value.
 
 Context: Gender: ${gender}, Condition: ${condition}, Category: ${categoryPath}.
 

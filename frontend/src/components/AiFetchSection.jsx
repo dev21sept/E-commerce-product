@@ -407,6 +407,19 @@ const AiFetchSection = ({ onDataFetched }) => {
                                                 <option>Pre-owned - Good</option>
                                                 <option>Pre-owned - Fair</option>
                                             </optgroup>
+                                            <optgroup label="Electronics & Tech">
+                                                <option>New</option>
+                                                <option>Open box</option>
+                                                <option>Certified - Refurbished</option>
+                                                <option>Excellent - Refurbished</option>
+                                                <option>Very Good - Refurbished</option>
+                                                <option>Good - Refurbished</option>
+                                                <option>Seller refurbished</option>
+                                                <option>Used - Excellent</option>
+                                                <option>Used - Good</option>
+                                                <option>Used - Fair</option>
+                                                <option>For parts or not working</option>
+                                            </optgroup>
                                         </>
                                     ) : platform === 'poshmark' ? (
                                         <>
