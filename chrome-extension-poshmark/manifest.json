@@ -1,0 +1,44 @@
+{
+    "manifest_version": 3,
+    "name": "Poshmark AutoLister",
+    "version": "1.0.0",
+    "description": "Auto-populate Poshmark listings from your Admin Dashboard.",
+    "permissions": [
+        "storage",
+        "activeTab",
+        "tabs"
+    ],
+    "host_permissions": [
+        "*://*.poshmark.com/*",
+        "https://capable-mercy-production-8c90.up.railway.app/*",
+        "http://localhost:5000/*"
+    ],
+    "action": {
+        "default_title": "Poshmark AutoLister"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.poshmark.com/create-listing*",
+                "*://*.poshmark.com/edit-listing*",
+                "*://*.poshmark.com/*/create-listing*",
+                "*://*.poshmark.com/*/edit-listing*"
+            ],
+            "js": ["poshmark_content.js"],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "http://localhost:5173/*",
+                "http://localhost:3000/*",
+                "https://*.hostingersite.com/*",
+                "https://capable-mercy-production-8c90.up.railway.app/*"
+            ],
+            "js": ["admin_content.js"],
+            "run_at": "document_idle"
+        }
+    ]
+}

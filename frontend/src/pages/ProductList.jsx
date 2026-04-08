@@ -54,9 +54,19 @@ const ProductList = () => {
     };
 
     const handleSendToEbay = (product) => {
-        setAuthStatus("Sending data to Extension...");
+        setAuthStatus("Sending data to eBay Extension...");
         window.postMessage({ type: 'EbayAutoLister_SendData', payload: product }, '*');
         setTimeout(() => setAuthStatus(null), 3000);
+    };
+
+    const handleSendToPoshmark = (product) => {
+        window.postMessage({ type: 'PoshmarkAutoLister_SendData', payload: product }, '*');
+        alert('Listing data sent to Poshmark Extension! 🚀 Opening Poshmark...');
+    };
+
+    const handleSendToVinted = (product) => {
+        window.postMessage({ type: 'VintedAutoLister_SendData', payload: product }, '*');
+        alert('Listing data sent to Vinted Extension! 🚀 Opening Vinted...');
     };
 
     const filteredProducts = products.filter(p => {
@@ -244,10 +254,10 @@ const ProductList = () => {
                                             <div className="flex justify-end gap-2.5">
                                                 <button 
                                                     onClick={() => handlePreviewListing(product)} 
-                                                    className="w-9 h-9 flex items-center justify-center text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 shadow-sm" 
-                                                    title="Preview & Send to eBay"
+                                                    className="w-9 h-9 flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-100 shadow-sm" 
+                                                    title="Preview & List to Marketplaces"
                                                 >
-                                                    <Eye className="w-4 h-4" />
+                                                    <Sparkles className="w-4 h-4" />
                                                 </button>
                                                 <Link 
                                                     to={`/products/edit/${product.id}`} 
@@ -422,22 +432,54 @@ const ProductList = () => {
                             )}
                         </div>
 
-                        <div className="p-4 md:p-6 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
+                        <div className="p-4 md:p-6 bg-gray-50/50 border-t border-gray-100 space-y-4">
+                            <div className="flex flex-col gap-2">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center mb-1">Select Marketplace to List</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {(!previewProduct.target_platform || previewProduct.target_platform === 'ebay') && (
+                                        <button
+                                            onClick={() => {
+                                                handleSendToEbay(previewProduct);
+                                                setPreviewProduct(null);
+                                            }}
+                                            className="px-4 py-3 rounded-xl bg-[#0053a0] font-bold text-white hover:bg-[#004080] transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                            Open in eBay Extension
+                                        </button>
+                                    )}
+                                    {(!previewProduct.target_platform || previewProduct.target_platform === 'poshmark') && (
+                                        <button
+                                            onClick={() => {
+                                                handleSendToPoshmark(previewProduct);
+                                                setPreviewProduct(null);
+                                            }}
+                                            className="px-4 py-3 rounded-xl bg-[#8D182E] font-bold text-white hover:bg-[#6A1222] transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                            Open in Poshmark Extension
+                                        </button>
+                                    )}
+                                    {(!previewProduct.target_platform || previewProduct.target_platform === 'vinted') && (
+                                        <button
+                                            onClick={() => {
+                                                handleSendToVinted(previewProduct);
+                                                setPreviewProduct(null);
+                                            }}
+                                            className="px-4 py-3 rounded-xl bg-[#09B1BA] font-bold text-white hover:bg-[#078E95] transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                            Open in Vinted Extension
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            
                             <button
                                 onClick={() => setPreviewProduct(null)}
-                                className="order-2 sm:order-1 flex-1 px-6 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 shadow-sm"
+                                className="w-full py-3 rounded-xl bg-white border border-gray-200 font-bold text-gray-500 hover:bg-gray-50 transition-all active:scale-95 text-xs"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleSendToEbay(previewProduct);
-                                    setPreviewProduct(null);
-                                }}
-                                className="order-1 sm:order-2 flex-[2] px-6 py-3 rounded-2xl bg-[#0053a0] font-bold text-white hover:bg-[#004080] transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
-                            >
-                                <ExternalLink className="w-5 h-5 shrink-0" />
-                                <span className="text-sm md:text-base">Everything is Correct - Fill on eBay</span>
+                                Not Now - Back to List
                             </button>
                         </div>
                         <div className="px-6 pb-4 bg-gray-50/50 text-center">

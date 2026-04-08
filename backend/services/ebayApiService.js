@@ -300,6 +300,23 @@ async function initDefaultReturnPolicy(token) {
 /**
  * Gets Item Aspects for a specific Category from Taxonomy API
  */
+/**
+ * Gets category suggestions for a keyword from Taxonomy API
+ */
+async function getCategorySuggestions(token, query, categoryTreeId = '0') {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_category_suggestions?q=${encodeURIComponent(query)}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return response.data.categorySuggestions || [];
+    } catch (error) {
+        console.error(`Error getting category suggestions for ${query}:`, error.response?.data || error.message);
+        return [];
+    }
+}
+
 async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0') {
     try {
         const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_aspects_for_category?category_id=${categoryId}`, {
@@ -330,5 +347,6 @@ module.exports = {
     initDefaultFulfillmentPolicy,
     initDefaultPaymentPolicy,
     initDefaultReturnPolicy,
-    getItemAspectsForCategory
+    getItemAspectsForCategory,
+    getCategorySuggestions
 };

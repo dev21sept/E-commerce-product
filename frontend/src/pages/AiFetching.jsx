@@ -1,725 +1,248 @@
-import React, { useState, useRef } from 'react';
-import { Sparkles, Image as ImageIcon, Upload, Loader2, Save, ExternalLink, Trash2, Edit3, DollarSign, CheckCircle2, X, Plus, GripVertical, FileText, Zap } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Image as ImageIcon, Upload, Loader2, Save, ExternalLink, Trash2, Edit3, DollarSign, CheckCircle2, X, Plus, GripVertical, FileText, Zap, Package, Tag, Layers, ChevronDown, Check, Search, TrendingUp } from 'lucide-react';
 import { Reorder, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
 import { fetchEbayProduct, analyzeProduct, saveAiListing } from '../services/api';
 
-const AiFetching = () => {
-    // Media States
-    const [imageUrls, setImageUrls] = useState(['']); // Array of URL strings
-    const [localPreviews, setLocalPreviews] = useState([]); // Array of base64 strings
-    
-    const [condition, setCondition] = useState('New');
-    const [gender, setGender] = useState('Male');
-    const [titleStructure, setTitleStructure] = useState([]);
-    const [descriptionStyle, setDescriptionStyle] = useState('AI Generated');
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [aiResult, setAiResult] = useState(null);
-    const [isSaving, setIsSaving] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
-    
-    const titleOptions = [
-        'Brand', 
-        'Product Type', 
-        'Gender / Department', 
-        'Size', 
-        'Color', 
-        'Model / Series', 
-        'Key Features', 
-        'Material', 
-        'Style / Use Case'
-    ];
+// --- SEARCHABLE SELECT (THE EBAY CLONE) ---
+const EbaySearchableSelect = ({ label, value, options, onChange, required, metrics }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const wrapperRef = useRef(null);
 
-    const templateMeta = {
-        'AI Generated': 'Smart & Creative AI Copy',
-        'Template 1': 'Minimal & Clean Layout',
-        'Template 2': 'Detailed with Measurements',
-        'Template 3': 'Comprehensive Full Specs'
-    };
-
-    const toggleTitleOption = (opt) => {
-        if (titleStructure.includes(opt)) {
-            setTitleStructure(titleStructure.filter(item => item !== opt));
-        } else {
-            setTitleStructure([...titleStructure, opt]);
-        }
-    };
-    
-    const fileInputRef = useRef(null);
-
-    // --- Media Handlers ---
-    const handleAddUrlField = () => setImageUrls([...imageUrls, '']);
-    
-    const handleUrlChange = (index, value) => {
-        const newUrls = [...imageUrls];
-        newUrls[index] = value;
-        setImageUrls(newUrls);
-    };
-
-    const handleRemoveUrl = (index) => {
-        const newUrls = imageUrls.filter((_, i) => i !== index);
-        setImageUrls(newUrls.length ? newUrls : ['']);
-    };
-
-    const handleFileChange = (e) => {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const img = new Image();
-                img.onload = () => {
-                    // Resize to max 1200px to avoid 16MB MongoDB limit and save bandwidth
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    const maxDim = 1200;
-                    
-                    if (width > height) {
-                        if (width > maxDim) {
-                            height *= maxDim / width;
-                            width = maxDim;
-                        }
-                    } else {
-                        if (height > maxDim) {
-                            width *= maxDim / height;
-                            height = maxDim;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality JPEG
-                    setLocalPreviews(prev => [...prev, compressedBase64]);
-                };
-                img.src = reader.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    };
-
-    const handleRemoveLocal = (index) => {
-        setLocalPreviews(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleFetchEbayData = async () => {
-        const url = imageUrls[0];
-        if (!url || !url.includes('ebay.com')) {
-            setMessage({ type: 'error', text: 'Please paste a valid eBay URL in the first image slot.' });
-            return;
-        }
-
-        setIsAnalyzing(true);
-        setMessage({ type: 'info', text: 'Fetching product data from eBay...' });
-
-        try {
-            const data = await fetchEbayProduct(url);
-
-            if (data.images && data.images.length > 0) {
-                setImageUrls(data.images);
-            }
-            if (data.condition) setCondition(data.condition);
-
-            // Populate AI Result with eBay data so it shows on screen
-            setAiResult({
-                category: data.category || '',
-                title: data.title || '',
-                description: data.description || '',
-                item_specifics: data.item_specifics || {},
-                selling_price: parseFloat(data.price?.replace(/[^0-9.]/g, '')) || 0
-            });
-            
-            setMessage({ type: 'success', text: `Successfully imported ${data.images?.length || 0} images!` });
-        } catch (error) {
-            console.error('Fetch error:', error);
-            setMessage({ type: 'error', text: 'Failed to fetch eBay data.' });
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
-
-    const handleClearAll = () => {
-        setImageUrls(['']);
-        setLocalPreviews([]);
-        setAiResult(null);
-        setMessage({ type: '', text: '' });
-    };
-
-    // --- Core Logic ---
-    const handleAnalyze = async () => {
-        const allImages = [
-            ...imageUrls.filter(url => url.trim() !== ''),
-            ...localPreviews
-        ];
-
-        if (allImages.length === 0) {
-            setMessage({ type: 'error', text: 'Please provide at least one image URL or upload a file.' });
-            return;
-        }
-
-        if (titleStructure.length < 3) {
-            setMessage({ type: 'error', text: 'Please select at least 3 fields for Title Priority before analyzing.' });
-            return;
-        }
-
-        setIsAnalyzing(true);
-        setMessage({ type: '', text: '' });
-        setAiResult(null);
-
-        try {
-            const result = await analyzeProduct({
-                images: allImages,
-                condition,
-                gender,
-                titleStructure,
-                descriptionStyle
-            });
-            
-            if (result.success) {
-                setAiResult(result.data);
-                setMessage({ type: 'success', text: `AI analysis complete using ${allImages.length} images!` });
-            } else {
-                setMessage({ type: 'error', text: 'AI analysis failed.' });
-            }
-        } catch (error) {
-            console.error('Analysis error:', error);
-            setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to analyze images.' });
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
-
-    const handleSave = async () => {
-        if (!aiResult) return;
-        setIsSaving(true);
-        
-        try {
-            const allImages = [
-                ...imageUrls.filter(url => url.trim() !== ''),
-                ...localPreviews
-            ];
-
-            const dataToSave = {
-                ...aiResult,
-                images: allImages,
-                condition_name: condition,
-                gender: gender,
-                selling_price: aiResult.selling_price
-            };
-
-            const response = await saveAiListing(dataToSave);
-            
-            if (response.duplicate) {
-                const shouldOverwrite = window.confirm('Product with these images already exists! Update existing listing instead?');
-                if (shouldOverwrite) {
-                    await saveAiListing({ ...dataToSave, overwrite: true });
-                    setMessage({ type: 'success', text: 'Existing listing updated successfully!' });
-                } else {
-                    setMessage({ type: 'error', text: 'Save cancelled: Duplicate found.' });
-                }
-                return;
-            }
-
-            if (response.success) {
-                setMessage({ type: 'success', text: 'Listing saved to MongoDB successfully!' });
-            }
-        } catch (error) {
-            console.error('Save error:', error);
-            setMessage({ type: 'error', text: error.response?.data?.error || 'Failed to save listing.' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleListOnEbay = () => {
-        if (!aiResult) return;
-        
-        const allImages = [
-            ...imageUrls.filter(url => url.trim() !== ''),
-            ...localPreviews
-        ];
-
-        const productData = {
-            ...aiResult,
-            images: allImages,
-            condition_name: condition,
-            gender: gender,
-            selling_price: aiResult.selling_price
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false);
         };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
-        window.postMessage({ 
-            type: "EbayAutoLister_SendData", 
-            payload: productData 
-        }, "*");
-        
-        setMessage({ type: 'success', text: 'Data sent to eBay Extension!' });
-    };
-
-    const handleEditField = (field, value) => {
-        setAiResult(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleEditSpecific = (key, value) => {
-        setAiResult(prev => ({
-            ...prev,
-            item_specifics: { ...prev.item_specifics, [key]: value }
-        }));
-    };
+    const filteredOptions = options.filter(opt => String(opt).toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
-        <div className="max-w-6xl mx-auto py-8 px-4">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                        <Sparkles className="w-8 h-8 text-indigo-600 animate-pulse" />
-                        AI Listing Generator
-                    </h1>
-                    <p className="text-gray-500 mt-2">Generate professional eBay listings using AI vision technology.</p>
+        <div className="flex items-center justify-between py-5 border-b border-gray-100 group relative bg-white" ref={wrapperRef}>
+            <div className="w-[40%] flex flex-col group">
+                <div className="flex items-center gap-2">
+                    <span className={`text-[13px] font-bold ${required ? 'text-gray-900 border-b-2 border-dotted border-gray-300' : 'text-gray-600'}`}>
+                        {label}
+                    </span>
+                    {metrics && <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">{metrics}</span>}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Panel: Input */}
-                <div className="lg:col-span-5 space-y-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <ImageIcon className="w-5 h-5 text-indigo-500" />
-                            Product Media
-                        </h3>
-                        
-                        <div className="space-y-4">
-                            {/* URL Inputs */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-medium text-gray-700">Image URLs</label>
-                                {imageUrls.map((url, index) => (
-                                    <div key={index} className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={url}
-                                            onChange={(e) => handleUrlChange(index, e.target.value)}
-                                            placeholder="https://example.com/image.jpg"
-                                            className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
-                                        />
-                                        {imageUrls.length > 1 && (
-                                            <button onClick={() => handleRemoveUrl(index)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg">
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                <div className="flex gap-4 mb-1">
-                                    <button 
-                                        onClick={handleAddUrlField}
-                                        className="text-xs font-bold text-indigo-600 flex items-center gap-1 hover:text-indigo-700"
-                                    >
-                                        <Plus className="w-3 h-3" /> Add URL
-                                    </button>
-                                    <button 
-                                        onClick={handleFetchEbayData}
-                                        className="text-xs font-bold text-emerald-600 flex items-center gap-1 hover:text-emerald-700"
-                                    >
-                                        <ExternalLink className="w-3 h-3" /> Import from URL
-                                    </button>
-                                    <button 
-                                        onClick={handleClearAll}
-                                        className="text-xs font-bold text-rose-600 flex items-center gap-1 hover:text-rose-700 ml-auto"
-                                    >
-                                        <Trash2 className="w-3 h-3" /> Clear All
-                                    </button>
+            <div className="w-[58%] relative">
+                <div 
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={`w-full px-4 py-3 bg-[#F8F9FA] rounded-md border border-transparent hover:border-gray-400 flex items-center justify-between cursor-pointer transition-all ${isOpen ? 'bg-white ring-2 ring-blue-100 border-blue-600 shadow-sm' : ''}`}
+                >
+                    <span className={`text-[13px] ${value ? 'text-gray-900 font-bold' : 'text-gray-400'}`}>
+                        {value || 'Select...'}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180 text-blue-600' : ''}`} />
+                </div>
+
+                <AnimatePresence>
+                    {isOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-2xl z-[1000] flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="p-2 bg-gray-50 border-b border-gray-100">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input 
+                                        autoFocus
+                                        type="text"
+                                        placeholder="Search or enter your own"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onKeyDown={(e) => { if(e.key==='Enter' && searchTerm) { onChange(searchTerm); setIsOpen(false); } }}
+                                        className="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded text-sm outline-none focus:border-blue-600 shadow-inner"
+                                    />
                                 </div>
                             </div>
-
-                            <div className="relative py-2">
-                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-white px-2 text-gray-400">Or Upload Files</span>
-                                </div>
-                            </div>
-
-                            {/* Local Upload */}
-                            <div 
-                                onClick={() => fileInputRef.current.click()}
-                                className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-gray-50 transition-all"
-                            >
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                    accept="image/*"
-                                    multiple
-                                />
-                                <div className="space-y-2">
-                                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
-                                        <Upload className="w-5 h-5 text-indigo-600" />
-                                    </div>
-                                    <p className="text-sm text-gray-600 font-medium">Click to upload from computer</p>
-                                    <p className="text-xs text-gray-400">Supports multiple files</p>
-                                </div>
-                            </div>
-
-                            {/* Gallery Preview */}
-                            {localPreviews.length > 0 && (
-                                <div className="grid grid-cols-4 gap-2 mt-4">
-                                    {localPreviews.map((src, idx) => (
-                                        <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-100 shadow-sm">
-                                            <img src={src} alt="Preview" className="w-full h-full object-cover" />
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleRemoveLocal(idx); }}
-                                                className="absolute top-1 right-1 p-1 bg-white/90 rounded-full text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
+                            <div className="max-h-64 overflow-y-auto overflow-x-hidden py-1">
+                                {options.length > 0 ? (
+                                    filteredOptions.map((opt, i) => (
+                                        <div key={i} onClick={() => { onChange(opt); setIsOpen(false); setSearchTerm(''); }} className="px-4 py-2.5 text-[13px] text-gray-700 hover:bg-blue-600 hover:text-white cursor-pointer flex items-center justify-between font-medium">
+                                            {opt}
+                                            {String(value) === String(opt) && <Check className="w-4 h-4 text-current" />}
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-semibold mb-4">Core Attributes</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Condition</label>
-                                <select 
-                                    value={condition}
-                                    onChange={(e) => setCondition(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                >
-                                    <optgroup label="General">
-                                        <option>New</option>
-                                        <option>New other (see details)</option>
-                                        <option>Open box</option>
-                                        <option>Used - Good</option>
-                                        <option>Used - Very Good</option>
-                                        <option>Used - Like New</option>
-                                        <option>For parts or not working</option>
-                                    </optgroup>
-                                    <optgroup label="Clothing, Shoes & Accessories">
-                                        <option>New with box</option>
-                                        <option>New without box</option>
-                                        <option>New with tags</option>
-                                        <option>New without tags</option>
-                                        <option>New with defects</option>
-                                        <option>New with imperfections</option>
-                                        <option>Pre-owned - Excellent</option>
-                                        <option>Pre-owned - Good</option>
-                                        <option>Pre-owned - Fair</option>
-                                    </optgroup>
-                                    <optgroup label="Electronics, Home & Industrial">
-                                        <option>Certified - Refurbished</option>
-                                        <option>Excellent - Refurbished</option>
-                                        <option>Very Good - Refurbished</option>
-                                        <option>Good - Refurbished</option>
-                                        <option>Seller refurbished</option>
-                                        <option>Remanufactured</option>
-                                    </optgroup>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                                <select 
-                                    value={gender}
-                                    onChange={(e) => setGender(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                >
-                                    <option>Male</option>
-                                    <option>Female</option>
-                                    <option>Unisex</option>
-                                    <option>Other</option>
-                                    <option>Prefer not to say</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Title Builder (Draggable) */}
-                        <div className="mt-8 space-y-4">
-                            <label className="block text-sm font-bold text-gray-700 flex justify-between items-center">
-                                <span>Build Title Format <span className="text-xs font-normal text-gray-400 lowercase">(Drag to reorder)</span></span>
-                                {titleStructure.length > 0 && <button onClick={() => setTitleStructure([])} className="text-rose-500 hover:text-rose-600 text-[10px] uppercase font-bold">Clear All</button>}
-                            </label>
-                            
-                            <div className="flex flex-wrap gap-2">
-                                {titleOptions.map(opt => (
-                                    <button
-                                        key={opt}
-                                        onClick={() => toggleTitleOption(opt)}
-                                        className={`px-3 py-1.5 rounded-full text-[10px] font-black transition-all border ${
-                                            titleStructure.includes(opt)
-                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                                                : 'bg-white text-gray-400 border-gray-100 hover:border-indigo-200'
-                                        }`}
-                                    >
-                                        {opt}
-                                    </button>
-                                ))}
-                            </div>
-                            
-                            <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
-                                {titleStructure.length === 0 ? (
-                                    <div className="text-center py-4 text-xs text-gray-400 italic">Select fields above to start building...</div>
-                                ) : (
-                                    <Reorder.Group axis="y" values={titleStructure} onReorder={setTitleStructure} className="space-y-2">
-                                        {titleStructure.map((item, idx) => (
-                                            <Reorder.Item key={item} value={item} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors">
-                                                <div className="bg-indigo-50 p-1.5 rounded-lg">
-                                                    <GripVertical className="w-4 h-4 text-indigo-400" />
-                                                </div>
-                                                <span className="text-sm font-bold text-gray-700">{idx + 1}. {item}</span>
-                                            </Reorder.Item>
-                                        ))}
-                                    </Reorder.Group>
+                                    ))
+                                ) : !searchTerm && (
+                                    <div className="px-4 py-8 text-center text-xs text-gray-400 italic font-medium">No official suggested values found for this field.</div>
+                                )}
+                                {searchTerm && !filteredOptions.includes(searchTerm) && (
+                                    <div onClick={() => { onChange(searchTerm); setIsOpen(false); }} className="px-4 py-3 bg-blue-50 text-blue-700 text-[13px] font-bold cursor-pointer hover:bg-blue-100 italic">
+                                        Use "{searchTerm}" as custom value
+                                    </div>
                                 )}
                             </div>
                         </div>
-
-                        {/* Description Style Selection */}
-                        <div className="mt-8 space-y-4">
-                            <label className="block text-sm font-bold text-gray-700 uppercase tracking-widest text-[11px]">
-                                Description Template
-                            </label>
-                            <div className="grid grid-cols-2 gap-3">
-                                {Object.keys(templateMeta).map(style => (
-                                    <button
-                                        key={style}
-                                        onClick={() => setDescriptionStyle(style)}
-                                        className={`p-4 rounded-2xl border flex flex-col items-center gap-1 transition-all text-center ${
-                                            descriptionStyle === style
-                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl scale-[1.02]'
-                                                : 'bg-white text-gray-500 border-gray-100 hover:border-indigo-200 shadow-sm'
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            {style === 'AI Generated' ? <Zap className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
-                                            <span className="text-xs font-bold">{style}</span>
-                                        </div>
-                                        <span className={`text-[10px] font-medium block ${descriptionStyle === style ? 'text-indigo-100' : 'text-gray-400'}`}>
-                                            {templateMeta[style]}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        
-                        <button 
-                            onClick={handleAnalyze}
-                            disabled={isAnalyzing}
-                            className={`w-full mt-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
-                                isAnalyzing 
-                                    ? 'bg-indigo-100 text-indigo-400 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-indigo-500/25 hover:-translate-y-0.5 active:scale-95'
-                            }`}
-                        >
-                            {isAnalyzing ? (
-                                <><Loader2 className="w-5 h-5 animate-spin" /> Analyzing Product...</>
-                            ) : (
-                                <><Sparkles className="w-5 h-5" /> Generate AI Listing</>
-                            )}
-                        </button>
-                    </div>
-
-                    {message.text && (
-                        <div className={`p-4 rounded-xl flex items-center gap-3 transition-all animate-in fade-in slide-in-from-top-4 ${
-                            message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
-                        }`}>
-                            {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
-                            <span className="text-sm font-medium">{message.text}</span>
-                        </div>
                     )}
+                </AnimatePresence>
+            </div>
+        </div>
+    );
+};
+
+const AiFetching = () => {
+    const [imageUrls, setImageUrls] = useState(['']); 
+    const [localPreviews, setLocalPreviews] = useState([]); 
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [aiResult, setAiResult] = useState(null);
+    const [message, setMessage] = useState({ type: '', text: '' });
+    const [isSaving, setIsSaving] = useState(false);
+    
+    // UI Mockup for Metrics as seen in eBay SS
+    const getMetric = (idx) => {
+        if (idx === 0) return "~3.8K searches";
+        if (idx === 1) return "~3.2K searches";
+        if (idx < 5) return "Trending";
+        return null;
+    };
+
+    const handleAnalyze = async () => {
+        const allImages = [...imageUrls.filter(u => u.trim() !== ''), ...localPreviews];
+        if (allImages.length === 0) return setMessage({ type: 'error', text: 'No images provided.' });
+        setIsAnalyzing(true); setAiResult(null);
+        try {
+            const result = await analyzeProduct({ images: allImages, platform: 'ebay', structure: ['Brand', 'Size', 'Color'] });
+            if (result.success) {
+                setAiResult(result.data);
+                setMessage({ type: 'success', text: 'Listing Analyzed with eBay Taxonomy!' });
+            }
+        } catch (e) { setMessage({ type: 'error', text: 'Analysis failed.' }); }
+        finally { setIsAnalyzing(false); }
+    };
+
+    const handleEditField = (f, v) => setAiResult(prev => ({ ...prev, [f]: v }));
+    const handleEditSpecific = (k, v) => setAiResult(prev => ({
+        ...prev, item_specifics: { ...prev.item_specifics, [k]: v }
+    }));
+
+    const handleListOnPlatform = () => {
+        if (!aiResult) return;
+        const targetPlatform = aiResult.target_platform || 'ebay';
+        window.postMessage({ 
+            type: "EbayAutoLister_SendData", 
+            payload: { ...aiResult, images: [...imageUrls.filter(u => u.trim() !== ''), ...localPreviews] } 
+        }, "*");
+        setMessage({ type: 'success', text: `Data sent to ${targetPlatform.toUpperCase()} Extension!` });
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await saveAiListing(aiResult);
+            setMessage({ type: 'success', text: 'Saved to Products!' });
+        } catch (e) { setMessage({ type: 'error', text: 'Save failed.' }); }
+        finally { setIsSaving(false); }
+    };
+
+    return (
+        <div className="max-w-[1240px] mx-auto py-16 px-8 bg-white min-h-screen border-x border-gray-50">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-12 mb-16 border-b border-gray-100 pb-12">
+                <div className="flex items-center gap-6">
+                    <div className="w-14 h-14 bg-[#0064D2] rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100"><Sparkles className="w-8 h-8 text-white" /></div>
+                    <div>
+                        <h1 className="text-3xl font-black text-gray-900 tracking-tighter">eBay Listing Studio</h1>
+                        <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mt-1">Official Taxonomy API • Searchable Hub</p>
+                    </div>
+                </div>
+                <div className="flex gap-4">
+                    <button onClick={handleAnalyze} disabled={isAnalyzing} className="px-10 py-3.5 bg-[#0064D2] text-white rounded-full font-black text-sm hover:shadow-2xl hover:bg-blue-700 transition-all flex items-center gap-3">
+                        {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin"/> : <Sparkles className="w-4 h-4"/>} Analyze Product
+                    </button>
+                    <button onClick={() => window.location.reload()} className="px-8 py-3.5 bg-gray-50 text-gray-400 font-bold text-sm rounded-full border border-gray-100">Clear</button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-12 gap-16">
+                {/* Images */}
+                <div className="col-span-4 space-y-10">
+                    <div className="space-y-6">
+                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2 italic"><ImageIcon className="w-4 h-4"/> Visual Sources</label>
+                        <div className="space-y-4">
+                            {imageUrls.map((u, i) => (
+                                <input key={i} type="text" value={u} onChange={(e) => { const n = [...imageUrls]; n[i] = e.target.value; setImageUrls(n); }} placeholder="Paste image link here..." className="w-full px-5 py-4 bg-[#F9F9F9] border border-transparent rounded-2xl text-[13px] outline-none focus:bg-white focus:border-blue-600 transition-all font-medium text-gray-700" />
+                            ))}
+                            <button onClick={() => setImageUrls([...imageUrls, ''])} className="text-[10px] font-black text-blue-600 uppercase tracking-widest">+ Add URL</button>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Right Panel: Result */}
-                <div className="lg:col-span-7">
-                    {!aiResult && !isAnalyzing && (
-                        <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-3xl h-full flex flex-col items-center justify-center p-12 text-center text-gray-400">
-                            <Sparkles className="w-16 h-16 mb-4 opacity-50" />
-                            <p className="text-lg font-medium">Comprehensive Results</p>
-                            <p className="text-sm px-12 mt-2">Upload tags, front, and back views for the best details.</p>
+                {/* Form area */}
+                <div className="col-span-8">
+                    {!aiResult && !isAnalyzing ? (
+                        <div className="h-full border border-dashed border-gray-200 rounded-[60px] flex flex-col items-center justify-center p-24 text-center">
+                            <Package className="w-16 h-16 text-gray-100 mb-6" />
+                            <h2 className="text-xl font-black text-gray-300 uppercase tracking-[0.3em]">Editor Locked</h2>
                         </div>
-                    )}
-
-                    {isAnalyzing && (
-                        <div className="bg-white rounded-3xl p-12 h-full flex flex-col items-center justify-center text-center">
-                            <div className="relative">
-                                <div className="w-24 h-24 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                                <Sparkles className="absolute inset-0 m-auto w-10 h-10 text-indigo-600" />
+                    ) : isAnalyzing ? (
+                        <div className="h-full flex flex-col items-center justify-center p-24 text-center bg-white rounded-[60px] border border-gray-50 shadow-sm relative overflow-hidden">
+                            <div className="absolute inset-0 bg-blue-50/10 animate-pulse" />
+                            <div className="w-20 h-20 border-4 border-gray-100 border-t-blue-600 rounded-full animate-spin mb-10" />
+                            <p className="text-sm font-black text-gray-400 uppercase tracking-[0.2em] italic">Accessing eBay Data...</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-16 animate-in fade-in slide-in-from-bottom-10 duration-700">
+                            {/* Basics */}
+                            <div className="space-y-8">
+                                <div className="flex items-center gap-2"><Tag className="w-4 h-4 text-blue-600"/> <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Global Taxonomy Details</span></div>
+                                <textarea value={aiResult.title} onChange={(e) => handleEditField('title', e.target.value)} className="w-full text-5xl font-black text-gray-900 border-none outline-none p-0 resize-none leading-tight tracking-tighter" rows="2" />
+                                
+                                <div className="flex items-center justify-between pt-10 border-t border-gray-50">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Proposed Value</span>
+                                        <div className="flex items-baseline"><span className="text-4xl font-black text-emerald-600">$</span><input type="number" value={aiResult.selling_price} onChange={(e) => handleEditField('selling_price', e.target.value)} className="text-4xl font-black text-emerald-600 bg-transparent border-none outline-none w-40" /></div>
+                                    </div>
+                                    <div className="px-6 py-2 bg-blue-50 text-blue-600 rounded-full text-[13px] font-black italic border border-blue-100 shadow-sm">{aiResult.category}</div>
+                                </div>
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-800 mt-8">Analyzing All Angles...</h2>
-                            <p className="text-gray-500 mt-3 max-w-sm">Reading tags and detecting every detail using Multi-Vision GPT-4o...</p>
-                        </div>
-                    )}
 
-                    {aiResult && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
-                            <div className="bg-white rounded-2xl shadow-xl shadow-indigo-500/5 border border-gray-100 overflow-hidden">
-                                <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b border-gray-100">
-                                    <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-wider">
-                                        Multi-Image Analysis Result
-                                    </span>
+                            {/* ITEM SPECIFICS - THE SEARCHABLE LIST */}
+                            <div className="pt-12 border-t border-gray-100">
+                                <div className="flex items-center justify-between mb-12">
+                                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">Official Item Specifics</h3>
+                                    <div className="flex items-center gap-2 px-4 py-1.5 bg-emerald-50 rounded-full border border-emerald-100"><span className="text-[10px] font-black text-emerald-600">30+ FIELDS SYNCED</span></div>
                                 </div>
-
-                                <div className="p-8 space-y-8">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-tighter">Detected Category:</span>
-                                            <input 
-                                                value={aiResult.category}
-                                                onChange={(e) => handleEditField('category', e.target.value)}
-                                                className="text-sm font-bold text-indigo-600 bg-transparent border-none outline-none w-full"
-                                            />
-                                        </div>
-                                        <div>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="text-xs font-semibold text-gray-400 uppercase">Product Title:</span>
-                                                <span className={`text-[10px] font-bold ${aiResult.title.length > 80 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                    {aiResult.title.length}/80
-                                                </span>
-                                            </div>
-                                            <textarea
-                                                value={aiResult.title}
-                                                onChange={(e) => handleEditField('title', e.target.value)}
-                                                className="w-full text-2xl font-black text-gray-900 leading-tight border-none focus:ring-0 p-0 hover:bg-gray-50 rounded-xl transition-colors resize-none"
-                                                rows="2"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-8 py-6 border-y border-gray-50">
-                                        <div className="space-y-1">
-                                            <span className="text-xs font-semibold text-gray-400 uppercase flex items-center gap-1">
-                                                <DollarSign className="w-3 h-3" /> Resale Market Value:
-                                            </span>
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-3xl font-black text-emerald-600">$</span>
-                                                <input 
-                                                    type="number"
-                                                    value={aiResult.selling_price}
-                                                    onChange={(e) => handleEditField('selling_price', e.target.value)}
-                                                    className="text-3xl font-black text-emerald-600 bg-transparent border-none outline-none w-32 p-0"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-xs font-semibold text-gray-400 uppercase">Condition:</span>
-                                            <div className="text-lg font-bold text-indigo-900">{condition}</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Premium Listing Description</span>
-                                            <span className="text-[10px] text-gray-400 font-medium">Ready for eBay</span>
-                                        </div>
-                                        <textarea
-                                            value={aiResult.description}
-                                            onChange={(e) => handleEditField('description', e.target.value)}
-                                            className="w-full text-sm font-medium text-gray-700 leading-relaxed bg-gray-50/80 p-6 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all h-[450px] shadow-inner"
+                                <div className="space-y-0 relative">
+                                    {aiResult.officialAspects?.map((aspect, idx) => (
+                                        <EbaySearchableSelect 
+                                            key={aspect.localizedAspectName}
+                                            label={aspect.localizedAspectName}
+                                            required={aspect.required}
+                                            value={aiResult.item_specifics[aspect.localizedAspectName]}
+                                            options={aspect.values || []}
+                                            metrics={getMetric(idx)}
+                                            onChange={(val) => handleEditSpecific(aspect.localizedAspectName, val)}
                                         />
-                                    </div>
-
-                                    {/* Official eBay Aspects Section */}
-                                    {aiResult.official_aspects && aiResult.official_aspects.length > 0 && (
-                                        <div className="space-y-4 pt-6 border-t border-gray-100">
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">Official eBay Aspects</span>
-                                                    <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-bold">Taxonomy API</span>
-                                                </div>
-                                                <span className="text-[10px] text-gray-400 font-medium">Verify required fields</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                                                {aiResult.official_aspects.map((aspect) => {
-                                                    const aiValue = aiResult.item_specifics[aspect.localizedAspectName];
-                                                    const isRequired = aspect.required;
-                                                    
-                                                    return (
-                                                        <div 
-                                                            key={aspect.localizedAspectName} 
-                                                            className={`flex flex-col p-3 rounded-xl border transition-all ${
-                                                                isRequired && !aiValue 
-                                                                    ? 'bg-rose-50 border-rose-200' 
-                                                                    : 'bg-white border-gray-100'
-                                                            }`}
-                                                        >
-                                                            <div className="flex justify-between items-start mb-1">
-                                                                <span className={`text-[10px] font-bold ${isRequired ? 'text-rose-600' : 'text-gray-400'}`}>
-                                                                    {aspect.localizedAspectName} {isRequired && '*'}
-                                                                </span>
-                                                                {isRequired && (
-                                                                    <span className="text-[8px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded uppercase font-black">Required</span>
-                                                                )}
-                                                            </div>
-                                                            <input 
-                                                                value={aiValue || ''}
-                                                                onChange={(e) => handleEditSpecific(aspect.localizedAspectName, e.target.value)}
-                                                                placeholder={aspect.values?.length > 0 ? `e.g. ${aspect.values[0]}` : 'Enter value...'}
-                                                                className="text-sm font-semibold text-gray-900 bg-transparent border-none outline-none p-0 focus:ring-0"
-                                                            />
-                                                            {aspect.values?.length > 0 && (
-                                                                <div className="mt-1 flex flex-wrap gap-1">
-                                                                    {aspect.values.slice(0, 3).map(v => (
-                                                                        <button 
-                                                                            key={v}
-                                                                            onClick={() => handleEditSpecific(aspect.localizedAspectName, v)}
-                                                                            className="text-[8px] bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-600 px-1.5 py-0.5 rounded transition-colors"
-                                                                        >
-                                                                            {v}
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-4 pt-6 border-t border-gray-100">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">AI Extracted Details</span>
-                                            <span className="text-[10px] text-gray-400 font-medium">Extra information detected</span>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {Object.entries(aiResult.item_specifics)
-                                                .filter(([key]) => !aiResult.official_aspects?.some(oa => oa.localizedAspectName === key))
-                                                .map(([key, value]) => (
-                                                <div key={key} className="flex flex-col p-3 bg-gray-50 rounded-xl border border-transparent">
-                                                    <span className="text-[10px] text-gray-400 font-bold">{key}</span>
-                                                    <input 
-                                                        value={value}
-                                                        onChange={(e) => handleEditSpecific(key, e.target.value)}
-                                                        className="text-sm font-semibold text-indigo-900 bg-transparent border-none outline-none p-0"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4 pt-6">
-                                        <button 
-                                            onClick={handleSave}
-                                            disabled={isSaving}
-                                            className="flex-1 bg-gray-900 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-black transition-all shadow-lg active:scale-95 disabled:bg-gray-400"
-                                        >
-                                            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                                            Save to MongoDB
-                                        </button>
-                                        <button 
-                                            onClick={handleListOnEbay}
-                                            className="px-6 bg-indigo-50 text-indigo-600 font-bold rounded-2xl flex items-center justify-center border border-indigo-100 hover:bg-indigo-100 transition-all active:scale-95"
-                                        >
-                                            <ExternalLink className="w-5 h-5" />
-                                        </button>
-                                    </div>
+                                    ))}
                                 </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-4 pt-16 sticky bottom-10 z-[200]">
+                                <button onClick={handleSave} disabled={isSaving} className="flex-1 py-6 bg-gray-900 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-4">
+                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5"/>} Save Listing
+                                </button>
+                                <button onClick={handleListOnPlatform} className="flex-1 py-6 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-4">
+                                    <ExternalLink className="w-5 h-5" /> Transfer to Extension
+                                </button>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* Notification */}
+            <AnimatePresence>
+                {message.text && (
+                    <div className={`fixed top-10 left-1/2 -translate-x-1/2 px-10 py-5 rounded-full shadow-2xl flex items-center gap-4 font-black text-xs z-[3000] border ${message.type==='success' ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-rose-600 text-white border-rose-500'}`}>
+                        {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <X className="w-5 h-5" />}
+                        {message.text.toUpperCase()} <button onClick={() => setMessage({type:'', text:''})} className="ml-4 hover:opacity-100 opacity-60"><X className="w-4 h-4"/></button>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -1,0 +1,54 @@
+{
+    "manifest_version": 3,
+    "name": "Vinted AutoLister",
+    "version": "1.0.0",
+    "description": "Auto-populate Vinted listings from your Admin Dashboard.",
+    "permissions": [
+        "storage",
+        "activeTab",
+        "tabs"
+    ],
+    "host_permissions": [
+        "*://*.vinted.com/*",
+        "*://*.vinted.co.uk/*",
+        "*://*.vinted.fr/*",
+        "*://*.vinted.de/*",
+        "*://*.vinted.it/*",
+        "*://*.vinted.es/*",
+        "https://capable-mercy-production-8c90.up.railway.app/*"
+    ],
+    "action": {
+        "default_title": "Vinted AutoLister"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.vinted.com/items/new*",
+                "*://*.vinted.co.uk/items/new*",
+                "*://*.vinted.fr/items/new*",
+                "*://*.vinted.de/items/new*",
+                "*://*.vinted.es/items/new*",
+                "*://*.vinted.com/*/sell*",
+                "*://*.vinted.co.uk/*/sell*",
+                "*://*.vinted.fr/*/sell*",
+                "*://*.vinted.de/*/sell*",
+                "*://*.vinted.es/*/sell*"
+            ],
+            "js": ["vinted_content.js"],
+            "run_at": "document_end"
+        },
+        {
+            "matches": [
+                "http://localhost:5173/*",
+                "http://localhost:3000/*",
+                "https://*.hostingersite.com/*",
+                "https://capable-mercy-production-8c90.up.railway.app/*"
+            ],
+            "js": ["admin_content.js"],
+            "run_at": "document_idle"
+        }
+    ]
+}

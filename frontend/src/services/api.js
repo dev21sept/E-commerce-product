@@ -66,3 +66,8 @@ export const saveAiListing = async (data) => {
     const response = await api.post('/ai/save-listing', data);
     return response.data;
 };
+
+export const searchCategories = async (query) => {
+    const response = await api.get(`/ai/search-categories?query=${query}`);
+    return response.data;
+};

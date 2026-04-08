@@ -11,6 +11,7 @@ router.post('/products', productController.createProduct);
 // AI Fetching Routes
 router.post('/ai/analyze-product', aiController.analyzeProductImage);
 router.post('/ai/save-listing', aiController.saveAiListing);
+router.get('/ai/search-categories', aiController.searchCategories);
 
 router.get('/products', productController.getAllProducts);
 router.get('/products/:id', productController.getProduct);
