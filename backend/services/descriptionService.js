@@ -180,7 +180,7 @@ const wrapInTemplate = (content, title = 'Product Details') => {
     if (content.includes('ebay-template-container')) return content;
 
     return `
-<div class="ebay-template-container" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 16px; background-color: #ffffff; color: #1f2937; line-height: 1.6; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+<div id="ds_div" class="ebay-template-container" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 16px; background-color: #ffffff; color: #1f2937; line-height: 1.6; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
     <div style="margin-bottom: 25px; border-bottom: 2px solid #4f46e5; padding-bottom: 15px;">
         <h2 style="margin: 0; color: #4f46e5; font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">${title}</h2>
     </div>

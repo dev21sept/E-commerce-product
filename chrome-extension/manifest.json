@@ -51,10 +51,12 @@
         "*://*.ebay.com.au/*",
         "*://*.ebay.in/*",
         "*://*.ebay.ie/*",
-        "*://*.ebay.at/*"
+        "*://*.ebay.at/*",
+        "*://*.ebaydesc.com/*"
       ],
       "js": ["ebay_content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ]
 }

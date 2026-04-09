@@ -1,4 +1,5 @@
-console.log("[eBay AutoLister] Content script active!");
+const isTopFrame = window === window.top;
+const isDescriptionFrame = window.location.href.includes("ebaydesc.com");
 
 // --- STORAGE-BASED STATE (PERSISTS REFRESHES) ---
 function getPageState(key) { return sessionStorage.getItem('ebay_lister_' + key); }
@@ -505,24 +506,92 @@ async function fillTitlePrice() {
 async function fillDescriptionStep() {
     const productData = await getStorage("ebayDraftData");
     if (!productData) return;
-    showStatus("⚡ Injecting Description...", "info");
+    
+    // Safety check for UI
+    if (isTopFrame) showStatus("⚡ Injecting Description...", "info");
+    
     const htmlContent = productData.description || productData.about_item || productData.title;
-    const editors = document.querySelectorAll('.ck-editor__editable, [contenteditable="true"][aria-label*="Description" i], #desc_wrapper [contenteditable="true"]');
-    editors.forEach(editor => {
-        editor.focus(); editor.click(); editor.innerHTML = htmlContent;
-        ['input', 'change', 'blur'].forEach(evtType => editor.dispatchEvent(new Event(evtType, { bubbles: true })));
-    });
-    document.querySelectorAll('iframe').forEach(iframe => {
-        try {
-            const doc = iframe.contentDocument || iframe.contentWindow.document;
-            const body = doc.body;
-            if (body && (body.getAttribute('contenteditable') === 'true' || iframe.title?.toLowerCase().includes('description'))) {
-                body.focus(); body.innerHTML = htmlContent;
-                ['input', 'change', 'blur'].forEach(evtType => body.dispatchEvent(new Event(evtType, { bubbles: true })));
+
+    // Handle Top Frame (finding iframes and direct editors)
+    if (isTopFrame) {
+        // 1. Try to find the "Show HTML Code" checkbox to force HTML mode
+        const htmlToggle = Array.from(document.querySelectorAll('label, span')).find(el => el.innerText?.toLowerCase().includes("show html code"))?.parentElement?.querySelector('input[type="checkbox"]');
+        if (htmlToggle && !htmlToggle.checked) {
+            console.log("[eBay AutoLister] 🔄 Switching to HTML mode for reliable injection...");
+            htmlToggle.click();
+            await new Promise(r => setTimeout(r, 600));
+        }
+
+        const editors = document.querySelectorAll('.ck-editor__editable, [contenteditable="true"][aria-label*="Description" i], #desc_wrapper [contenteditable="true"], textarea[name="desc"], textarea[id*="desc"], .html-editor textarea');
+        editors.forEach(editor => {
+            editor.focus();
+            
+            if (editor.tagName === 'TEXTAREA') {
+                console.log("[eBay AutoLister] 📝 Injecting into TEXTAREA...");
+                editor.value = htmlContent;
+            } else {
+                console.log("[eBay AutoLister] 📝 Injecting into ContentEditable...");
+                editor.innerHTML = '';
+                try {
+                    if (!document.execCommand('insertHTML', false, htmlContent)) {
+                        editor.innerHTML = htmlContent;
+                    }
+                } catch (e) {
+                    editor.innerHTML = htmlContent;
+                }
             }
-        } catch(e) {}
-    });
-    showStatus("✅ Description Done!", "success");
+            
+            ['input', 'change', 'blur', 'keyup'].forEach(evtType => {
+                editor.dispatchEvent(new Event(evtType, { bubbles: true }));
+            });
+        });
+
+        // 2. Switch back to visual mode if we toggled it
+        if (htmlToggle && htmlToggle.checked) {
+            setTimeout(() => htmlToggle.click(), 1000);
+        }
+        
+        // Same-origin iframes
+        document.querySelectorAll('iframe').forEach(iframe => {
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                const body = doc.body;
+                if (body && (body.getAttribute('contenteditable') === 'true' || iframe.title?.toLowerCase().includes('description'))) {
+                    body.focus();
+                    body.innerHTML = '';
+                    try {
+                        if (!doc.execCommand('insertHTML', false, htmlContent)) {
+                            body.innerHTML = htmlContent;
+                        }
+                    } catch (e) {
+                        body.innerHTML = htmlContent;
+                    }
+                    ['input', 'change', 'blur'].forEach(evtType => body.dispatchEvent(new Event(evtType, { bubbles: true })));
+                }
+            } catch(e) {}
+        });
+    }
+
+    // Handle cross-origin frames
+    if (isDescriptionFrame || document.body?.getAttribute('contenteditable') === 'true') {
+        console.log("[eBay AutoLister] 📝 Inside description editor frame...");
+        document.body.focus();
+        document.body.innerHTML = '';
+        try {
+            if (!document.execCommand('insertHTML', false, htmlContent)) {
+                document.body.innerHTML = htmlContent;
+            }
+        } catch (e) {
+            document.body.innerHTML = htmlContent;
+        }
+        
+        const dsDiv = document.getElementById('ds_div') || document.getElementById('desc_div');
+        if (dsDiv) dsDiv.innerHTML = htmlContent;
+        
+        ['input', 'change', 'blur', 'keyup'].forEach(evtType => document.body.dispatchEvent(new Event(evtType, { bubbles: true })));
+    }
+
+    if (isTopFrame) showStatus("✅ Description Done!", "success");
 }
 
 async function fillImagesStep() {
@@ -938,6 +1007,7 @@ async function performFullFill() {
 }
 
 function showStatus(msg, type = "info") {
+    if (!isTopFrame) return; // Only show status in Top Frame
     let overlay = document.getElementById('ebay-status-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -956,7 +1026,7 @@ function showStatus(msg, type = "info") {
 }
 
 function createManualButton(productData) {
-    if (document.getElementById('ebay-autofill-container')) return;
+    if (!isTopFrame || document.getElementById('ebay-autofill-container')) return;
     const isListingPage = window.location.href.includes("/sl/list/") || window.location.href.includes("/lstng") || window.location.href.includes("/drafts/");
     if (!isListingPage) return;
 
@@ -966,7 +1036,7 @@ function createManualButton(productData) {
 
     const createBtn = (text, color, action) => {
         const btn = document.createElement('button');
-        btn.innerText = text; // No icon span
+        btn.innerText = text; 
         btn.style.cssText = `padding:8px 12px; background:${color}; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s; width:100%; text-align:center; text-transform:uppercase; letter-spacing:0.4px;`;
         btn.onmouseenter = () => { btn.style.transform = 'translateY(-1px)'; btn.style.filter = 'brightness(1.05)'; };
         btn.onmouseleave = () => { btn.style.transform = 'translateY(0)'; btn.style.filter = 'brightness(1.0)'; };
@@ -994,15 +1064,23 @@ setInterval(async () => {
     const productData = await getStorage("ebayDraftData");
     if (!productData) return;
 
-    // 1. HIGHEST PRIORITY: WIZARD/MODAL (Check every 3s)
-    const isIframeWizard = window.location.href.includes("bulkedit.ebay.com");
-    const wizardModal = document.querySelector('.variation-wizard, .modal-dialog, .msku-dialog, .variations-v3-overlay');
-    const hasWizardTitle = document.body.innerText.includes("Create your variations") || document.body.innerText.includes("Edit Variations");
+    // IF WE ARE IN THE DESCRIPTION FRAME, ONLY HANDLE DESCRIPTION
+    if (isDescriptionFrame) {
+        fillDescriptionStep();
+        return;
+    }
 
-    if (isIframeWizard || wizardModal || hasWizardTitle) {
-        console.log("[eBay AutoLister] 🎭 Wizard/Modal detected in loop. Triggering auto-fill...");
-        handleVariationsWizard(productData);
-        return; // Don't do other things if we are in the wizard
+    // 1. HIGHEST PRIORITY: WIZARD/MODAL (Check every 3s)
+    if (isTopFrame) {
+        const isIframeWizard = window.location.href.includes("bulkedit.ebay.com");
+        const wizardModal = document.querySelector('.variation-wizard, .modal-dialog, .msku-dialog, .variations-v3-overlay');
+        const hasWizardTitle = document.body.innerText.includes("Create your variations") || document.body.innerText.includes("Edit Variations");
+
+        if (isIframeWizard || wizardModal || hasWizardTitle) {
+            console.log("[eBay AutoLister] 🎭 Wizard/Modal detected in loop. Triggering auto-fill...");
+            handleVariationsWizard(productData);
+            return; 
+        }
     }
 
     // 2. MAIN LISTING & BRIDGE PAGES
@@ -1013,7 +1091,7 @@ setInterval(async () => {
     handleConditionPage(productData);
 
     if (isMainListing) {
-        createManualButton(productData); 
+        if (isTopFrame) createManualButton(productData); 
         
         if (!getPageState('format_fixed')) {
             const success = await ensureBuyItNowFormat(); 
