@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ebayApiService = require('../services/ebayApiService');
+const { wrapInTemplate } = require('../services/descriptionService');
 const Product = require('../models/Product');
 
 exports.analyzeProductImage = async (req, res) => {
@@ -202,6 +203,7 @@ exports.analyzeProductImage = async (req, res) => {
 Context: Gender: ${gender}, Condition: ${condition}, Category: ${categoryPath}.
 
 Response ONLY as JSON: {
+  "brand": "Company Name",
   "title_parts": { "AttributeName": "Value", ... },
   "description": "",
   "item_specifics": { "FieldName": "Value", ... },
@@ -232,10 +234,14 @@ Response ONLY as JSON: {
             .substring(0, 80)
             .trim();
 
+        const templatedDescription = wrapInTemplate(finalData.description, titleString);
+
         return res.json({
             success: true,
             data: {
                 ...finalData,
+                brand: finalData.brand || finalData.item_specifics?.Brand || finalData.title_parts?.Brand || '',
+                description: templatedDescription,
                 title: titleString, // Overwrite with our strictly built string
                 searchTitle: categoryResult?.category_query || titleString,
                 category: categoryPath,
