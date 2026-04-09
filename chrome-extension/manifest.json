@@ -12,6 +12,7 @@
   ],
   "host_permissions": [
     "https://*.hostingersite.com/*",
+    "https://darkcyan-alligator-272413.hostingersite.com/*",
     "https://*/*",
     "http://*/*",
     "https://*.ebay.com/*",
@@ -32,6 +33,7 @@
         "http://localhost:*/*",
         "http://127.0.0.1:*/*",
         "https://*.hostingersite.com/*",
+        "https://darkcyan-alligator-272413.hostingersite.com/*",
         "https://*.railway.app/*",
         "https://*.vercel.app/*",
         "https://*.onrender.com/*",
