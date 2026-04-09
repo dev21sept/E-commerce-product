@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, ChevronDown, User, ExternalLink, Tag, Upload, Search, Check, TrendingUp, FileText, Save, Layers } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
-import { searchCategories, analyzeProduct } from '../services/api'; // Import searchCategories
+import { searchCategories, analyzeProduct, getCategoryAspects } from '../services/api'; // Import searchCategories, analyzeProduct, getCategoryAspects
 
 // --- SEARCHABLE SELECT FOR ASPECTS ---
 const SearchableSelect = ({ label, value, options = [], onChange, metrics }) => {
@@ -170,7 +170,8 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
         item_specifics: {},
         officialAspects: [],
         images: [],
-        video_url: ''
+        video_url: '',
+        source: ''
     });
 
     useEffect(() => {
@@ -182,7 +183,8 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                     ? JSON.parse(initialData.item_specifics)
                     : initialData.item_specifics || {},
                 officialAspects: initialData.officialAspects || prev.officialAspects || [],
-                images: initialData.images || []
+                images: initialData.images || [],
+                source: initialData.source || prev.source || ''
             }));
         }
     }, [initialData]);
@@ -198,9 +200,21 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
         });
     };
 
-    const handleCategoryChange = (fullName, id) => {
+    const handleCategoryChange = async (fullName, id) => {
         setFormData(prev => ({ ...prev, category: fullName, categoryId: id }));
-        // Future opt: optionally re-trigger aspect fetch if category changes manually
+        
+        // Re-trigger aspect fetch if category changes manually
+        if (id) {
+            try {
+                const aspects = await getCategoryAspects(id);
+                setFormData(prev => ({
+                    ...prev,
+                    officialAspects: aspects || []
+                }));
+            } catch (e) {
+                console.error('Failed to fetch aspects for new category:', e);
+            }
+        }
     };
 
     const handleSubmit = (e) => { e.preventDefault(); onSubmit(formData); };
@@ -236,18 +250,79 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                             <button type="button" onClick={() => { const k = prompt('Field Name:'); if(k) handleItemSpecificsChange(k, ''); }} className="px-5 py-2 bg-gray-50 text-gray-500 rounded-full text-xs font-black border border-gray-100">Add Field</button>
                         </div>
                         <div className="bg-white rounded-[40px] border border-gray-100 p-8 shadow-sm">
-                            {formData.officialAspects?.map((aspect, idx) => (
-                                <SearchableSelect 
-                                    key={aspect.localizedAspectName}
-                                    label={aspect.localizedAspectName}
-                                    value={formData.item_specifics[aspect.localizedAspectName]}
-                                    options={aspect.values || []}
-                                    metrics={idx < 2 ? 'Trending' : null}
-                                    onChange={(val) => handleItemSpecificsChange(aspect.localizedAspectName, val)}
-                                />
+                            {/* 1. MATCHED OFFICIAL ASPECTS (Scraped by seller) */}
+                            {formData.officialAspects?.filter(aspect => {
+                                const matchedKey = Object.keys(formData.item_specifics).find(k => k.toLowerCase() === aspect.localizedAspectName.toLowerCase());
+                                return matchedKey && formData.item_specifics[matchedKey];
+                            }).map((aspect, idx) => {
+                                const matchedKey = Object.keys(formData.item_specifics).find(k => k.toLowerCase() === aspect.localizedAspectName.toLowerCase());
+                                return (
+                                    <SearchableSelect 
+                                        key={aspect.localizedAspectName}
+                                        label={aspect.localizedAspectName}
+                                        value={formData.item_specifics[matchedKey]}
+                                        options={aspect.values || []}
+                                        metrics={
+                                            formData.source === 'ai' ? (
+                                                <span className="text-indigo-500 font-bold uppercase tracking-widest text-[9px]">AI Generated</span>
+                                            ) : (
+                                                <span className="text-emerald-500 font-bold uppercase tracking-widest text-[9px]">Filled by Seller</span>
+                                            )
+                                        }
+                                        onChange={(val) => handleItemSpecificsChange(aspect.localizedAspectName, val)}
+                                    />
+                                );
+                            })}
+
+                            {/* 2. MISSING OFFICIAL ASPECTS (To be filled by user) */}
+                            {formData.officialAspects?.filter(aspect => !Object.keys(formData.item_specifics).some(k => k.toLowerCase() === aspect.localizedAspectName.toLowerCase()))
+                                .map((aspect, idx) => (
+                                    <SearchableSelect 
+                                        key={aspect.localizedAspectName}
+                                        label={aspect.localizedAspectName}
+                                        value={formData.item_specifics[aspect.localizedAspectName]}
+                                        options={aspect.values || []}
+                                        metrics={
+                                            formData.source === 'ai' ? (
+                                                <span className="text-rose-400 font-bold uppercase tracking-widest text-[9px]">Missing Input</span>
+                                            ) : (
+                                                <span className="text-gray-400 font-bold uppercase tracking-widest text-[9px]">Not filled by Seller</span>
+                                            )
+                                        }
+                                        onChange={(val) => handleItemSpecificsChange(aspect.localizedAspectName, val)}
+                                    />
                             ))}
                         </div>
                     </div>
+
+                    {/* Variations Section */}
+                    {formData.variations && formData.variations.length > 0 && (
+                        <div className="pt-12 border-t border-gray-100">
+                             <div className="flex items-center gap-3 mb-8">
+                                <div className="p-2 bg-orange-50 text-orange-600 rounded-xl">
+                                    <Layers className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-gray-900 tracking-tight">Available Variations</h3>
+                                    <p className="text-xs text-gray-400 font-medium">Multiple attributes found for this product.</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {formData.variations.map((v, idx) => (
+                                    <div key={idx} className="bg-white p-6 rounded-[30px] border border-gray-100 shadow-sm">
+                                        <label className="text-[10px] font-black text-orange-600 uppercase tracking-widest block mb-3">{v.name}</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {v.values.map((val, vidx) => (
+                                                <span key={vidx} className="px-3 py-1.5 bg-orange-50 text-orange-700 text-[11px] font-bold rounded-xl border border-orange-100">
+                                                    {val}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="pt-12 border-t border-gray-100">
                         <h3 className="text-xl font-black text-gray-900 mb-8 tracking-tight">Media Gallery</h3>

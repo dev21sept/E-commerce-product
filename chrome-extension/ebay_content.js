@@ -202,7 +202,7 @@ function handleSuggestPage(productData) {
     const searchBtn = document.querySelector('button.keyword-suggestion__button, button[aria-label*="Search" i], .btn--primary');
 
     if (input && input.value.trim().length === 0) {
-        setInputValue(input, productData.title);
+        setInputValue(input, productData.searchTitle || productData.title);
         setPageState(gateKey, "true"); 
         setTimeout(() => { if (searchBtn && !searchBtn.disabled) searchBtn.click(); }, 1500); 
     }
@@ -404,7 +404,16 @@ async function fillTitlePrice() {
     
     // Title
     console.log("[eBay AutoLister] Title:", productData.title);
-    await setInputValue('input[name="title"], input[id*="title"], #title, [aria-label*="Title" i], [data-testid*="title"] input', productData.title);
+    const titleSels = 'input[name="title"], textarea[name="title"], input[id*="title"], #title, #editpane_title, [aria-label*="Title" i], [aria-label="Item title"], [aria-label="Listing title"], [data-testid*="title"] input, [data-testid*="title"] textarea';
+    const titleInp = document.querySelector(titleSels);
+    if (titleInp) {
+        titleInp.focus();
+        titleInp.click();
+        await setInputValue(titleInp, productData.title);
+        ['input', 'change', 'blur', 'keyup'].forEach(e => titleInp.dispatchEvent(new Event(e, { bubbles: true })));
+    } else {
+        await setInputValue(titleSels, productData.title);
+    }
     
     // Price Handling (Based on your HTML)
     const priceStr = String(productData.selling_price || productData.retail_price || "");

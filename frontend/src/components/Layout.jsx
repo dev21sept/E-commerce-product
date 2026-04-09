@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, PlusCircle, Search, Bell, User, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, PlusCircle, Search, Bell, User, Menu, X, ChevronDown, Sparkles, Link as LinkIcon } from 'lucide-react';
 
 const Layout = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
     const sidebarLinks = [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
         { name: 'Products List', path: '/products', icon: ShoppingBag },
-        { name: 'Add Product', path: '/products/add', icon: PlusCircle },
     ];
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -55,6 +55,49 @@ const Layout = ({ children }) => {
                             {link.name}
                         </NavLink>
                     ))}
+
+                    {/* Add Product Dropdown */}
+                    <div>
+                        <button
+                            onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+                            className={`w-full sidebar-link ${isAddMenuOpen ? 'text-[#4F46E5] bg-indigo-50/50' : ''}`}
+                        >
+                            <div className="flex items-center flex-1">
+                                <PlusCircle className="w-5 h-5 mr-3" />
+                                <span>Add Product</span>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 transition-transform ${isAddMenuOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {isAddMenuOpen && (
+                            <div className="ml-9 mt-1 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                                <NavLink
+                                    to="/ebay-import"
+                                    onClick={() => setIsSidebarOpen(false)}
+                                    className={({ isActive }) =>
+                                        `flex items-center px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                                            isActive ? 'text-[#4F46E5] bg-indigo-50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                        }`
+                                    }
+                                >
+                                    <LinkIcon className="w-4 h-4 mr-2" />
+                                    eBay Link
+                                </NavLink>
+                                <NavLink
+                                    to="/ai-fetching"
+                                    onClick={() => setIsSidebarOpen(false)}
+                                    className={({ isActive }) =>
+                                        `flex items-center px-4 py-2 text-sm font-medium rounded-xl transition-all ${
+                                            isActive ? 'text-[#4F46E5] bg-indigo-50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                        }`
+                                    }
+                                >
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    AI Fetch
+                                </NavLink>
+                            </div>
+                        )}
+                    </div>
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">

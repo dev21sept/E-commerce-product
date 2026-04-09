@@ -4,8 +4,10 @@ const ebayApiService = require('../services/ebayApiService');
 const Product = require('../models/Product');
 
 exports.analyzeProductImage = async (req, res) => {
+    console.log(`\n--- [AI STUDIO] New Analysis Request Received ---`);
     try {
         const { images, platform = 'ebay', structure = ['Brand', 'Size', 'Color'], descriptionStyle = 'AI Generated', customTemplateText = '', gender = 'Unisex', condition = 'New' } = req.body;
+        console.log(`Platform: ${platform}, Images: ${images?.length || 0}`);
 
         if (!images || images.length === 0) {
             return res.status(400).json({ error: "No images provided for analysis." });
@@ -67,7 +69,7 @@ exports.analyzeProductImage = async (req, res) => {
         // --- PHASE 1: CATEGORY IDENTIFICATION ---
         console.log(`--- Phase 1: Identifying ${platform} Category ---`);
         const categoryResponse = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4.1",
             temperature: 0, // Make it deterministic so the same image gives the same category every time
             messages: [
                 {
@@ -79,15 +81,15 @@ exports.analyzeProductImage = async (req, res) => {
                     content: [
                         {
                             type: "text",
-                            text: platform === 'ebay' 
+                            text: platform === 'ebay'
                                 ? `1. Analyze ALL provided images thoroughly.
 2. Carefully read ALL visible tags, brand logos, model numbers, and text on the product/box.
 3. Use this deep visual and textual evidence to determine the exact product identity.
 4. Provide a highly specific, concise search query (2-5 words) that matches its exact eBay Leaf Category (e.g., 'Mens Graphic T-Shirts', 'Wireless In-Ear Headphones', 'Portable Electric Fans').
 5. Return your response ONLY as a JSON object with 'category_query'. Be ruthlessly accurate.`
                                 : platform === 'vinted'
-                                ? "Identify the ABSOLUTE LEAF CATEGORY (deepest possible sub-category) for Vinted for ANY product (e.g., T-shirts, Shirts, Pants, Shoes). NEVER stop at a general category; always identify the final specific sub-category based on the product's visual features (e.g., instead of just 'Shirts', identify if it's 'Long-sleeved shirts' or 'Button-down shirts'). Return the full hierarchical path separated by '>' (e.g., Men > Clothing > Tops & T-shirts > T-shirts > Print T-shirts). Response ONLY as JSON: { \"category\": \"...\" }"
-                                : `Identify the ${platform} category path for this product. Return your response ONLY as a JSON object with 'category'. Keep it accurate for ${platform}'s structure.`
+                                    ? "Identify the ABSOLUTE LEAF CATEGORY (deepest possible sub-category) for Vinted for ANY product (e.g., T-shirts, Shirts, Pants, Shoes). NEVER stop at a general category; always identify the final specific sub-category based on the product's visual features (e.g., instead of just 'Shirts', identify if it's 'Long-sleeved shirts' or 'Button-down shirts'). Return the full hierarchical path separated by '>' (e.g., Men > Clothing > Tops & T-shirts > T-shirts > Print T-shirts). Response ONLY as JSON: { \"category\": \"...\" }"
+                                    : `Identify the ${platform} category path for this product. Return your response ONLY as a JSON object with 'category'. Keep it accurate for ${platform}'s structure.`
                         },
                         ...imageContent
                     ]
@@ -97,7 +99,7 @@ exports.analyzeProductImage = async (req, res) => {
         });
 
         const categoryResult = JSON.parse(categoryResponse.choices[0].message.content);
-        
+
         let categoryId = '';
         let categoryPath = 'General';
 
@@ -108,7 +110,7 @@ exports.analyzeProductImage = async (req, res) => {
                 const suggestions = await ebayApiService.getCategorySuggestions(appToken, query);
                 if (suggestions && suggestions.length > 0) {
                     categoryId = suggestions[0].category.categoryId;
-                    
+
                     let ancestors = suggestions[0].categoryTreeNodeAncestors || [];
                     ancestors.sort((a, b) => a.categoryTreeNodeLevel - b.categoryTreeNodeLevel);
                     categoryPath = ancestors.map(a => a.categoryName).concat(suggestions[0].category.categoryName).join(' > ');
@@ -133,7 +135,7 @@ exports.analyzeProductImage = async (req, res) => {
                 console.log(`--- Fetching official eBay aspects for Category: ${categoryId} ---`);
                 const appToken = await ebayApiService.getAppToken();
                 const aspectsData = await ebayApiService.getItemAspectsForCategory(appToken, categoryId);
-                
+
                 if (aspectsData && aspectsData.aspects) {
                     officialAspects = aspectsData.aspects.map(aspect => ({
                         localizedAspectName: aspect.localizedAspectName,
@@ -162,8 +164,8 @@ exports.analyzeProductImage = async (req, res) => {
             temperature: 0, // Enforce strict consistency across repeated requests
             messages: [
                 {
-                   role: "system",
-                   content: `You are a world-class ${platform} listing expert. You strictly follow instructions.`
+                    role: "system",
+                    content: `You are a world-class ${platform} listing expert. You strictly follow instructions.`
                 },
                 {
                     role: "user",
@@ -215,7 +217,7 @@ Response ONLY as JSON: {
         });
 
         const finalData = JSON.parse(mainResponse.choices[0].message.content);
-        
+
         // --- MANUALLY BUILD THE TITLE BASED ON STRUCTURE ---
         // This ensures the AI CANNOT inject extra fields into the final string
         const titleParts = finalData.title_parts || {};
@@ -262,10 +264,10 @@ exports.searchCategories = async (req, res) => {
     try {
         const { query } = req.query;
         if (!query) return res.json([]);
-        
+
         const appToken = await ebayApiService.getAppToken();
         const suggestions = await ebayApiService.getCategorySuggestions(appToken, query);
-        
+
         // Format for frontend
         const formatted = suggestions.map(s => {
             let ancestors = s.categoryTreeNodeAncestors || [];
@@ -275,7 +277,7 @@ exports.searchCategories = async (req, res) => {
                 fullName: ancestors.map(a => a.categoryName).concat(s.category.categoryName).join(' > ')
             };
         });
-        
+
         res.json(formatted);
     } catch (error) {
         console.error('Category search error:', error.message);

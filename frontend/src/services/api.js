@@ -22,12 +22,17 @@ export const listProduct = async (productId) => {
 
 
 export const fetchEbayProduct = async (url) => {
-    const response = await api.post('/fetch-ebay-product', { url });
+    const response = await api.post('/scraper/fetch-ebay-product', { url });
     return response.data;
 };
 
 export const scrapeEbayDescription = async (url) => {
-    const response = await api.post('/scrape-ebay', { url });
+    const response = await api.post('/scraper/scrape-ebay', { url });
+    return response.data;
+};
+
+export const getCategoryAspects = async (categoryId) => {
+    const response = await api.get(`/scraper/aspects/${categoryId}`);
     return response.data;
 };
 

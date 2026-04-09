@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import ProductList from './pages/ProductList';
-import AddProduct from './pages/AddProduct';
+import EbayImport from './pages/EbayImport';
 import EditProduct from './pages/EditProduct';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import AiFetching from './pages/AiFetching';
@@ -14,7 +14,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/products" element={<ProductList />} />
-                    <Route path="/products/add" element={<AddProduct />} />
+                    <Route path="/ebay-import" element={<EbayImport />} />
                     <Route path="/products/edit/:id" element={<EditProduct />} />
                     <Route path="/ai-fetching" element={<AiFetching />} />
                     <Route path="/privacy" element={<PrivacyPolicy />} />

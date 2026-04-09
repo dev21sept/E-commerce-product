@@ -41,7 +41,7 @@ const fetchEbayProduct = async (url) => {
             const price = getText('.x-price-primary') || getText('#prcIsum') || getText('.x-bin-price__content');
 
             // ---- CONDITION ----
-            let condition = getText('.x-item-condition-text .ux-textual-display') ||
+            const condition = getText('.x-item-condition-text .ux-textual-display') ||
                 getText('.x-item-condition-text') ||
                 getText('.x-additional-info__textual-display') ||
                 getText('#itemCond') ||
@@ -90,11 +90,6 @@ const fetchEbayProduct = async (url) => {
             });
 
             const brand = item_specifics['Brand'] || '';
-            
-            // Re-check condition from item specifics if not found at top level
-            if (!condition) {
-                condition = item_specifics['Condition'] || item_specifics['Condition Name'] || '';
-            }
 
             // ---- DESCRIPTION (placeholder) ----
             let description = '';
@@ -175,7 +170,7 @@ const fetchEbayProduct = async (url) => {
                     const wrapper = el.parentElement?.parentElement;
                     const nameNode = wrapper?.querySelector('label') || document.querySelector(`label[for="${el.id}"]`);
                     if (nameNode) name = nameNode.innerText.trim().replace(/:.*/g, '').replace('*', '');
-                    else name = (el.getAttribute('aria-label') || el.name || el.id || '').replace(/:.*/g, '');
+                    else name = (el.getAttribute('aria-label') || el.name || el.id || '').replace(/:.*/g);
 
                     if (name && name.toLowerCase() !== 'quantity' && !name.toLowerCase().includes('sort') && !name.toLowerCase().includes('category') && !name.toLowerCase().includes('search')) {
                         const optionNodes = el.querySelectorAll('option, [role="option"]');
@@ -234,53 +229,52 @@ const fetchEbayProduct = async (url) => {
                 if (fallbackImg) images.push(fallbackImg.replace(/s-l\d+/, 's-l1600'));
             }
 
-            // ---- CATEGORY ID ----
+            // ---- CATEGORY ID & NAME ----
             let categoryId = '';
+            let categoryName = '';
             try {
+                // Method 0: Check meta tags and standard eBay JS variables
+                const metaCat = document.querySelector('meta[property="ebay:category_id"]')?.content;
+                if (metaCat) categoryId = metaCat;
+
+                if (!categoryId) {
+                    const scripts = document.querySelectorAll('script');
+                    for (const s of scripts) {
+                        const txt = s.innerText;
+                        // Match common eBay category ID patterns in JS objects
+                        const m = txt.match(/"leafCategoryId":\s*(\d+)/) || 
+                                  txt.match(/"categoryId":\s*"(\d+)"/) || 
+                                  txt.match(/"ctgId":\s*(\d+)/) ||
+                                  txt.match(/var\s+catId\s*=\s*"(\d+)"/);
+                        if (m) { categoryId = m[1]; break; }
+                    }
+                }
+
                 // Method 1: from window object or HTML string search
-                const html = document.documentElement.innerHTML;
-                const catMatch = html.match(/"category_id":"(\d+)"/i) || html.match(/"categoryId":"(\d+)"/i) || html.match(/categoryid:?\s*"?(\d+)"?/i) || html.match(/catId[:=]\s*"?'?(\d+)"?'?/i);
-                if (catMatch) {
-                    categoryId = catMatch[1];
-                } else {
-                    // Method 2: breadcrumb link ID
-                    const breadcArr = document.querySelectorAll('.seo-breadcrumb-text a, .breadcrumbs a');
-                    for (let i = breadcArr.length - 1; i >= 0; i--) {
-                        const href = breadcArr[i].href;
-                        const hm = href.match(/bn_(\d+)/) || href.match(/\/(?:category|sch|b)\/[^\/]+\/(\d+)\//);
+                if (!categoryId) {
+                    const html = document.documentElement.innerHTML;
+                    const catMatch = html.match(/"category_id":"(\d+)"/i) || html.match(/"categoryId":"(\d+)"/i) || html.match(/categoryid:?\s*"?(\d+)"?/i) || html.match(/catId[:=]\s*"?'?(\d+)"?'?/i) || html.match(/leafCategoryId[:=]\s*"?'?(\d+)"?'?/i);
+                    if (catMatch) categoryId = catMatch[1];
+                } 
+                
+                if (!categoryId) {
+                    // Method 3: breadcrumb link ID
+                    const breadcrumbs = document.querySelectorAll('.seo-breadcrumb-text a, .breadcrumbs a, .ebayui-breadcrumb__link');
+                    for (let i = breadcrumbs.length - 1; i >= 0; i--) {
+                        const href = breadcrumbs[i].href;
+                        const hm = href.match(/bn_(\d+)/) || href.match(/\/(?:category|sch|b)\/[^\/]+\/(\d+)\//) || href.match(/_sacat=(\d+)/);
                         if (hm) { categoryId = hm[1]; break; }
                     }
                 }
+
+                // ---- CATEGORY NAME (FULL PATH) ----
+                const breadcrumbItems = Array.from(document.querySelectorAll('.seo-breadcrumb-text span, .breadcrumbs li span, .ebayui-breadcrumb__item span, .seo-breadcrumb-text a, .breadcrumbs a, .ebayui-breadcrumb__link'));
+                const validNames = breadcrumbItems.map(i => i.innerText.trim()).filter(t => t && t !== '>' && !t.toLowerCase().includes('back to') && !t.toLowerCase().includes('home'));
+                // Remove duplicates while maintaining order
+                const uniqueNames = [...new Set(validNames)];
+                categoryName = uniqueNames.join(' > ') || '';
+                
             } catch (e) { }
-
-            // Improved Category detection
-            let detectedCategory = '';
-            const categorySelectors = [
-                '.seo-breadcrumb-text span', 
-                '.breadcrumbs li:last-child span', 
-                '.breadcrumbs a:last-child',
-                '#vi-VR-brumb-cntr span:last-child',
-                '.vi-center-container .breadcrumbs',
-                '.p-breadcrumb-item-actual'
-            ];
-            
-            for (const selector of categorySelectors) {
-                const el = document.querySelector(selector);
-                if (el && el.innerText.trim()) {
-                    detectedCategory = el.innerText.trim();
-                    break;
-                }
-            }
-
-            // If still not found, try getting all breadcrumbs as a string
-            if (!detectedCategory) {
-                const breadcrumbs = Array.from(document.querySelectorAll('.seo-breadcrumb-text a, .breadcrumbs a'))
-                    .map(a => a.innerText.trim())
-                    .filter(t => t);
-                if (breadcrumbs.length > 0) {
-                    detectedCategory = breadcrumbs.join(' > ');
-                }
-            }
 
             return {
                 title,
@@ -293,7 +287,7 @@ const fetchEbayProduct = async (url) => {
                 images,
                 variations,
                 item_specifics,
-                category: detectedCategory || '',
+                category: categoryName || '',
                 categoryId: categoryId || '',
                 sellerName,
                 sellerFeedback,
@@ -324,4 +318,3 @@ const fetchEbayProduct = async (url) => {
 };
 
 module.exports = { fetchEbayProduct };
-

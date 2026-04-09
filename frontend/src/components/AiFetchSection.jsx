@@ -3,7 +3,7 @@ import { Sparkles, Image as ImageIcon, Upload, Loader2, X, Plus, ExternalLink, T
 import { Reorder, AnimatePresence } from 'framer-motion';
 import { analyzeProduct, fetchEbayProduct } from '../services/api';
 
-const AiFetchSection = ({ onDataFetched }) => {
+const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
     // ... media states ...
     const [imageUrls, setImageUrls] = useState(['']); // Array of URL strings
     const [localPreviews, setLocalPreviews] = useState([]); // Array of base64 strings
@@ -165,6 +165,7 @@ const AiFetchSection = ({ onDataFetched }) => {
         }
 
         setIsAnalyzing(true);
+        if (typeof onAnalyzingStart === 'function') onAnalyzingStart();
         setMessage({ type: 'info', text: 'AI is analyzing images...' });
 
         try {
@@ -186,7 +187,8 @@ const AiFetchSection = ({ onDataFetched }) => {
                     condition_name: condition,
                     gender: gender,
                     selling_price: parseFloat(aiResult.selling_price || 0),
-                    ebay_url: '' // Ensure we don't show the ebay link section for AI fetches
+                    ebay_url: '', // Ensure we don't show the ebay link section for AI fetches
+                    source: 'ai'
                 };
                 onDataFetched(formattedData);
                 setMessage({ type: 'success', text: 'AI analysis complete! Form populated.' });

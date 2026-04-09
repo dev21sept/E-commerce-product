@@ -25,7 +25,7 @@ const productSchema = new mongoose.Schema({
     ],
     gender: String, // Added as requested
     ai_generated: { type: Boolean, default: false },
-    source: { type: String, enum: ['ai', 'ebay'], default: 'ebay' },
+    source: { type: String, enum: ['ai', 'ebay', 'scraper'], default: 'ebay' },
     target_platform: { type: String, enum: ['ebay', 'poshmark', 'vinted'], default: 'ebay' },
     sql_id: Number, // Temporary for migration
     created_at: { type: Date, default: Date.now },

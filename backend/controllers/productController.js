@@ -1,38 +1,4 @@
-const { fetchEbayProduct } = require('../services/ebayScraper');
 const Product = require('../models/Product');
-
-// Fetch eBay product data (unchanged logic, just scraper)
-exports.fetchEbayData = async (req, res) => {
-    const { url } = req.body;
-    if (!url) {
-        return res.status(400).json({ error: 'eBay URL is required' });
-    }
-
-    try {
-        const productData = await fetchEbayProduct(url);
-        // Attach the original URL
-        productData.ebayUrl = url;
-        res.json(productData);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch eBay product data', details: error.message });
-    }
-};
-
-// Standalone scrape for description (User request)
-exports.scrapeEbayDescription = async (req, res) => {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ error: "URL is required" });
-
-    const { fetchDescriptionOnly } = require('../services/descriptionService');
-
-    try {
-        const description = await fetchDescriptionOnly(url);
-        res.json({ description });
-    } catch (error) {
-        console.log("Scraping error:", error);
-        res.status(500).json({ error: "Scraping failed", details: error.message });
-    }
-};
 
 // Create a new product (MongoDB version)
 exports.createProduct = async (req, res) => {

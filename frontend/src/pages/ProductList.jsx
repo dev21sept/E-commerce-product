@@ -76,7 +76,7 @@ const ProductList = () => {
         
         const matchesSource = sourceFilter === 'all' || 
             (sourceFilter === 'ai' && p.source === 'ai') || 
-            (sourceFilter === 'ebay' && p.source === 'ebay');
+            (sourceFilter === 'ebay' && (p.source === 'ebay' || p.source === 'scraper'));
             
         return matchesSearch && matchesSource;
     });
@@ -233,7 +233,7 @@ const ProductList = () => {
                                                 </div>
                                             ) : (
                                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-100">
-                                                    <Link2 className="w-3 h-3" /> eBay Link
+                                                    <Link2 className="w-3 h-3" /> {product.source === 'scraper' ? 'Scraped Link' : 'eBay Import'}
                                                 </div>
                                             )}
                                         </td>
@@ -394,30 +394,45 @@ const ProductList = () => {
                                 );
                             })()}
 
-                            {/* Variations Note replaced with actual Variations */}
-                            {previewProduct.variations && previewProduct.variations.length > 0 && (
-                                <div className="space-y-2">
-                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                        <Package className="w-4 h-4 text-indigo-600" />
-                                        Available Variations (Attributes)
-                                    </h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {previewProduct.variations.map((v, i) => (
-                                            <div key={i} className="bg-orange-50 border border-orange-100 p-3 rounded-2xl flex-1 min-w-[140px]">
-                                                <p className="text-[10px] text-orange-600 font-bold uppercase tracking-widest mb-1">{v.name}</p>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {v.values.map((val, j) => (
-                                                        <span key={j} className="px-2 py-0.5 bg-white border border-orange-200 text-orange-800 text-[10px] font-bold rounded-md">
-                                                            {val}
-                                                        </span>
-                                                    ))}
+                            {/* Enhanced variations display */}
+                            {(() => {
+                                const displayVariations = previewProduct.variationsFormatted || [];
+                                if (displayVariations.length === 0 && previewProduct.variations?.length > 0) {
+                                    // Fallback: Group manual variations if not already formatted
+                                    const vMap = {};
+                                    previewProduct.variations.forEach(v => {
+                                        if (!vMap[v.name]) vMap[v.name] = [];
+                                        vMap[v.name].push(v.value);
+                                    });
+                                    Object.keys(vMap).forEach(name => displayVariations.push({ name, values: vMap[name] }));
+                                }
+
+                                if (displayVariations.length === 0) return null;
+
+                                return (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                            <Package className="w-4 h-4 text-indigo-600" />
+                                            Available Variations (Attributes)
+                                        </h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {displayVariations.map((v, i) => (
+                                                <div key={i} className="bg-orange-50 border border-orange-100 p-3 rounded-2xl flex-1 min-w-[140px]">
+                                                    <p className="text-[10px] text-orange-600 font-bold uppercase tracking-widest mb-1">{v.name}</p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {v.values.map((val, j) => (
+                                                            <span key={j} className="px-2 py-0.5 bg-white border border-orange-200 text-orange-800 text-[10px] font-bold rounded-md">
+                                                                {val}
+                                                            </span>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
+                                        <p className="text-[9px] text-gray-400 italic mt-1">* Note: These will be listed as a multi-variation group on eBay.</p>
                                     </div>
-                                    <p className="text-[9px] text-gray-400 italic mt-1">* Note: These will be listed as a multi-variation group on eBay.</p>
-                                </div>
-                            )}
+                                );
+                            })()}
 
                             {(!previewProduct.variations || previewProduct.variations.length === 0) && (
                                 <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start gap-3">

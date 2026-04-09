@@ -1,4 +1,7 @@
 const path = require('path');
+console.log(`\n\n*****************************************`);
+console.log(`*   SYSTEM STARTING: ${new Date().toLocaleTimeString()}   *`);
+console.log(`*****************************************\n`);
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
@@ -9,6 +12,8 @@ connectMongoDB();
 
 const productRoutes = require('./routes/productRoutes');
 const ebayRoutes = require('./routes/ebayRoutes');
+const aiRoutes = require('./routes/aiRoutes');
+const scraperRoutes = require('./routes/scraperRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,9 +24,22 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(morgan('dev'));
 
-// Routes
+// Routes Initialization Logs
+console.log(`\n--- [SYSTEM] Initializing Modular Routes ---`);
+
 app.use('/api', productRoutes);
+console.log(`✅ [INIT] Product CRUD Routes Active`);
+
 app.use('/api/ebay', ebayRoutes);
+console.log(`✅ [INIT] eBay Auth & OAuth Routes Active`);
+
+app.use('/api/ai', aiRoutes);
+console.log(`✅ [INIT] AI Vision & Analysis Routes Active`);
+
+app.use('/api/scraper', scraperRoutes);
+console.log(`✅ [INIT] eBay Link Scraper Routes Active`);
+
+console.log(`--- [SYSTEM] All Modules Loaded Successfully ---\n`);
 
 // Error handling
 app.use((err, req, res, next) => {
