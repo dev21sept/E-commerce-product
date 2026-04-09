@@ -202,9 +202,26 @@ function handleSuggestPage(productData) {
     const searchBtn = document.querySelector('button.keyword-suggestion__button, button[aria-label*="Search" i], .btn--primary');
 
     if (input && input.value.trim().length === 0) {
-        setInputValue(input, productData.searchTitle || productData.title);
+        const catSearch = (productData.category || "").trim();
+        setInputValue(input, catSearch || productData.searchTitle || productData.title);
         setPageState(gateKey, "true"); 
         setTimeout(() => { if (searchBtn && !searchBtn.disabled) searchBtn.click(); }, 1500); 
+    }
+    // --- AUTO SELECT CATEGORY ---
+    const selectGateKey = getGateKey('cat_select_done', productData.title);
+    if (!getPageState(selectGateKey)) {
+        const suggestions = Array.from(document.querySelectorAll('.category-suggestion__item, .category-selection__item, [data-testid="category-suggestion"]'));
+        if (suggestions.length > 0) {
+            let target = suggestions.find(s => {
+                const text = s.innerText.toLowerCase();
+                const path = (productData.category || "").toLowerCase();
+                return text.includes(path) || (path.includes('>') && text.includes(path.split('>').pop().trim()));
+            });
+            if (target) {
+                setPageState(selectGateKey, "true");
+                (target.querySelector('button, a') || target).click();
+            }
+        }
     }
 }
 
@@ -405,14 +422,16 @@ async function fillTitlePrice() {
     // Title
     console.log("[eBay AutoLister] Title:", productData.title);
     const titleSels = 'input[name="title"], textarea[name="title"], input[id*="title"], #title, #editpane_title, [aria-label*="Title" i], [aria-label="Item title"], [aria-label="Listing title"], [data-testid*="title"] input, [data-testid*="title"] textarea';
-    const titleInp = document.querySelector(titleSels);
-    if (titleInp) {
-        titleInp.focus();
-        titleInp.click();
-        await setInputValue(titleInp, productData.title);
-        ['input', 'change', 'blur', 'keyup'].forEach(e => titleInp.dispatchEvent(new Event(e, { bubbles: true })));
-    } else {
-        await setInputValue(titleSels, productData.title);
+    const titleEl = Array.from(document.querySelectorAll('input[name="title"], textarea[name="title"], [data-testid*="title"] input, [data-testid*="title"] textarea, #title, #editpane_title, [aria-label*="Title" i]')).find(el => el.offsetParent !== null);
+    if (titleEl) {
+        await setInputValue(titleEl, productData.title);
+        // Fallback for tricky React inputs
+        if (String(titleEl.value || "").trim().length === 0) {
+            console.log("[eBay AutoLister] Title still empty, trying fallback...");
+            titleEl.focus();
+            document.execCommand('insertText', false, productData.title);
+            ['input', 'change', 'blur'].forEach(e => titleEl.dispatchEvent(new Event(e, { bubbles: true })));
+        }
     }
     
     // Price Handling (Based on your HTML)

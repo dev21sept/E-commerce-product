@@ -237,6 +237,7 @@ Response ONLY as JSON: {
             data: {
                 ...finalData,
                 title: titleString, // Overwrite with our strictly built string
+                searchTitle: categoryResult?.category_query || titleString,
                 category: categoryPath,
                 categoryId: categoryId,
                 officialAspects: officialAspects
