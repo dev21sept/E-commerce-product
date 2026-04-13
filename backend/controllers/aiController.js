@@ -144,8 +144,18 @@ exports.analyzeProductImage = async (req, res) => {
                         usage: aspect.aspectConstraint?.aspectUsage || 'OPTIONAL',
                         values: aspect.aspectValues ? aspect.aspectValues.map(v => v.localizedValue) : []
                     }));
+
+                    // Sort by importance: Required > Recommended > Optional
+                    officialAspects.sort((a, b) => {
+                        if (a.required && !b.required) return -1;
+                        if (!a.required && b.required) return 1;
+                        if (a.usage === 'RECOMMENDED' && b.usage !== 'RECOMMENDED') return -1;
+                        if (a.usage !== 'RECOMMENDED' && b.usage === 'RECOMMENDED') return 1;
+                        return 0;
+                    });
+
                     aspectNamesList = officialAspects.map(a => a.localizedAspectName);
-                    console.log(`✅ Successfully fetched ${officialAspects.length} official eBay aspects.`);
+                    console.log(`✅ Successfully fetched and sequenced ${officialAspects.length} official eBay aspects.`);
                 }
             } catch (e) {
                 console.error('⚠️ eBay API Error:', e.message);

@@ -2,6 +2,192 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, ChevronDown, User, ExternalLink, Tag, Upload, Search, Check, TrendingUp, FileText, Save, Layers, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { searchCategories, analyzeProduct, getCategoryAspects } from '../services/api';
+import { EBAY_CONDITIONS } from '../constants/ebayConditions';
+
+const EBAY_CONDITION_NOTES = [
+    "Pre-Owned In Excellent Condition.",
+    "Pre-Owned In Great Condition.",
+    "Pre-Owned In Good Condition.",
+    "Pre-Owned In Good Condition. Has Some Stains, Please See Pictures.",
+    "Pre-Owned In Good Condition. Has Some Flaws, Please See Pictures."
+];
+
+// --- SHARED SEARCHABLE DROPDOWN COMPONENT ---
+const SearchableDropdown = ({ value, onSelect, options, placeholder = "Search..." }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const wrapperRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filteredOptions = options.filter(opt => 
+        (typeof opt === 'string' ? opt : opt.label).toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <div className="relative" ref={wrapperRef}>
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full h-10 px-4 bg-white/50 border border-indigo-50 rounded-xl flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all font-bold text-sm text-indigo-900 shadow-sm"
+            >
+                <span className="truncate">{value || 'Select...'}</span>
+                <ChevronDown className={`w-4 h-4 text-indigo-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-indigo-50 rounded-2xl shadow-2xl z-[5000] overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-3 border-b border-indigo-50 bg-indigo-25/30">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-300" />
+                                <input 
+                                    autoFocus
+                                    type="text" 
+                                    placeholder={placeholder}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-white border border-indigo-100 rounded-xl text-xs font-bold outline-none focus:border-indigo-400 transition-all"
+                                />
+                            </div>
+                        </div>
+                        <div className="max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-100">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map((opt, idx) => {
+                                    const label = typeof opt === 'string' ? opt : opt.label;
+                                    return (
+                                        <div 
+                                            key={idx}
+                                            onClick={() => {
+                                                onSelect(label);
+                                                setIsOpen(false);
+                                                setSearchTerm('');
+                                            }}
+                                            className={`px-4 py-3 text-xs font-bold cursor-pointer transition-colors border-b border-indigo-25 last:border-0 hover:bg-indigo-600 hover:text-white ${value === label ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700'}`}
+                                        >
+                                            <div className="flex flex-col gap-0.5">
+                                                <span>{label}</span>
+                                                {opt.description && <span className={`text-[9px] ${value === label ? 'text-indigo-200' : 'text-gray-400'}`}>{opt.description}</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="px-4 py-6 text-center text-[10px] font-bold text-gray-400 italic">No matches found</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+const SearchableCondition = ({ value, onChange }) => (
+    <SearchableDropdown 
+        value={value} 
+        onSelect={onChange} 
+        placeholder="Search condition..."
+        options={EBAY_CONDITIONS}
+    />
+);
+
+const SearchableGender = ({ value, onChange }) => (
+    <SearchableDropdown 
+        value={value} 
+        onSelect={onChange} 
+        placeholder="Search gender..."
+        options={['Men', 'Women', 'Unisex Kids', 'Unisex Adults', 'Girls', 'Boys']}
+    />
+);
+
+const SearchableCategory = ({ value, onChange }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [results, setResults] = useState([]);
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
+
+    useEffect(() => {
+        const delaySearch = setTimeout(async () => {
+            if (searchTerm.length > 2) {
+                const cats = await searchCategories(searchTerm);
+                setResults(cats || []);
+            }
+        }, 500);
+        return () => clearTimeout(delaySearch);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={wrapperRef}>
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full h-10 px-4 bg-white/50 border border-indigo-50 rounded-xl flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all font-bold text-sm text-indigo-900 shadow-sm"
+            >
+                <div className="flex flex-col truncate">
+                    <span className="text-xs font-black truncate">{value?.name || 'Select Category...'}</span>
+                    {value?.path && <span className="text-[9px] text-indigo-400 truncate tracking-tighter opacity-70">{value.path}</span>}
+                </div>
+                <ChevronDown className={`w-4 h-4 text-indigo-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </div>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-indigo-50 rounded-2xl shadow-2xl z-[5000] overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-3 border-b border-indigo-50 bg-indigo-25/30">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-300" />
+                                <input 
+                                    autoFocus
+                                    type="text" 
+                                    placeholder="Search eBay categories..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-white border border-indigo-100 rounded-xl text-xs font-bold outline-none focus:border-indigo-400 transition-all"
+                                />
+                            </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-100 italic">
+                            {results.length > 0 ? (
+                                results.map((cat, idx) => (
+                                    <div 
+                                        key={idx}
+                                        onClick={() => {
+                                            onChange(cat);
+                                            setIsOpen(false);
+                                        }}
+                                        className="px-4 py-3 border-b border-indigo-25 last:border-0 hover:bg-indigo-600 hover:text-white cursor-pointer transition-all"
+                                    >
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-xs font-black">{cat.name}</span>
+                                            <span className="text-[9px] opacity-70">{cat.path}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="px-4 py-8 text-center text-[10px] font-bold text-gray-400">
+                                    {searchTerm.length < 3 ? 'Type 3+ chars to search...' : 'Searching...'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
 
 // --- PRODUCT GALLERY COMPONENT ---
 const ProductGallery = ({ images = [], onRemove }) => {
@@ -123,7 +309,7 @@ const SearchableSelect = ({ label, value, options = [], onChange, metrics }) => 
                 </div>
             </div>
             <div className="w-[63%] relative">
-                <div onClick={() => setIsOpen(!isOpen)} className={`w-full px-4 py-3 bg-[#F8F9FA] rounded-xl border border-transparent hover:border-indigo-400 flex items-center justify-between cursor-pointer transition-all ${isOpen ? 'bg-white ring-2 ring-indigo-100 border-indigo-600 shadow-sm' : ''}`}>
+                <div onClick={() => setIsOpen(!isOpen)} className={`w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent hover:border-indigo-400 flex items-center justify-between cursor-pointer transition-all ${isOpen ? 'bg-white ring-2 ring-indigo-100 border-indigo-600 shadow-sm' : ''}`}>
                     <span className={`text-[13px] ${value ? 'text-gray-900 font-bold' : 'text-gray-400'}`}>{value || 'Select or type...'}</span>
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180 text-indigo-600' : ''}`} />
                 </div>
@@ -136,7 +322,7 @@ const SearchableSelect = ({ label, value, options = [], onChange, metrics }) => 
                                     <input autoFocus type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-indigo-600 shadow-inner" />
                                 </div>
                             </div>
-                            <div className="max-h-64 overflow-y-auto py-1">
+                            <div className="max-h-64 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-gray-200">
                                 {filteredOptions.map((opt, i) => (
                                     <div key={i} onClick={() => { onChange(opt); setIsOpen(false); setSearchTerm(''); }} className="px-4 py-3 text-[13px] text-gray-700 hover:bg-indigo-600 hover:text-white cursor-pointer flex items-center justify-between font-medium">
                                         {opt}
@@ -152,13 +338,13 @@ const SearchableSelect = ({ label, value, options = [], onChange, metrics }) => 
     );
 };
 
-// --- SEARCHABLE CATEGORY COMPONENT ---
-const SearchableCategory = ({ value, onChange }) => {
+// --- MINIMALIST CONDITION NOTES COMPONENT ---
+const ConditionNotesSection = ({ value = "", onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [suggestions, setSuggestions] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [showCustom, setShowCustom] = useState(false);
     const wrapperRef = useRef(null);
+
+    const ALL_NOTES = [...EBAY_CONDITION_NOTES, "Add Custom description..."];
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -168,72 +354,60 @@ const SearchableCategory = ({ value, onChange }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (searchTerm.length > 2) {
-                setIsLoading(true);
-                try {
-                    const data = await searchCategories(searchTerm);
-                    setSuggestions(data);
-                } catch (e) {
-                    console.error('Search failed:', e);
-                } finally {
-                    setIsLoading(false);
-                }
-            }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
+    const handleSelect = (note) => {
+        if (note === "Add Custom description...") {
+            setShowCustom(true);
+            onChange("");
+        } else {
+            setShowCustom(false);
+            onChange(note);
+        }
+        setIsOpen(false);
+    };
 
     return (
-        <div className="relative w-full" ref={wrapperRef}>
+        <div className="space-y-2 relative" ref={wrapperRef}>
+            <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Condition Notes</label>
+            
             <div 
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full px-6 py-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all ${isOpen ? 'ring-2 ring-indigo-200' : ''}`}
+                className={`w-full px-4 py-3 bg-white border flex items-center justify-between cursor-pointer transition-all rounded-xl ${isOpen ? 'border-indigo-600 ring-4 ring-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
             >
-                <div>
-                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-1">AI Detected Category</span>
-                    <span className="text-sm font-bold text-indigo-900 leading-tight">{value || 'Select Category...'}</span>
-                </div>
-                <ChevronDown className={`w-5 h-5 text-indigo-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <span className={`text-xs font-bold truncate ${value ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {showCustom ? "Custom Note Active" : (value || 'Select Note...')}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </div>
 
             <AnimatePresence>
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-200 rounded-[30px] shadow-2xl z-[2000] overflow-hidden">
-                        <div className="p-6 bg-gray-50 border-b border-gray-100">
-                            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Marketplace Category Search</h4>
-                            <div className="relative">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <input 
-                                    autoFocus
-                                    type="text"
-                                    placeholder="Search categories..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-12 pr-6 py-4 bg-white border border-gray-200 rounded-2xl text-sm font-bold outline-none focus:border-indigo-600 shadow-sm"
-                                />
-                                {isLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-600 animate-spin" />}
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[3000] overflow-hidden">
+                        {ALL_NOTES.map((note, idx) => (
+                            <div 
+                                key={idx} 
+                                onClick={() => handleSelect(note)}
+                                className={`px-4 py-3 text-xs font-bold hover:bg-indigo-600 hover:text-white cursor-pointer transition-all border-b border-gray-50 last:border-0 ${value === note ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700'} ${note.includes('Custom') ? 'bg-amber-50 text-amber-600' : ''}`}
+                            >
+                                {note}
                             </div>
-                        </div>
-                        <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
-                            {suggestions.map((s, i) => (
-                                <div key={i} onClick={() => { onChange(s.fullName, s.id); setIsOpen(false); }} className="px-6 py-5 border-b border-gray-50 hover:bg-indigo-600 group cursor-pointer transition-all">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-50 group-hover:bg-indigo-500/20 flex items-center justify-center shrink-0">
-                                            <Layers className="w-5 h-5 text-indigo-600 group-hover:text-white" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[13px] font-bold text-gray-900 group-hover:text-white leading-tight">{s.fullName}</span>
-                                            <span className="text-[10px] font-black group-hover:text-indigo-100 text-gray-400 uppercase tracking-widest mt-1">ID: {s.id}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        ))}
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Simple Custom Input - Only shows for custom note */}
+            {showCustom && (
+                <div className="mt-2 animate-in slide-in-from-top-2">
+                    <input 
+                        autoFocus
+                        type="text"
+                        placeholder="Type custom note..."
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full px-4 py-3 bg-amber-50/20 border-2 border-amber-100 focus:border-amber-400 focus:bg-white rounded-xl text-xs font-bold transition-all outline-none"
+                    />
+                </div>
+            )}
         </div>
     );
 };
@@ -246,11 +420,14 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
         categoryId: '',
         brand: '',
         condition_name: '',
+        condition_notes: '',
+        gender: 'Unisex',
         retail_price: '',
         selling_price: '',
         item_specifics: {},
         officialAspects: [],
-        images: []
+        images: [],
+        source: 'ai'
     });
 
     useEffect(() => {
@@ -302,20 +479,37 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                             className="w-full text-5xl font-black text-gray-900 border-none outline-none p-0 resize-none leading-tight tracking-tighter bg-transparent placeholder-indigo-200"
                             placeholder="AI Title..."
                         />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-indigo-100">
-                            <div>
-                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-2 block font-mono">Suggested Price ($)</label>
-                                <input type="number" name="selling_price" value={formData.selling_price} onChange={handleChange} className="text-4xl font-black text-indigo-600 bg-transparent border-none outline-none w-full" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-8 border-t border-indigo-100">
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Price ($)</label>
+                                <div className="relative">
+                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-2xl font-black text-indigo-300">$</span>
+                                    <input type="number" name="selling_price" value={formData.selling_price} onChange={handleChange} className="text-2xl font-black text-indigo-600 bg-transparent border-none outline-none w-full pl-8" />
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-2 block font-mono">Detected Brand</label>
-                                <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="text-2xl font-black text-indigo-900 bg-transparent border-none outline-none w-full placeholder:text-indigo-200" placeholder="Brand..." />
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Brand</label>
+                                <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="text-lg font-bold text-indigo-900 bg-transparent border-b border-indigo-50 outline-none w-full py-2 hover:border-indigo-300 focus:border-indigo-600 transition-all placeholder:text-indigo-200" placeholder="Brand..." />
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-1 block font-mono">Detected Category</label>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Gender</label>
+                                <SearchableGender value={formData.gender} onChange={(val) => setFormData(p => ({ ...p, gender: val }))} />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Category</label>
                                 <SearchableCategory value={formData.category} onChange={handleCategoryChange} />
                             </div>
                         </div>
+
+                        {/* DYNAMIC CONDITION NOTES SECTION */}
+                        <AnimatePresence>
+                            {formData.condition_name && !formData.condition_name.toLowerCase().includes('new') && (
+                                <ConditionNotesSection 
+                                    value={formData.condition_notes} 
+                                    onChange={(val) => setFormData(p => ({ ...p, condition_notes: val }))} 
+                                />
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     <div className="pt-12 border-t border-gray-100">
@@ -331,36 +525,31 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                             </div>
                         </div>
                         <div className="bg-white rounded-[40px] border border-indigo-50 p-8 shadow-sm">
-                             {/* AI FOUND ASPECTS */}
-                             {formData.officialAspects?.filter(aspect => {
-                                const matchedKey = Object.keys(formData.item_specifics).find(k => k.toLowerCase() === aspect.localizedAspectName.toLowerCase());
-                                return matchedKey && formData.item_specifics[matchedKey];
-                            }).map((aspect, idx) => {
-                                const matchedKey = Object.keys(formData.item_specifics).find(k => k.toLowerCase() === aspect.localizedAspectName.toLowerCase());
+                             {formData.officialAspects?.map((aspect, idx) => {
+                                const aspectName = aspect.localizedAspectName;
+                                // Find if we have a value for this aspect (case-insensitive key match)
+                                const matchedKey = Object.keys(formData.item_specifics).find(k => k.toLowerCase() === aspectName.toLowerCase());
+                                const value = matchedKey ? formData.item_specifics[matchedKey] : '';
+                                
+                                let statusLabel = aspect.usage; // RECOMMEND, OPTIONAL
+                                if (aspect.required) statusLabel = 'REQUIRED';
+                                if (value && matchedKey) statusLabel = 'AI ANALYZED';
+
                                 return (
                                     <SearchableSelect 
-                                        key={aspect.localizedAspectName}
-                                        label={aspect.localizedAspectName}
-                                        value={formData.item_specifics[matchedKey]}
+                                        key={aspectName}
+                                        label={aspectName}
+                                        value={value}
                                         options={aspect.values || []}
-                                        metrics={<span className="text-indigo-500 font-bold uppercase tracking-widest text-[9px]">AI Generated</span>}
-                                        onChange={(val) => handleItemSpecificsChange(aspect.localizedAspectName, val)}
+                                        metrics={
+                                            <span className={`${statusLabel === 'AI ANALYZED' ? 'text-indigo-500' : statusLabel === 'REQUIRED' ? 'text-rose-500' : 'text-gray-400'} font-bold uppercase tracking-widest text-[9px]`}>
+                                                {statusLabel}
+                                            </span>
+                                        }
+                                        onChange={(val) => handleItemSpecificsChange(aspectName, val)}
                                     />
                                 );
                             })}
-
-                            {/* MISSING ASPECTS FOR COMPLETION */}
-                            {formData.officialAspects?.filter(aspect => !Object.keys(formData.item_specifics).some(k => k.toLowerCase() === aspect.localizedAspectName.toLowerCase()))
-                                .map((aspect, idx) => (
-                                    <SearchableSelect 
-                                        key={aspect.localizedAspectName}
-                                        label={aspect.localizedAspectName}
-                                        value={formData.item_specifics[aspect.localizedAspectName]}
-                                        options={aspect.values || []}
-                                        metrics={<span className="text-rose-400 font-bold uppercase tracking-widest text-[9px]">Missing Input</span>}
-                                        onChange={(val) => handleItemSpecificsChange(aspect.localizedAspectName, val)}
-                                    />
-                            ))}
                         </div>
                     </div>
 
@@ -394,7 +583,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
 
                 <div className="lg:col-span-4 space-y-10 sticky top-10">
                     <div className="bg-white rounded-[40px] border border-indigo-50 p-6 shadow-sm">
-                        <div className="flex items-center gap-2 mb-6">
+                         <div className="flex items-center gap-2 mb-6">
                             <ImageIcon className="w-4 h-4 text-indigo-400" />
                             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest font-mono">AI Visual Evidence</span>
                         </div>

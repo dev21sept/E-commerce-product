@@ -47,3 +47,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; 
     }
 });
+
+// --- NEW FEATURE: SRT TOKEN SNIFFER ---
+chrome.webRequest.onBeforeSendHeaders.addListener(
+    (details) => {
+        const srtHeader = details.requestHeaders.find(h => h.name.toLowerCase() === 'srt');
+        if (srtHeader && srtHeader.value) {
+            chrome.storage.local.set({ ebay_srt_token: srtHeader.value });
+            console.log("[eBay AutoLister] 🔑 Sniffed SRT Token:", srtHeader.value.substring(0, 10) + "...");
+        }
+    },
+    { urls: ["*://*.ebay.com/*", "*://*.ebay.co.uk/*", "*://*.ebay.de/*"] },
+    ["requestHeaders"]
+);

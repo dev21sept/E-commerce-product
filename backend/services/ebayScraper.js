@@ -47,6 +47,23 @@ const fetchEbayProduct = async (url) => {
                 getText('#itemCond') ||
                 getText('.ux-icon-text__text') || '';
 
+            // ---- CONDITION NOTES (Seller Notes) ----
+            let conditionNotes = '';
+            const conditionNoteEl = document.querySelector('.x-item-condition-note .ux-cell-text') || 
+                                   document.querySelector('.x-item-condition-note') ||
+                                   document.querySelector('.ux-section__item--conditionNote') ||
+                                   document.querySelector('.ux-layout-section--condition .ux-expandable-textual-display-content') ||
+                                   document.querySelector('[data-testid="ux-section-condition-note"]');
+            
+            if (conditionNoteEl) {
+                conditionNotes = conditionNoteEl.innerText.trim();
+                // Remove prefix if exists like "Seller notes: "
+                conditionNotes = conditionNotes.replace(/Seller notes:\s*/i, '').replace(/Read more\s*/i, '').trim();
+            }
+            // ---- CATEGORY ----
+            const breadcrumbItems = Array.from(document.querySelectorAll('.seo-breadcrumb-text span, .breadcrumbs__item span, .breadcrumb span'));
+            const categoryPath = breadcrumbItems.map(i => i.innerText).filter(t => t && t !== '>').join(' > ');
+
             // ---- RETAIL / ORIGINAL PRICE ----
             let retailPrice = '';
             // Look for "Was:" price or strikethrough price
@@ -266,10 +283,26 @@ const fetchEbayProduct = async (url) => {
                         if (hm) { categoryId = hm[1]; break; }
                     }
                 }
+                
+                // Fallback for Category ID from Meta tags
+                if (!categoryId) {
+                    const metaCat = document.querySelector('meta[property="ebay:category-id"]') || 
+                                  document.querySelector('meta[name="ebay:category-id"]');
+                    if (metaCat) categoryId = metaCat.getAttribute('content');
+                }
 
                 // ---- CATEGORY NAME (FULL PATH) ----
-                const breadcrumbItems = Array.from(document.querySelectorAll('.seo-breadcrumb-text span, .breadcrumbs li span, .ebayui-breadcrumb__item span, .seo-breadcrumb-text a, .breadcrumbs a, .ebayui-breadcrumb__link'));
-                const validNames = breadcrumbItems.map(i => i.innerText.trim()).filter(t => t && t !== '>' && !t.toLowerCase().includes('back to') && !t.toLowerCase().includes('home'));
+                const breadcrumbItems = Array.from(document.querySelectorAll(
+                    '.seo-breadcrumb-text span, ' +
+                    '.breadcrumbs li span, ' +
+                    '.ebayui-breadcrumb__item span, ' +
+                    '.seo-breadcrumb-text a, ' +
+                    '.breadcrumbs a, ' +
+                    '.ebayui-breadcrumb__link, ' +
+                    'nav.breadcrumbs li a, ' +
+                    '[data-testid="ux-breadcrumbs"] li a'
+                ));
+                const validNames = breadcrumbItems.map(i => i.innerText.trim()).filter(t => t && t !== '>' && !t.toLowerCase().includes('back to') && !t.toLowerCase().includes('home') && !t.toLowerCase().includes('share'));
                 // Remove duplicates while maintaining order
                 const uniqueNames = [...new Set(validNames)];
                 categoryName = uniqueNames.join(' > ') || '';
@@ -281,6 +314,7 @@ const fetchEbayProduct = async (url) => {
                 price,
                 retailPrice: retailPrice || '',
                 condition,
+                conditionNotes,
                 brand,
                 description,
                 aboutItem,

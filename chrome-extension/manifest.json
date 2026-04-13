@@ -8,7 +8,8 @@
     "tabs",
     "activeTab",
     "scripting",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "webRequest"
   ],
   "host_permissions": [
     "https://*.hostingersite.com/*",
