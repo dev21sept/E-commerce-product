@@ -24,7 +24,8 @@ exports.analyzeProductImage = async (req, res) => {
             descriptionInstruction = `Description - STRICTLY FOLLOW THE USER'S CUSTOM INSTRUCTION/TEMPLATE:
             "${customTemplateText}"
             
-            (STRICT: If the instruction contains placeholders like {Brand}, {Size}, etc., replace them with data from the images. 
+            (STRICT: If the instruction contains placeholders like {Brand}, {Size}, {Material}, {Type}, etc., replace them with data from the images. 
+             SMART ADAPTATION: If the user provides a fixed template (e.g., mentioning "Jeans") but the image clearly shows something else (e.g., a "T-Shirt"), adapt the template intelligently to match the physical product while maintaining the user's requested tone and structure. 
              If it is a general prompt like "Summarize in 2 sentences", follow it EXACTLY. 
              Do NOT use any other default structures. Format with HTML tags like <b> and <br> for spacing.)`;
         } else if (descriptionStyle === 'AI Generated') {
