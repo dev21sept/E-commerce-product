@@ -5,21 +5,24 @@ const Setting = require('../models/Setting');
 
 // Handle eBay Marketplace Account Deletion Notification (Mandatory for Production Keys)
 exports.handleDeletionNotification = async (req, res) => {
+    // Challenge Response (GET)
     const challengeCode = req.query.challenge_code;
-    if (!challengeCode) {
-        return res.status(400).send('Challenge code missing');
+    if (challengeCode) {
+        const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || 'your_secret_token_here';
+        const endpoint = process.env.EBAY_DELETION_ENDPOINT || 'https://' + req.get('host') + '/api/ebay/deletion';
+
+        const hash = crypto.createHash('sha256');
+        hash.update(challengeCode + verificationToken + endpoint);
+        const responseHash = hash.digest('hex');
+
+        return res.status(200).json({
+            challengeResponse: responseHash
+        });
     }
 
-    const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || 'your_secret_token_here';
-    const endpoint = process.env.EBAY_DELETION_ENDPOINT || 'https://' + req.get('host') + '/api/ebay/deletion';
-
-    const hash = crypto.createHash('sha256');
-    hash.update(challengeCode + verificationToken + endpoint);
-    const responseHash = hash.digest('hex');
-
-    res.status(200).json({
-        challengeResponse: responseHash
-    });
+    // Actual Notification (POST)
+    console.log("eBay Deletion Notification Received:", req.body);
+    return res.status(200).send('OK');
 };
 
 // Helper to get a setting from MongoDB
