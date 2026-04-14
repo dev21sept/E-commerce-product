@@ -629,18 +629,40 @@ async function fillTitlePrice() {
         console.log("[eBay AutoLister] Injecting Condition Notes:", productData.condition_notes);
         const noteSelectors = [
             'textarea[aria-label*="Condition description" i]',
+            'textarea[aria-label*="Seller Notes" i]',
             'textarea[name*="conditionNote" i]',
             '[data-testid*="condition-description"] textarea',
-            'textarea[id*="conditionDescription"]'
+            'textarea[id*="conditionDescription"]',
+            'textarea[id*="sellerNotes"]',
+            '.ux-text-area textarea' // Generic fallback for eBay's text area components
         ];
         
-        const noteInp = document.querySelector(noteSelectors.join(','));
+        // Search globally and also within specific condition containers
+        let noteInp = null;
+        for (const sel of noteSelectors) {
+            const el = document.querySelector(sel);
+            if (el && el.offsetParent !== null) {
+                noteInp = el;
+                break;
+            }
+        }
+
         if (noteInp) {
             noteInp.focus();
             await setNativeFieldValue(noteInp, productData.condition_notes);
             console.log("[eBay AutoLister] Condition Notes filled.");
         } else {
-            console.warn("[eBay AutoLister] Could not find Condition Description textarea.");
+            console.warn("[eBay AutoLister] Could not find Condition Description textarea. Trying to find parent container...");
+            // Look for a field that might be inside a "Condition" labeled section
+            const sections = Array.from(document.querySelectorAll('section, .app-listing-web-common-section'));
+            const condSection = sections.find(s => s.innerText.toLowerCase().includes("condition description"));
+            if (condSection) {
+                const area = condSection.querySelector('textarea');
+                if (area) {
+                    await setNativeFieldValue(area, productData.condition_notes);
+                    console.log("[eBay AutoLister] Condition Notes filled via Section scan.");
+                }
+            }
         }
     }
 

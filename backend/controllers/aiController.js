@@ -20,7 +20,14 @@ exports.analyzeProductImage = async (req, res) => {
         }));
 
         let descriptionInstruction = '';
-        if (descriptionStyle === 'AI Generated') {
+        if (customTemplateText && customTemplateText.trim() !== '') {
+            descriptionInstruction = `Description - STRICTLY FOLLOW THE USER'S CUSTOM INSTRUCTION/TEMPLATE:
+            "${customTemplateText}"
+            
+            (STRICT: If the instruction contains placeholders like {Brand}, {Size}, etc., replace them with data from the images. 
+             If it is a general prompt like "Summarize in 2 sentences", follow it EXACTLY. 
+             Do NOT use any other default structures. Format with HTML tags like <b> and <br> for spacing.)`;
+        } else if (descriptionStyle === 'AI Generated') {
             descriptionInstruction = `Description - HIGH-CONVERSION & PERSUASIVE (min 300 words):
         - Use HTML <b> for section headers.
         - Use HTML <br><br> for spacing.
@@ -30,13 +37,6 @@ exports.analyzeProductImage = async (req, res) => {
         - 3. Features: <b>Key Features:</b> Bullet points for material, design, & durability.<br>
         - 4. Versatility / Usage: <b>Wear It Anywhere / Usage:</b> {Styling or functional tips}.<br>
         - 5. Satisfaction: <b>Our Guarantee:</b> Professional and fast shipping.`;
-        } else if (customTemplateText && customTemplateText.trim() !== '') {
-            descriptionInstruction = `Description - USE THIS EXACT CUSTOM TEMPLATE:
-            "${customTemplateText}"
-            
-            (STRICT: Replace all placeholders like {Brand}, {Size}, {Color}, {Condition}, {Title} etc. with data from the images. 
-             If a placeholder is not provided in your analysis, use a professional default. 
-             Maintain the EXACT visual layout and spacing of the template. Use HTML tags like <b> and <br> for formatting.)`;
         } else if (descriptionStyle === 'Template 1') {
             descriptionInstruction = `Description - PROFESSIONAL EBAY LISTING:
         - <b>Product Overview:</b> Detailed summary.<br>
