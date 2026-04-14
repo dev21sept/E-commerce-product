@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import AiProductForm from '../components/AiProductForm';
 import AiFetchSection from '../components/AiFetchSection';
-import { createProduct } from '../services/api';
+import { createProduct, listProduct } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AiFetching = () => {
@@ -11,6 +11,7 @@ const AiFetching = () => {
     const [isFetching, setIsFetching] = useState(false);
     const [scrapedData, setScrapedData] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [authStatus, setAuthStatus] = useState(null);
 
     const handleAiDataFetched = (data) => {
         setScrapedData(data);
@@ -22,28 +23,41 @@ const AiFetching = () => {
         setScrapedData(null); // Clear old data when starting new analysis
     };
 
-    const handleSaveProduct = async (formData) => {
+    const handleSaveProduct = async (formData, isDirectList = false, isDraft = false) => {
         try {
+            setIsFetching(true);
             const productWithSource = {
                 ...formData,
                 source: 'ai'
             };
             
             const response = await createProduct(productWithSource);
+            let targetId = response.productId || response.id;
             
             if (response.duplicate) {
-                const shouldOverwrite = window.confirm('This product (or one with identical images) already exists! Overwrite existing record?');
+                const shouldOverwrite = window.confirm('This product already exists! Overwrite and continue?');
                 if (shouldOverwrite) {
-                    await createProduct({ ...productWithSource, overwrite: true });
-                    navigate('/products');
+                    const updateRes = await createProduct({ ...productWithSource, overwrite: true });
+                    targetId = updateRes.productId || updateRes.id;
+                } else {
+                    setIsFetching(false);
+                    return;
                 }
-                return;
             }
 
-            navigate('/products');
+            if (isDirectList || isDraft) {
+                setAuthStatus(isDraft ? "Saving as Draft on eBay API..." : "Listing directly on eBay API...");
+                const listRes = await listProduct(targetId, isDraft);
+                alert(`✅ ${listRes.message}${listRes.listingId ? '\nListing ID: ' + listRes.listingId : ''}`);
+                navigate('/products');
+            } else {
+                navigate('/products');
+            }
         } catch (err) {
-            console.error('Save error:', err);
-            alert('Failed to save product: ' + (err.response?.data?.details || err.message));
+            console.error('Save/List error:', err);
+            alert('Failed: ' + (err.response?.data?.details || err.message));
+        } finally {
+            setIsFetching(false);
         }
     };
 

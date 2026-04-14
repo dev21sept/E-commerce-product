@@ -15,8 +15,8 @@ export const getEbayAuthUrl = async (state = 'dashboard') => {
     return response.data;
 };
 
-export const listProduct = async (productId) => {
-    const response = await api.post(`/ebay/list/${productId}`);
+export const listProduct = async (productId, isDraft = false) => {
+    const response = await api.post(`/listing/ebay/${productId}${isDraft ? '?draft=true' : ''}`);
     return response.data;
 };
 

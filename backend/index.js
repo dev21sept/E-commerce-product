@@ -14,6 +14,7 @@ const productRoutes = require('./routes/productRoutes');
 const ebayRoutes = require('./routes/ebayRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const scraperRoutes = require('./routes/scraperRoutes');
+const listingRoutes = require('./routes/listingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -38,6 +39,9 @@ console.log(`✅ [INIT] AI Vision & Analysis Routes Active`);
 
 app.use('/api/scraper', scraperRoutes);
 console.log(`✅ [INIT] eBay Link Scraper Routes Active`);
+
+app.use('/api/listing', listingRoutes);
+console.log(`✅ [INIT] Direct API Listing Routes Active`);
 
 console.log(`--- [SYSTEM] All Modules Loaded Successfully ---\n`);
 

@@ -21,8 +21,15 @@ const ProductList = () => {
         loadProducts();
     }, [location]);
 
-    const handleEbayConnect = () => {
-        window.open('https://signin.ebay.com/signin/', '_blank');
+    const handleEbayConnect = async () => {
+        try {
+            setAuthStatus("Connecting to eBay...");
+            const { url } = await getEbayAuthUrl('products');
+            window.location.href = url;
+        } catch (error) {
+            console.error('Failed to get eBay Auth URL:', error);
+            setAuthStatus("Error: Could not connect to eBay. Check server console.");
+        }
     };
 
     const loadProducts = async () => {
@@ -461,6 +468,44 @@ const ProductList = () => {
                                         >
                                             <ExternalLink className="w-4 h-4" />
                                             Open in eBay Extension
+                                        </button>
+                                    )}
+                                    {(!previewProduct.target_platform || previewProduct.target_platform === 'ebay') && (
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    setAuthStatus("Listing directly on eBay API...");
+                                                    const res = await listProduct(previewProduct.id);
+                                                    setAuthStatus(`✅ ${res.message} ID: ${res.listingId}`);
+                                                    setPreviewProduct(null);
+                                                } catch (err) {
+                                                    alert('Listing failed: ' + (err.response?.data?.details || err.message));
+                                                    setAuthStatus(null);
+                                                }
+                                            }}
+                                            className="px-4 py-3 rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700 transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <Zap className="w-4 h-4" />
+                                            List Directly via eBay API (Instant)
+                                        </button>
+                                    )}
+                                    {(!previewProduct.target_platform || previewProduct.target_platform === 'ebay') && (
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    setAuthStatus("Saving as Draft on eBay API...");
+                                                    const res = await listProduct(previewProduct.id, true);
+                                                    setAuthStatus(`✅ ${res.message}`);
+                                                    setPreviewProduct(null);
+                                                } catch (err) {
+                                                    alert('Draft failed: ' + (err.response?.data?.details || err.message));
+                                                    setAuthStatus(null);
+                                                }
+                                            }}
+                                            className="px-4 py-3 rounded-xl bg-orange-500 font-bold text-white hover:bg-orange-600 transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                        >
+                                            <FileText className="w-4 h-4" />
+                                            Save as Draft (No Fees)
                                         </button>
                                     )}
                                     {(!previewProduct.target_platform || previewProduct.target_platform === 'poshmark') && (

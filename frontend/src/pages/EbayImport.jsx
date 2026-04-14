@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Link as LinkIcon, AlertCircle, RefreshCcw, Cpu, Zap, Globe, Search, PlusSquare, ArrowLeft, Loader2 } from 'lucide-react';
 import EbayProductForm from '../components/EbayProductForm';
-import { fetchEbayProduct, createProduct, scrapeEbayDescription } from '../services/api';
+import { fetchEbayProduct, createProduct, listProduct, scrapeEbayDescription } from '../services/api';
 import { Card, Button } from '../components/ui';
 
 const EbayImport = () => {
@@ -58,12 +58,24 @@ const EbayImport = () => {
         }
     };
 
-    const handleSaveProduct = async (formData) => {
+    const handleSaveProduct = async (formData, isDirectList = false, isDraft = false) => {
         try {
-            await createProduct(formData);
-            navigate('/products');
+            setIsFetching(true);
+            const response = await createProduct(formData);
+            const targetId = response.productId || response.id;
+
+            if (isDirectList || isDraft) {
+                const listRes = await listProduct(targetId, isDraft);
+                alert(`✅ ${listRes.message}${listRes.listingId ? '\nListing ID: ' + listRes.listingId : ''}`);
+                navigate('/products');
+            } else {
+                navigate('/products');
+            }
         } catch (err) {
-            setError('Failed to save product to database');
+            console.error(err);
+            alert('Operation failed: ' + (err.response?.data?.details || err.message));
+        } finally {
+            setIsFetching(false);
         }
     };
 
