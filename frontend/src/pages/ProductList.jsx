@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2, Sparkles } from 'lucide-react';
-import { getProducts, deleteProduct, getEbayAuthUrl } from '../services/api';
+import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2, Sparkles, Zap, FileText } from 'lucide-react';
+import { getProducts, deleteProduct, getEbayAuthUrl, listProduct } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
 
 const ProductList = () => {
@@ -220,7 +220,9 @@ const ProductList = () => {
                                                     <p className="text-sm font-bold text-gray-900 line-clamp-1 group-hover:text-[#4F46E5] transition-colors">{product.title}</p>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded uppercase">{product.brand || 'No Brand'}</span>
-                                                        <span className="text-[10px] font-medium text-gray-400">{product.category || 'General'}</span>
+                                                        <span className="text-[10px] font-medium text-gray-400">
+                                                            {typeof product.category === 'object' ? (product.category?.name || 'General') : (product.category || 'General')}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -297,9 +299,15 @@ const ProductList = () => {
             </div>
             {/* Preview Modal */}
             {previewProduct && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="p-4 md:p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+                    onClick={() => setPreviewProduct(null)}
+                >
+                    <div 
+                        className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-4 md:p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 shrink-0">
                             <div>
                                 <h2 className="text-lg md:text-xl font-bold text-gray-900">Preview eBay Listing</h2>
                                 <p className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1">Check details before publishing to eBay</p>
@@ -307,34 +315,36 @@ const ProductList = () => {
                             <button onClick={() => setPreviewProduct(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors font-bold">&times;</button>
                         </div>
 
-                        <div className="p-4 md:p-6 max-h-[70vh] overflow-y-auto space-y-6">
-                            <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
-                                <div className="w-full sm:w-32 aspect-square sm:h-32 rounded-2xl bg-gray-100 overflow-hidden border border-gray-100 shrink-0">
+                        <div className="p-4 md:px-6 md:py-4 overflow-y-auto flex-1 space-y-4 custom-scrollbar">
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <div className="w-full sm:w-28 aspect-square sm:h-28 rounded-xl bg-gray-100 overflow-hidden border border-gray-100 shrink-0 shadow-sm">
                                     {previewProduct.images?.[0] ? (
                                         <img src={previewProduct.images[0]} alt="" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center">
-                                            <Package className="w-10 h-10 text-gray-300" />
+                                            <Package className="w-8 h-8 text-gray-300" />
                                         </div>
                                     )}
                                 </div>
-                                <div className="space-y-3">
-                                    <h3 className="text-base md:text-lg font-bold text-gray-900 leading-tight">{previewProduct.title}</h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        <span className="px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md uppercase tracking-wider">{previewProduct.brand || 'No Brand'}</span>
-                                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md uppercase tracking-wider">{previewProduct.category || 'General'}</span>
+                                <div className="space-y-2">
+                                    <h3 className="text-sm md:text-base font-bold text-gray-900 leading-tight line-clamp-2 uppercase">{previewProduct.title}</h3>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md uppercase tracking-wider border border-indigo-100">{previewProduct.brand || 'No Brand'}</span>
+                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[9px] font-bold rounded-md uppercase tracking-wider border border-gray-200">
+                                            {typeof previewProduct.category === 'object' ? (previewProduct.category?.name || 'General') : (previewProduct.category || 'General')}
+                                        </span>
                                     </div>
-                                    <div className="text-xl md:text-2xl font-black text-gray-900">${previewProduct.selling_price}</div>
+                                    <div className="text-xl font-black text-indigo-600">${previewProduct.selling_price}</div>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                    <Edit className="w-4 h-4 text-indigo-600" />
+                            <div className="space-y-1.5">
+                                <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Edit className="w-3.5 h-3.5 text-indigo-500" />
                                     Description Preview
                                 </h4>
                                 <div
-                                    className="bg-gray-50 rounded-2xl p-4 text-sm text-gray-600 overflow-y-auto max-h-60 leading-relaxed border border-gray-100 preview-description"
+                                    className="bg-gray-50/50 rounded-xl p-3 text-xs text-gray-600 overflow-y-auto max-h-40 leading-relaxed border border-gray-100 preview-description"
                                     dangerouslySetInnerHTML={{ __html: previewProduct.description || 'No description available.' }}
                                 />
                             </div>
@@ -364,16 +374,16 @@ const ProductList = () => {
                                     <>
                                         {/* Pure Item Specifics */}
                                         {Object.keys(itemAspects).length > 0 && (
-                                            <div className="space-y-2">
-                                                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                                    <Filter className="w-4 h-4 text-indigo-600" />
-                                                    Item Specifics (Aspects)
+                                            <div className="space-y-1.5">
+                                                <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Filter className="w-3.5 h-3.5 text-indigo-500" />
+                                                    Item Specifics
                                                 </h4>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <div className="grid grid-cols-2 gap-1.5">
                                                     {Object.entries(itemAspects).map(([key, value]) => (
-                                                        <div key={key} className="flex justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 text-[11px] gap-4">
-                                                            <span className="text-gray-500 font-medium capitalize shrink-0">{key}:</span>
-                                                            <span className="text-gray-900 font-bold text-right truncate">{Array.isArray(value) ? value.join(', ') : value}</span>
+                                                        <div key={key} className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100 text-[10px]">
+                                                            <span className="text-gray-400 font-bold uppercase text-[8px] tracking-tighter">{key}</span>
+                                                            <span className="text-gray-900 font-bold truncate">{Array.isArray(value) ? value.join(', ') : value}</span>
                                                         </div>
                                                     ))}
                                                 </div>
