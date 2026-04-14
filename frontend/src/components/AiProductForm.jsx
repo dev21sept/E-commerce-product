@@ -134,11 +134,10 @@ const SearchableCategory = ({ value, onChange }) => {
         <div className="relative" ref={wrapperRef}>
             <div 
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full h-10 px-4 bg-white/50 border border-indigo-50 rounded-xl flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all font-bold text-sm text-indigo-900 shadow-sm"
+                className="w-full min-h-[40px] h-auto py-2 px-4 bg-white/50 border border-indigo-50 rounded-xl flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all font-bold text-sm text-indigo-900 shadow-sm"
             >
-                <div className="flex flex-col truncate">
-                    <span className="text-xs font-black truncate">{value?.name || 'Select Category...'}</span>
-                    {value?.path && <span className="text-[9px] text-indigo-400 truncate tracking-tighter opacity-70">{value.path}</span>}
+                <div className="flex flex-col pr-4">
+                    <span className="text-[10px] font-black whitespace-normal leading-tight">{value?.fullName || value?.name || 'Select Category...'}</span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-indigo-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </div>
@@ -171,8 +170,7 @@ const SearchableCategory = ({ value, onChange }) => {
                                         className="px-4 py-3 border-b border-indigo-25 last:border-0 hover:bg-indigo-600 hover:text-white cursor-pointer transition-all"
                                     >
                                         <div className="flex flex-col gap-0.5">
-                                            <span className="text-xs font-black">{cat.name}</span>
-                                            <span className="text-[9px] opacity-70">{cat.path}</span>
+                                            <span className="text-[11px] font-black whitespace-normal leading-tight">{cat.fullName}</span>
                                         </div>
                                     </div>
                                 ))
@@ -448,11 +446,15 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
     const handleChange = (e) => { const { name, value } = e.target; setFormData(p => ({ ...p, [name]: value })); };
     const removeImage = (i) => setFormData(p => ({ ...p, images: p.images.filter((_, idx) => idx !== i) }));
 
-    const handleCategoryChange = async (fullName, id) => {
-        setFormData(prev => ({ ...prev, category: fullName, categoryId: id }));
-        if (id) {
+    const handleCategoryChange = async (cat) => {
+        setFormData(prev => ({ 
+            ...prev, 
+            category: cat.fullName || cat.name, 
+            categoryId: cat.id 
+        }));
+        if (cat.id) {
             try {
-                const aspects = await getCategoryAspects(id);
+                const aspects = await getCategoryAspects(cat.id);
                 setFormData(prev => ({ ...prev, officialAspects: aspects || [] }));
             } catch (e) {
                 console.error('Failed to fetch aspects:', e);
@@ -497,7 +499,13 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Category</label>
-                                <SearchableCategory value={formData.category} onChange={handleCategoryChange} />
+                                <SearchableCategory 
+                                    value={typeof formData.category === 'string' ? {
+                                        fullName: formData.category,
+                                        name: formData.category.split(' > ').pop()
+                                    } : formData.category} 
+                                    onChange={handleCategoryChange} 
+                                />
                             </div>
                         </div>
 

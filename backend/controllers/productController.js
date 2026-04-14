@@ -5,11 +5,13 @@ exports.createProduct = async (req, res) => {
     console.log("[MongoDB] Attempting to create a new product...");
     try {
         const {
-            title, description, category, category_id: categoryId, brand,
+            title, description, category, category_id, categoryId, brand,
             condition_name, retail_price, selling_price, discount_percentage,
             seller_name, seller_feedback, ebay_url, about_item, item_specifics,
             images, variations, video_url, overwrite
         } = req.body;
+
+        const finalCategoryId = categoryId || category_id;
 
         console.log(`[MongoDB] Saving product: ${title?.substring(0, 30)}...`);
 
@@ -58,7 +60,7 @@ exports.createProduct = async (req, res) => {
             title,
             description,
             category,
-            category_id: categoryId,
+            category_id: finalCategoryId,
             brand,
             condition_name,
             retail_price: parseFloat(retail_price) || 0,

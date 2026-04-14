@@ -4,7 +4,8 @@ const isProduction = import.meta.env.MODE === 'production' || window.location.ho
 
 const api = axios.create({
     baseURL: isProduction 
-        ? 'https://capable-mercy-production-8c90.up.railway.app/api'
+        //? 'https://capable-mercy-production-8c90.up.railway.app/api'
+        ?'https://e-commerce-product-cdfx.vercel.app/api'
         : 'http://localhost:5000/api',
     timeout: 120000
 });

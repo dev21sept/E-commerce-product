@@ -254,7 +254,12 @@ Response ONLY as JSON: {
                 description: templatedDescription,
                 title: titleString, // Overwrite with our strictly built string
                 searchTitle: categoryResult?.category_query || titleString,
-                category: categoryPath,
+                category: {
+                    name: categoryPath.split(' > ').pop(),
+                    path: categoryPath.includes(' > ') ? categoryPath.split(' > ').slice(0, -1).join(' > ') : '',
+                    fullName: categoryPath,
+                    id: categoryId
+                },
                 categoryId: categoryId,
                 officialAspects: officialAspects
             }
@@ -289,9 +294,13 @@ exports.searchCategories = async (req, res) => {
         const formatted = suggestions.map(s => {
             let ancestors = s.categoryTreeNodeAncestors || [];
             ancestors.sort((a, b) => a.categoryTreeNodeLevel - b.categoryTreeNodeLevel);
+            const path = ancestors.map(a => a.categoryName).join(' > ');
+            const name = s.category.categoryName;
             return {
                 id: s.category.categoryId,
-                fullName: ancestors.map(a => a.categoryName).concat(s.category.categoryName).join(' > ')
+                name: name,
+                path: path,
+                fullName: path ? `${path} > ${name}` : name
             };
         });
 
