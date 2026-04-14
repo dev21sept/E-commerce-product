@@ -258,6 +258,10 @@ const EbayProductForm = ({ initialData, onSubmit, isFetching }) => {
                                 <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="text-lg font-bold text-slate-800 bg-transparent border-b border-emerald-50 outline-none w-full py-2 placeholder:text-emerald-200" placeholder="Brand..." />
                             </div>
                             <div className="space-y-1">
+                                <label className="text-[11px] font-black text-emerald-400 uppercase tracking-widest block font-mono">Custom SKU</label>
+                                <input type="text" name="sku" value={formData.sku || ''} onChange={handleChange} className="text-lg font-bold text-slate-800 bg-transparent border-b border-emerald-50 outline-none w-full py-2 placeholder:text-emerald-200" placeholder="SKU (Optional)..." />
+                            </div>
+                            <div className="space-y-1">
                                 <label className="text-[11px] font-black text-emerald-400 uppercase tracking-widest block font-mono">Condition</label>
                                 <SearchableCondition value={formData.condition_name} onChange={(val) => setFormData(p => ({ ...p, condition_name: val }))} />
                             </div>

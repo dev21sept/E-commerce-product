@@ -494,6 +494,10 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                                 <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="text-lg font-bold text-indigo-900 bg-transparent border-b border-indigo-50 outline-none w-full py-2 hover:border-indigo-300 focus:border-indigo-600 transition-all placeholder:text-indigo-200" placeholder="Brand..." />
                             </div>
                             <div className="space-y-1">
+                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Custom SKU</label>
+                                <input type="text" name="sku" value={formData.sku || ''} onChange={handleChange} className="text-lg font-bold text-indigo-900 bg-transparent border-b border-indigo-50 outline-none w-full py-2 hover:border-indigo-300 focus:border-indigo-600 transition-all placeholder:text-indigo-200" placeholder="SKU (Optional)..." />
+                            </div>
+                            <div className="space-y-1">
                                 <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Gender</label>
                                 <SearchableGender value={formData.gender} onChange={(val) => setFormData(p => ({ ...p, gender: val }))} />
                             </div>

@@ -75,7 +75,7 @@ exports.listOnEbay = async (req, res) => {
         if (!product) return res.status(404).json({ error: 'Product not found' });
 
         const imageList = product.images || [];
-        const sku = `PROD-${product._id}-${Date.now()}`; 
+        const sku = product.sku || `PROD-${product._id}-${Date.now()}`; 
 
         // 1. Prepare Inventory Item
         const inventoryItem = {
