@@ -3,10 +3,13 @@ const mongoose = require('mongoose');
 const productSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: String,
-    category: String,
-    category_id: String,
+    category: mongoose.Schema.Types.Mixed,
+    categoryId: String,
+    category_id: String, // Keep for backward compatibility
+    sku: String,
     brand: String,
     condition_name: String,
+    condition_notes: String,
     retail_price: Number,
     selling_price: Number,
     discount_percentage: String,
@@ -16,6 +19,7 @@ const productSchema = new mongoose.Schema({
     video_url: String,
     about_item: String,
     item_specifics: mongoose.Schema.Types.Mixed,
+    officialAspects: mongoose.Schema.Types.Mixed,
     images: [String],
     variations: [
         {
