@@ -236,7 +236,12 @@ Response ONLY as JSON: {
         const titleString = structure
             .map(key => {
                 let val = titleParts[key] || '';
-                return val.replace(/,/g, ''); // Remove commas from any title part
+                val = val.replace(/,/g, ''); // Remove commas
+                // If it's the Size field, prepend "Size " for clarity
+                if (key.toLowerCase() === 'size' && val && !val.toLowerCase().startsWith('size')) {
+                    return `Size ${val}`;
+                }
+                return val;
             })
             .filter(val => val.trim() !== '')
             .join(' ')
