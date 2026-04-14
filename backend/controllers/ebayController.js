@@ -5,24 +5,53 @@ const Setting = require('../models/Setting');
 
 // Handle eBay Marketplace Account Deletion Notification (Mandatory for Production Keys)
 exports.handleDeletionNotification = async (req, res) => {
-    // Challenge Response (GET)
-    const challengeCode = req.query.challenge_code;
-    if (challengeCode) {
-        const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || 'your_secret_token_here';
-        const endpoint = process.env.EBAY_DELETION_ENDPOINT || 'https://' + req.get('host') + '/api/ebay/deletion';
+    try {
+        console.log(`\n--- [EBAY DELETION] Incoming Request ---`);
+        console.log(`Method: ${req.method}`);
+        console.log(`Query:`, req.query);
+        
+        // 1. Handle Challenge Verification (GET)
+        const challengeCode = req.query.challenge_code;
+        if (challengeCode) {
+            console.log(`Processing Challenge Verification...`);
+            const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || 'secret123';
+            // Use a fallback for endpoint if the env variable isn't set
+            const endpoint = process.env.EBAY_DELETION_ENDPOINT || `https://${req.get('host')}/api/ebay/deletion`;
+            
+            console.log(`Token: ${verificationToken ? 'SET' : 'MISSING'}`);
+            console.log(`Using Endpoint: ${endpoint}`);
 
-        const hash = crypto.createHash('sha256');
-        hash.update(challengeCode + verificationToken + endpoint);
-        const responseHash = hash.digest('hex');
+            const hash = crypto.createHash('sha256');
+            hash.update(challengeCode + verificationToken + endpoint);
+            const responseHash = hash.digest('hex');
 
-        return res.status(200).json({
-            challengeResponse: responseHash
+            console.log(`✅ Challenge Handled Successfully`);
+            return res.status(200).json({
+                challengeResponse: responseHash
+            });
+        }
+
+        // 2. Handle Test/Actual Notification (POST)
+        console.log(`Processing POST Notification...`);
+        // Safely log body without crashing
+        try {
+            const bodyStr = req.body ? JSON.stringify(req.body) : "Empty Body";
+            console.log(`Body Snippet:`, bodyStr.substring(0, 200));
+        } catch (e) {
+            console.log(`Could not stringify body, maybe not JSON`);
+        }
+        
+        console.log(`✅ POST Handled Successfully`);
+        return res.status(200).send('OK');
+
+    } catch (error) {
+        console.error(`❌ [EBAY DELETION ERROR]:`, error.message);
+        console.error(error.stack);
+        return res.status(500).json({ 
+            error: "Internal Server Error", 
+            message: error.message 
         });
     }
-
-    // Actual Notification (POST)
-    console.log("eBay Deletion Notification Received:", req.body);
-    return res.status(200).send('OK');
 };
 
 // Helper to get a setting from MongoDB
