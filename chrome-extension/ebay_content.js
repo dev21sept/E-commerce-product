@@ -14,18 +14,16 @@ function getGateKey(prefix, rawValue) {
 }
 
 // --- NEW FEATURE: PRO API INJECTION (Extracted from User's Network Trace) ---
-async function performProInjection() {
-    console.log("[eBay AutoLister] 🚀 PRO INJECTION STARTING...");
+async function performProInjection(silent = false) {
+    console.log("[eBay AutoLister] 🚀 PRO INJECTION (SUPER SYNC) STARTING...");
     const productData = await getStorage("ebayDraftData");
     if (!productData) return showStatus("No Draft Data Found", "error");
 
-    // Robust ID Extraction
     const url = window.location.href;
     const urlParams = new URLSearchParams(window.location.search);
     let draftId = urlParams.get('draftId') || urlParams.get('draftid');
     
     if (!draftId) {
-        // Regex fallback for complex URLs
         const match = url.match(/draftId[=](\d+)/i) || url.match(/\/(\d{10,})/);
         draftId = match ? match[1] : null;
     }
@@ -36,105 +34,74 @@ async function performProInjection() {
         return;
     }
 
-    showStatus("⚡ Injecting Specifics via API...", "info");
+    showStatus("⚡ Syncing EVERYTHING via API...", "info");
 
     const attributes = {};
-    
-    // Map ONLY Item Specifics
     let specifics = productData.item_specifics || {};
     if (typeof specifics === 'string') try { specifics = JSON.parse(specifics); } catch(e) {}
 
+    // Map Specifics with PascalCase keys for better eBay compatibility
     for (let [key, val] of Object.entries(specifics)) {
         if (!val || val === "N/A" || val === "Standard") continue;
-        attributes[key] = Array.isArray(val) ? val : [String(val)];
+        const cleanKey = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        attributes[cleanKey] = Array.isArray(val) ? val.map(String) : [String(val)];
     }
 
-    if (productData.brand && !attributes["Brand"]) attributes["Brand"] = [productData.brand];
-    if (productData.color && !attributes["Color"]) attributes["Color"] = [productData.color];
-    if (productData.size && !attributes["Size"]) attributes["Size"] = [productData.size];
+    // High Priority Overwrites
+    if (productData.brand) attributes["Brand"] = [String(productData.brand)];
+    if (productData.color) attributes["Color"] = [String(productData.color)];
+    if (productData.size) attributes["Size"] = [String(productData.size)];
 
-    console.log("[eBay AutoLister] Attributes being sent:", attributes);
-
-    // TRY TO FIND SECURITY TOKEN (SRT) FROM STORAGE AND PAGE
-    let srtToken = await getStorage("ebay_srt_token");
-    
-    try {
-        if (!srtToken) {
-            // Check window objects directly (if accessible)
-            if (typeof window.eBayConfig !== 'undefined' && window.eBayConfig.srt) srtToken = window.eBayConfig.srt;
-            
-            // Scan all scripts for the srt pattern
-            if (!srtToken) {
-                const scripts = Array.from(document.querySelectorAll('script'));
-                for (const s of scripts) {
-                    const content = s.innerText || s.textContent || "";
-                    const match = content.match(/"srt"[:\s]+"([^"]+)"/i) || content.match(/srt=([^&^"^\s]+)/i);
-                    if (match) { srtToken = match[1]; break; }
-                }
-            }
-        }
-    } catch(e) {}
-
-    if (srtToken) {
-        console.log("%c[eBay AutoLister] 🔑 SRT Token Ready (Source: Sniffer/Scan)", "color: #fbbf24; font-weight: bold;");
-    } else {
-        console.warn("[eBay AutoLister] ⚠️ WARNING: SRT Token NOT found. Save might fail!");
-    }
-
-    const payload = {
-        requestId: crypto.randomUUID(),
+    // PREPARE MEGA PAYLOAD
+    const body = {
         removedFields: [],
         attributes: attributes,
-        requestMeta: { lastDeltaTimestamp: Date.now() }
+        title: productData.title,
+        quantity: parseInt(productData.quantity) || 1
+    };
+
+    if (productData.price) {
+        body.price = {
+            value: String(productData.price).replace(/[^0-9.]/g, ''),
+            currency: "USD"
+        };
+    }
+
+    if (productData.description) {
+        body.description = productData.description;
+    }
+
+    if (productData.condition_notes) {
+        body.itemConditionDescription = productData.condition_notes;
+    }
+
+    let srtToken = await getStorage("ebay_srt_token");
+    const headers = {
+        "accept": "*/*",
+        "content-type": "application/json",
+        "srt": srtToken || ""
     };
 
     try {
-        const headers = {
-            "accept": "*/*",
-            "content-type": "application/json; charset=UTF-8",
-            "sec-fetch-site": "same-origin"
-        };
-        
-        // Try multiple ways to get SRT
-        if (srtToken) {
-            headers["srt"] = srtToken;
-        } else {
-            // Fallback: look for any meta tag or hidden input that might have it
-            const srtInput = document.querySelector('input[name="srt"], [data-srt]');
-            if (srtInput) headers["srt"] = srtInput.value || srtInput.getAttribute('data-srt');
-        }
-
-        console.log("[eBay AutoLister] 🚀 Performance PUT Save with SRT...");
-
+        console.log("[eBay AutoLister] 🚀 Sending MEGA PAYLOAD:", body);
         const response = await fetch(`https://www.ebay.com/lstng/api/listing_draft/${draftId}?mode=AddItem`, {
             method: "PUT",
             headers: headers,
-            body: JSON.stringify({
-                removedFields: [],
-                attributes: attributes
-            }),
+            body: JSON.stringify(body),
             credentials: "include"
         });
 
-        console.log("[eBay AutoLister] API Response Status:", response.status);
-
         if (response.ok) {
-            console.log("%c[eBay AutoLister] SUCCESS: Attributes Saved on Server!", "color: green; font-size: 14px; font-weight: bold;");
-            showStatus("✅ PRO Saved Successfully!", "success");
-            setTimeout(() => window.location.reload(), 1500);
+            console.log("%c[eBay AutoLister] ✅ MEGA SYNC SUCCESSFUL!", "color: green; font-size: 16px; font-weight: bold;");
+            showStatus("✅ EVERYTHING SYNCED!", "success");
+            if (!silent) setTimeout(() => window.location.reload(), 1500);
         } else {
-            const errText = await response.text();
-            console.group("%c[eBay AutoLister] PRO FILL ERROR", "color: red; font-size: 16px; font-weight: bold;");
-            console.error("Status:", response.status);
-            console.error("Response:", errText);
-            console.groupEnd();
-            
-            showStatus("❌ PRO Fill Failed (Status " + response.status + ")", "error");
-            alert("Pro Fill Failed. Switched to manual 'FULL AUTO (UI)' button for safety. Error: " + response.status);
+            console.error("[eBay AutoLister] API Error:", response.status, await response.text());
+            showStatus("❌ Sync Failed (API Error)", "error");
         }
     } catch (err) {
-        console.error("%c[eBay AutoLister] FATAL CRASH in Pro Fill:", "color: white; background: red; padding: 5px;", err);
-        showStatus("❌ Critical Network Error", "error");
+        console.error("[eBay AutoLister] Sync Crash:", err);
+        showStatus("❌ Network Error", "error");
     }
 }
 
@@ -320,32 +287,75 @@ function findBestConditionMatch(elements, dbConditionText) {
 
 // --- FEATURE 1: AUTO SEARCH ---
 function handleSuggestPage(productData) {
-    if (!window.location.href.includes("prelist/suggest")) return;
+    const isSuggestUrl = window.location.href.includes("prelist/suggest") || window.location.href.includes("sl/sell/suggest");
+    if (!isSuggestUrl) return;
+
+    console.log("[eBay AutoLister] 🔍 Suggestion Page Detected");
+    
     const gateKey = getGateKey('search_done', productData.title);
-    if (getPageState(gateKey)) return;
+    const gateSet = getPageState(gateKey);
+    
+    const input = document.querySelector('input[placeholder*="selling" i], input.textbox__control, #keyword, input[name="q"], input[name="keyword"]');
+    const searchBtn = document.querySelector('button.keyword-suggestion__button, button[aria-label*="Search" i], .btn--primary, button.textbox__search-button');
 
-    const input = document.querySelector('input[placeholder*="selling"], input.textbox__control, #keyword');
-    const searchBtn = document.querySelector('button.keyword-suggestion__button, button[aria-label*="Search" i], .btn--primary');
-
-    if (input && input.value.trim().length === 0) {
-        const catSearch = (productData.category || "").trim();
-        setInputValue(input, catSearch || productData.searchTitle || productData.title);
-        setPageState(gateKey, "true"); 
-        setTimeout(() => { if (searchBtn && !searchBtn.disabled) searchBtn.click(); }, 1500); 
+    if (!input) {
+        console.warn("[eBay AutoLister] ❌ Search input NOT found on Suggestion page!");
+        return;
     }
+
+    if (gateSet) {
+        console.log("[eBay AutoLister] ℹ️ Search Gate already set for this title.");
+        // If gate is set but input is STILL empty, something went wrong, let's try one more time if not too many retries
+        if (input.value.trim().length > 0) return;
+        console.log("[eBay AutoLister] 🔄 Gate is set but input is empty. Re-trying...");
+    }
+
+    console.log("[eBay AutoLister] ✍️ Filling search field...");
+    
+    // Support both String (Scraper) and Object (AI Form) category structures
+    const rawCategory = productData.category;
+    const catName = typeof rawCategory === 'object' ? (rawCategory?.fullName || rawCategory?.name || "") : (rawCategory || "");
+    const catSearch = String(catName).trim();
+    
+    const finalSearchTerm = catSearch || productData.searchTitle || productData.title;
+    
+    setInputValue(input, finalSearchTerm).then(success => {
+        if (success) {
+            setPageState(gateKey, "true"); 
+            console.log("[eBay AutoLister] 👆 Clicking Search...");
+            setTimeout(() => { 
+                if (searchBtn && !searchBtn.disabled) {
+                    searchBtn.click();
+                    showStatus("🔍 Searching Category...", "success");
+                } else {
+                    console.error("[eBay AutoLister] ❌ Search Button not found or disabled!");
+                }
+            }, 1000); 
+        }
+    });
+
     // --- AUTO SELECT CATEGORY ---
     const selectGateKey = getGateKey('cat_select_done', productData.title);
     if (!getPageState(selectGateKey)) {
-        const suggestions = Array.from(document.querySelectorAll('.category-suggestion__item, .category-selection__item, [data-testid="category-suggestion"]'));
+        const suggestions = Array.from(document.querySelectorAll('.category-suggestion__item, .category-selection__item, [data-testid*="category-suggestion"], .category-suggestion-list__item'));
         if (suggestions.length > 0) {
+            console.log(`[eBay AutoLister] 📂 Found ${suggestions.length} category suggestions.`);
+            const rawCategory = productData.category;
+            const catName = typeof rawCategory === 'object' ? (rawCategory?.fullName || rawCategory?.name || "") : (rawCategory || "");
+            const path = String(catName).toLowerCase();
+
             let target = suggestions.find(s => {
                 const text = s.innerText.toLowerCase();
-                const path = (productData.category || "").toLowerCase();
                 return text.includes(path) || (path.includes('>') && text.includes(path.split('>').pop().trim()));
             });
+            
             if (target) {
+                console.log("[eBay AutoLister] ✅ Matching category found. Selecting...");
                 setPageState(selectGateKey, "true");
-                (target.querySelector('button, a') || target).click();
+                const clickable = target.querySelector('button, a') || target;
+                clickable.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => clickable.click(), 500);
+                showStatus("✅ Category Selected!", "success");
             }
         }
     }
@@ -353,18 +363,24 @@ function handleSuggestPage(productData) {
 
 // --- FEATURE 2: AUTO IDENTIFY ---
 function handleIdentifyPage(productData) {
-    if (!window.location.href.includes("prelist/identify")) return;
+    const isIdentifyUrl = window.location.href.includes("prelist/identify") || window.location.href.includes("sl/sell/identify");
+    if (!isIdentifyUrl) return;
+
+    console.log("[eBay AutoLister] 🎭 Identify Page Detected");
+    
     const gateKey = getGateKey('match_done', productData.title);
     if (getPageState(gateKey)) return;
 
-    const noMatchBtn = Array.from(document.querySelectorAll('button, span')).find(el => 
-        /continue without match|skip/i.test(el.innerText) && el.offsetParent !== null
+    const noMatchBtn = Array.from(document.querySelectorAll('button, span, div')).find(el => 
+        /continue without match|skip|did not find it|perfect match/i.test(el.innerText) && el.offsetParent !== null
     );
 
     if (noMatchBtn) {
+        console.log("[eBay AutoLister] ⏭ Skipping product identity match...");
         const clickable = noMatchBtn.closest('button') || noMatchBtn;
         setPageState(gateKey, "true"); 
         clickable.click();
+        showStatus("⏭ Skipping Match...", "info");
     }
 }
 
@@ -628,13 +644,15 @@ async function fillTitlePrice() {
     if (productData.condition_notes && !dbCondition.toLowerCase().includes("new")) {
         console.log("[eBay AutoLister] Injecting Condition Notes:", productData.condition_notes);
         const noteSelectors = [
+            'textarea[name="itemConditionDescription"]',
             'textarea[aria-label*="Condition description" i]',
             'textarea[aria-label*="Seller Notes" i]',
             'textarea[name*="conditionNote" i]',
             '[data-testid*="condition-description"] textarea',
+            'textarea[id*="@CONDITION"]', // User's specific pattern
             'textarea[id*="conditionDescription"]',
             'textarea[id*="sellerNotes"]',
-            '.ux-text-area textarea' // Generic fallback for eBay's text area components
+            '.ux-text-area textarea'
         ];
         
         // Search globally and also within specific condition containers
@@ -1193,22 +1211,19 @@ function showStatus(msg, type = "info") {
 
 // --- NEW ONE CLICK AUTOMATION LOGIC ---
 async function performFullAutomation() {
-    showStatus("🚀 STARTING FULL ONE-CLICK AUTOMATION...", "info");
+    showStatus("🚀 STARTING MEGA SYNC...", "info");
     try {
-        // Run injection steps with small delays to ensure stability
-        await fillTitlePrice();
-        await new Promise(r => setTimeout(r, 1500));
-        
-        await performProInjection();
+        // Step 1: MEGA SYNC (Title, Price, Specifics, Description, Condition Notes)
+        await performProInjection(true); // silent = true to prevent early reload
         await new Promise(r => setTimeout(r, 2000));
         
-        await fillDescriptionStep();
-        await new Promise(r => setTimeout(r, 1000));
-        
+        // Step 2: Photos (Always needs UI interaction)
         await fillImagesStep();
         
-        showStatus("✅ ALL AUTOMATION STEPS COMPLETED!", "success");
+        showStatus("✅ ALL STEPS SYNCED! RELOADING PAGE...", "success");
+        setTimeout(() => window.location.reload(), 2000);
     } catch (e) {
+        console.error("[eBay AutoLister] Full Auto Error:", e);
         showStatus("❌ ONE-CLICK ERROR: " + e.message, "error");
     }
 }

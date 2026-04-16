@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Link as LinkIcon, AlertCircle, RefreshCcw, Cpu, Zap, Globe, Search, PlusSquare, ArrowLeft, Loader2 } from 'lucide-react';
-import EbayProductForm from '../components/EbayProductForm';
+import ImportProductForm from '../components/ImportProductForm';
 import { fetchEbayProduct, createProduct, listProduct, scrapeEbayDescription } from '../services/api';
 import { Card, Button } from '../components/ui';
 
@@ -44,7 +44,7 @@ const EbayImport = () => {
                     ...data,
                     selling_price: cleanPrice,
                     condition_name: matchedCondition,
-                    condition_notes: data.condition_notes || '',
+                    condition_notes: data.condition_notes || data.seller_notes || data.conditionDescription || '',
                     description: descData?.description || data.description || '',
                     ebay_url: ebayUrl,
                     source: 'scraper'
@@ -157,7 +157,7 @@ const EbayImport = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="animate-in fade-in duration-700"
                     >
-                        <EbayProductForm
+                        <ImportProductForm
                             initialData={scrapedData}
                             onSubmit={handleSaveProduct}
                             isFetching={isFetching}

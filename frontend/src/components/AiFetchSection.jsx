@@ -105,11 +105,9 @@ const ConditionNotesSection = ({ value = "", onChange }) => {
 
     return (
         <div className="space-y-1 relative" ref={wrapperRef}>
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">Condition Notes</label>
-            
             <div 
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full px-4 py-2 bg-white border flex items-center justify-between cursor-pointer transition-all rounded-xl ${isOpen ? 'border-indigo-600 ring-4 ring-indigo-50' : 'border-gray-100 hover:border-gray-300'}`}
+                className={`w-full px-4 py-2 bg-white border flex items-center justify-between cursor-pointer transition-all rounded-xl ${isOpen ? 'border-indigo-600 ring-4 ring-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
             >
                 <span className={`text-[10px] font-bold truncate ${value ? 'text-gray-900' : 'text-gray-400'}`}>
                     {showCustom ? "Custom Note Active" : (value || 'Select Note...')}
@@ -133,6 +131,7 @@ const ConditionNotesSection = ({ value = "", onChange }) => {
                 )}
             </AnimatePresence>
 
+            {/* Simple Custom Input - Only shows for custom note */}
             {showCustom && (
                 <div className="mt-1 animate-in slide-in-from-top-1">
                     <input 
@@ -602,7 +601,7 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                                     >
                                         <div className="flex items-center justify-between">
                                             <span className={condition ? 'text-gray-900 font-black' : 'text-gray-400'}>
-                                                {condition || 'Select Condition...'}
+                                                {typeof condition === 'object' ? condition?.label : (condition || 'Select Condition...')}
                                             </span>
                                             {condition && condition !== 'New' && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-600 text-[8px] font-black uppercase rounded-md border border-indigo-200 animate-pulse">Scraped</span>}
                                         </div>
@@ -642,7 +641,7 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                                         className="form-input text-sm flex items-center justify-between cursor-pointer bg-white"
                                     >
                                         <span className={gender ? 'text-gray-900 font-bold' : 'text-gray-400'}>
-                                            {gender || 'Select Gender...'}
+                                            {typeof gender === 'object' ? gender?.label : (gender || 'Select Gender...')}
                                         </span>
                                         <ChevronDown className="w-4 h-4 text-gray-400" />
                                     </div>

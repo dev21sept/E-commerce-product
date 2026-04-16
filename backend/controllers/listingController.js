@@ -74,17 +74,25 @@ exports.listOnEbay = async (req, res) => {
         const product = await Product.findById(productId);
         if (!product) return res.status(404).json({ error: 'Product not found' });
 
-        const imageList = product.images || [];
-        const sku = product.sku || `PROD-${product._id}-${Date.now()}`; 
-
         // 1. Prepare Inventory Item
+        // Filter out invalid/local URLs that eBay API will reject
+        const validImages = imageList
+            .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')))
+            .filter(url => !url.includes('localhost') && !url.includes('127.0.0.1'))
+            .slice(0, 12);
+
+        if (validImages.length === 0 && imageList.length > 0) {
+            console.warn("[DIRECT LISTING] Localhost/Invalid images detected. eBay API requires public URLs.");
+            // We'll proceed but eBay might warn or fail if images are mandatory.
+        }
+
         const inventoryItem = {
             availability: { shipToLocationAvailability: { quantity: 1 } },
             condition: 'NEW', // Default, should map from condition_name
             product: {
                 title: product.title.substring(0, 80),
                 description: (product.description || product.title).substring(0, 4000),
-                imageUrls: imageList.slice(0, 12),
+                imageUrls: validImages,
                 aspects: {
                     Brand: [product.brand || 'Unbranded'],
                 }

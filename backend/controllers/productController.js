@@ -145,10 +145,10 @@ exports.getProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
     try {
         const {
-            title, description, category, categoryId, brand,
-            condition_name, retail_price, selling_price,
+            title, description, category, categoryId, brand, sku,
+            condition_name, condition_notes, retail_price, selling_price,
             discount_percentage, seller_name, seller_feedback,
-            ebay_url, about_item, item_specifics, images, variations, video_url
+            ebay_url, about_item, item_specifics, officialAspects, images, variations, video_url
         } = req.body;
 
         let formattedVariations = [];
@@ -167,11 +167,11 @@ exports.updateProduct = async (req, res) => {
         const updatedProduct = await Product.findByIdAndUpdate(
             req.params.id,
             {
-                title, description, category, category_id: categoryId, brand,
-                condition_name, retail_price: parseFloat(retail_price) || 0, 
+                title, description, category, category_id: categoryId, categoryId, brand, sku,
+                condition_name, condition_notes, retail_price: parseFloat(retail_price) || 0, 
                 selling_price: parseFloat(selling_price) || 0,
                 discount_percentage, seller_name, seller_feedback,
-                ebay_url, about_item, item_specifics, images, 
+                ebay_url, about_item, item_specifics, officialAspects, images, 
                 variations: formattedVariations, video_url,
                 updated_at: Date.now()
             },

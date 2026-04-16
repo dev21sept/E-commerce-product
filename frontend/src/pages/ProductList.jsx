@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2, Sparkles, Zap, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2, Sparkles, Zap, FileText, Tag, TrendingUp } from 'lucide-react';
 import { getProducts, deleteProduct, getEbayAuthUrl, listProduct } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -338,7 +338,35 @@ const ProductList = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-1.5">
+                            {/* Detailed Metadata Summary */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                <div className="p-3 bg-indigo-50/20 border border-indigo-100 rounded-2xl flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-xl shadow-sm"><Tag className="w-3 h-3 text-indigo-500" /></div>
+                                    <div><p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">SKU</p><p className="text-[10px] font-bold text-slate-800 font-mono">{previewProduct.sku || 'N/A'}</p></div>
+                                </div>
+                                <div className="p-3 bg-blue-50/20 border border-blue-100 rounded-2xl flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-xl shadow-sm"><User className="w-3 h-3 text-blue-500" /></div>
+                                    <div><p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Gender</p><p className="text-[10px] font-bold text-slate-800">{previewProduct.gender || 'Unisex'}</p></div>
+                                </div>
+                                <div className="p-3 bg-emerald-50/20 border border-emerald-100 rounded-2xl flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-xl shadow-sm"><Package className="w-3 h-3 text-emerald-500" /></div>
+                                    <div><p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Category</p><p className="text-[10px] font-bold text-slate-800 truncate max-w-[80px]">{typeof previewProduct.category === 'object' ? (previewProduct.category?.name || previewProduct.category?.fullName) : (previewProduct.category || 'N/A')}</p></div>
+                                </div>
+                                <div className="p-3 bg-orange-50/20 border border-orange-100 rounded-2xl flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-xl shadow-sm"><ShoppingBag className="w-3 h-3 text-orange-500" /></div>
+                                    <div><p className="text-[8px] font-black text-orange-400 uppercase tracking-widest">Condition</p><p className="text-[10px] font-bold text-slate-800 truncate max-w-[80px]">{previewProduct.condition_name || 'New'}</p></div>
+                                </div>
+                            </div>
+
+                            {/* Condition Notes Display */}
+                            {previewProduct.condition_notes && (
+                                <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
+                                    <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest mb-1">Condition Notes</p>
+                                    <p className="text-[11px] text-amber-900 font-medium italic">"{previewProduct.condition_notes}"</p>
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5 ">
                                 <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                     <Edit className="w-3.5 h-3.5 text-indigo-500" />
                                     Description Preview
@@ -467,17 +495,17 @@ const ProductList = () => {
                         <div className="p-4 md:p-6 bg-gray-50/50 border-t border-gray-100 space-y-4">
                             <div className="flex flex-col gap-2">
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center mb-1">Select Marketplace to List</p>
-                                <div className="grid grid-cols-1 gap-2">
+                                <div className="grid grid-cols-3 gap-2">
                                     {(!previewProduct.target_platform || previewProduct.target_platform === 'ebay') && (
                                         <button
                                             onClick={() => {
                                                 handleSendToEbay(previewProduct);
                                                 setPreviewProduct(null);
                                             }}
-                                            className="px-4 py-3 rounded-xl bg-[#0053a0] font-bold text-white hover:bg-[#004080] transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                            className="px-2 py-2 rounded-xl bg-[#0053a0] font-bold text-white hover:bg-[#004080] transition-all active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5 text-[8px]"
                                         >
-                                            <ExternalLink className="w-4 h-4" />
-                                            Open in eBay Extension
+                                            <ExternalLink className="w-3 h-3" />
+                                            Ext
                                         </button>
                                     )}
                                     {(!previewProduct.target_platform || previewProduct.target_platform === 'ebay') && (
@@ -493,10 +521,10 @@ const ProductList = () => {
                                                     setAuthStatus(null);
                                                 }
                                             }}
-                                            className="px-4 py-3 rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700 transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                            className="px-2 py-2 rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700 transition-all active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5 text-[8px]"
                                         >
-                                            <Zap className="w-4 h-4" />
-                                            List Directly via eBay API (Instant)
+                                            <Zap className="w-3 h-3" />
+                                            API
                                         </button>
                                     )}
                                     {(!previewProduct.target_platform || previewProduct.target_platform === 'ebay') && (
@@ -512,34 +540,10 @@ const ProductList = () => {
                                                     setAuthStatus(null);
                                                 }
                                             }}
-                                            className="px-4 py-3 rounded-xl bg-orange-500 font-bold text-white hover:bg-orange-600 transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
+                                            className="px-2 py-2 rounded-xl bg-orange-500 font-bold text-white hover:bg-orange-600 transition-all active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5 text-[8px]"
                                         >
-                                            <FileText className="w-4 h-4" />
-                                            Save as Draft (No Fees)
-                                        </button>
-                                    )}
-                                    {(!previewProduct.target_platform || previewProduct.target_platform === 'poshmark') && (
-                                        <button
-                                            onClick={() => {
-                                                handleSendToPoshmark(previewProduct);
-                                                setPreviewProduct(null);
-                                            }}
-                                            className="px-4 py-3 rounded-xl bg-[#8D182E] font-bold text-white hover:bg-[#6A1222] transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
-                                        >
-                                            <ExternalLink className="w-4 h-4" />
-                                            Open in Poshmark Extension
-                                        </button>
-                                    )}
-                                    {(!previewProduct.target_platform || previewProduct.target_platform === 'vinted') && (
-                                        <button
-                                            onClick={() => {
-                                                handleSendToVinted(previewProduct);
-                                                setPreviewProduct(null);
-                                            }}
-                                            className="px-4 py-3 rounded-xl bg-[#09B1BA] font-bold text-white hover:bg-[#078E95] transition-all active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
-                                        >
-                                            <ExternalLink className="w-4 h-4" />
-                                            Open in Vinted Extension
+                                            <FileText className="w-3 h-3" />
+                                            Draft
                                         </button>
                                     )}
                                 </div>

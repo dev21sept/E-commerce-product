@@ -26,17 +26,17 @@ const SearchableDropdown = ({ value, onSelect, options, placeholder = "Search...
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filteredOptions = options.filter(opt => 
+    const filteredOptions = options.filter(opt =>
         (typeof opt === 'string' ? opt : opt.label).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
         <div className="relative" ref={wrapperRef}>
-            <div 
+            <div
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full h-10 px-4 bg-white/50 border border-indigo-50 rounded-xl flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all font-bold text-sm text-indigo-900 shadow-sm"
             >
-                <span className="truncate">{value || 'Select...'}</span>
+                <span className="truncate">{typeof value === 'object' ? value?.label : (value || 'Select...')}</span>
                 <ChevronDown className={`w-4 h-4 text-indigo-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </div>
 
@@ -46,9 +46,9 @@ const SearchableDropdown = ({ value, onSelect, options, placeholder = "Search...
                         <div className="p-3 border-b border-indigo-50 bg-indigo-25/30">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-300" />
-                                <input 
+                                <input
                                     autoFocus
-                                    type="text" 
+                                    type="text"
                                     placeholder={placeholder}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -61,7 +61,7 @@ const SearchableDropdown = ({ value, onSelect, options, placeholder = "Search...
                                 filteredOptions.map((opt, idx) => {
                                     const label = typeof opt === 'string' ? opt : opt.label;
                                     return (
-                                        <div 
+                                        <div
                                             key={idx}
                                             onClick={() => {
                                                 onSelect(label);
@@ -89,18 +89,18 @@ const SearchableDropdown = ({ value, onSelect, options, placeholder = "Search...
 };
 
 const SearchableCondition = ({ value, onChange }) => (
-    <SearchableDropdown 
-        value={value} 
-        onSelect={onChange} 
+    <SearchableDropdown
+        value={value}
+        onSelect={onChange}
         placeholder="Search condition..."
         options={EBAY_CONDITIONS}
     />
 );
 
 const SearchableGender = ({ value, onChange }) => (
-    <SearchableDropdown 
-        value={value} 
-        onSelect={onChange} 
+    <SearchableDropdown
+        value={value}
+        onSelect={onChange}
         placeholder="Search gender..."
         options={['Men', 'Women', 'Unisex Kids', 'Unisex Adults', 'Girls', 'Boys']}
     />
@@ -132,7 +132,7 @@ const SearchableCategory = ({ value, onChange }) => {
 
     return (
         <div className="relative" ref={wrapperRef}>
-            <div 
+            <div
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full min-h-[40px] h-auto py-2 px-4 bg-white/50 border border-indigo-50 rounded-xl flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all font-bold text-sm text-indigo-900 shadow-sm"
             >
@@ -148,9 +148,9 @@ const SearchableCategory = ({ value, onChange }) => {
                         <div className="p-3 border-b border-indigo-50 bg-indigo-25/30">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-300" />
-                                <input 
+                                <input
                                     autoFocus
-                                    type="text" 
+                                    type="text"
                                     placeholder="Search eBay categories..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -161,7 +161,7 @@ const SearchableCategory = ({ value, onChange }) => {
                         <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-100 italic">
                             {results.length > 0 ? (
                                 results.map((cat, idx) => (
-                                    <div 
+                                    <div
                                         key={idx}
                                         onClick={() => {
                                             onChange(cat);
@@ -224,24 +224,24 @@ const ProductGallery = ({ images = [], onRemove }) => {
             {/* Main Preview */}
             <div className="relative aspect-square rounded-[40px] overflow-hidden border border-slate-100 shadow-inner group bg-white">
                 <img src={images[activeIndex]} className="w-full h-full object-contain p-4 transition-all duration-500 scale-100 group-hover:scale-105" alt="Main product" />
-                <button 
+                <button
                     type="button"
                     onClick={() => onRemove(activeIndex)}
                     className="absolute top-4 right-4 p-2 bg-white/90 backdrop-blur-md rounded-2xl text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white"
                 >
                     <X className="w-4 h-4" />
                 </button>
-                
+
                 {images.length > 1 && (
                     <>
-                        <button 
+                        <button
                             type="button"
                             onClick={() => setActiveIndex(p => (p === 0 ? images.length - 1 : p - 1))}
                             className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 hover:bg-white rounded-full shadow-lg text-slate-800 opacity-0 group-hover:opacity-100 transition-all z-10"
                         >
                             <ChevronLeft className="w-5 h-5" />
                         </button>
-                        <button 
+                        <button
                             type="button"
                             onClick={() => setActiveIndex(p => (p === images.length - 1 ? 0 : p + 1))}
                             className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 hover:bg-white rounded-full shadow-lg text-slate-800 opacity-0 group-hover:opacity-100 transition-all z-10"
@@ -259,7 +259,7 @@ const ProductGallery = ({ images = [], onRemove }) => {
 
             {/* Thumbnails Slider with Smooth Scroll */}
             <div className="relative group/slider">
-                <div 
+                <div
                     ref={scrollRef}
                     className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 px-1 cursor-pointer active:cursor-grabbing snap-x snap-mandatory pr-10"
                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -365,9 +365,8 @@ const ConditionNotesSection = ({ value = "", onChange }) => {
 
     return (
         <div className="space-y-2 relative" ref={wrapperRef}>
-            <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Condition Notes</label>
-            
-            <div 
+
+            <div
                 onClick={() => setIsOpen(!isOpen)}
                 className={`w-full px-4 py-3 bg-white border flex items-center justify-between cursor-pointer transition-all rounded-xl ${isOpen ? 'border-indigo-600 ring-4 ring-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
             >
@@ -381,8 +380,8 @@ const ConditionNotesSection = ({ value = "", onChange }) => {
                 {isOpen && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[3000] overflow-hidden">
                         {ALL_NOTES.map((note, idx) => (
-                            <div 
-                                key={idx} 
+                            <div
+                                key={idx}
                                 onClick={() => handleSelect(note)}
                                 className={`px-4 py-3 text-xs font-bold hover:bg-indigo-600 hover:text-white cursor-pointer transition-all border-b border-gray-50 last:border-0 ${value === note ? 'text-indigo-600 bg-indigo-50' : 'text-gray-700'} ${note.includes('Custom') ? 'bg-amber-50 text-amber-600' : ''}`}
                             >
@@ -396,7 +395,7 @@ const ConditionNotesSection = ({ value = "", onChange }) => {
             {/* Simple Custom Input - Only shows for custom note */}
             {showCustom && (
                 <div className="mt-2 animate-in slide-in-from-top-2">
-                    <input 
+                    <input
                         autoFocus
                         type="text"
                         placeholder="Type custom note..."
@@ -428,11 +427,14 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
         source: 'ai'
     });
 
+    const [aspectsLoading, setAspectsLoading] = useState(false);
+
     useEffect(() => {
         if (initialData) {
             setFormData(prev => ({
                 ...prev,
                 ...initialData,
+                categoryId: initialData.categoryId || (typeof initialData.category === 'object' ? initialData.category.id : initialData.category_id) || '',
                 item_specifics: typeof initialData.item_specifics === 'string'
                     ? JSON.parse(initialData.item_specifics)
                     : initialData.item_specifics || {},
@@ -442,15 +444,34 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
         }
     }, [initialData]);
 
+    // FETCH ASPECTS IF MISSING IN EDIT MODE
+    useEffect(() => {
+        const fetchMissingAspects = async () => {
+            const catId = formData.categoryId;
+            if (catId && (!formData.officialAspects || formData.officialAspects.length === 0) && !aspectsLoading) {
+                setAspectsLoading(true);
+                try {
+                    const aspects = await getCategoryAspects(catId);
+                    setFormData(prev => ({ ...prev, officialAspects: aspects || [] }));
+                } catch (e) {
+                    console.error('Failed to fetch aspects in Edit mode:', e);
+                } finally {
+                    setAspectsLoading(false);
+                }
+            }
+        };
+        if (initialData) fetchMissingAspects();
+    }, [formData.categoryId, initialData, aspectsLoading]);
+
     const handleItemSpecificsChange = (k, v) => setFormData(p => ({ ...p, item_specifics: { ...p.item_specifics, [k]: v } }));
     const handleChange = (e) => { const { name, value } = e.target; setFormData(p => ({ ...p, [name]: value })); };
     const removeImage = (i) => setFormData(p => ({ ...p, images: p.images.filter((_, idx) => idx !== i) }));
 
     const handleCategoryChange = async (cat) => {
-        setFormData(prev => ({ 
-            ...prev, 
-            category: cat.fullName || cat.name, 
-            categoryId: cat.id 
+        setFormData(prev => ({
+            ...prev,
+            category: cat.fullName || cat.name,
+            categoryId: cat.id
         }));
         if (cat.id) {
             try {
@@ -481,6 +502,16 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                             className="w-full text-5xl font-black text-gray-900 border-none outline-none p-0 resize-none leading-tight tracking-tighter bg-transparent placeholder-indigo-200"
                             placeholder="AI Title..."
                         />
+                        <div className="pt-2">
+                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 block font-mono">eBay Marketplace Category</label>
+                            <SearchableCategory
+                                value={typeof formData.category === 'string' ? {
+                                    fullName: formData.category,
+                                    name: formData.category.split(' > ').pop()
+                                } : formData.category}
+                                onChange={handleCategoryChange}
+                            />
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-8 border-t border-indigo-100">
                             <div className="space-y-2">
                                 <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Price ($)</label>
@@ -502,13 +533,10 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                                 <SearchableGender value={formData.gender} onChange={(val) => setFormData(p => ({ ...p, gender: val }))} />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Category</label>
-                                <SearchableCategory 
-                                    value={typeof formData.category === 'string' ? {
-                                        fullName: formData.category,
-                                        name: formData.category.split(' > ').pop()
-                                    } : formData.category} 
-                                    onChange={handleCategoryChange} 
+                                <label className="text-[11px] font-black text-indigo-400 uppercase tracking-widest block font-mono">Condition</label>
+                                <SearchableCondition
+                                    value={formData.condition_name}
+                                    onChange={(val) => setFormData(p => ({ ...p, condition_name: val }))}
                                 />
                             </div>
                         </div>
@@ -516,9 +544,9 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                         {/* DYNAMIC CONDITION NOTES SECTION */}
                         <AnimatePresence>
                             {formData.condition_name && !formData.condition_name.toLowerCase().includes('new') && (
-                                <ConditionNotesSection 
-                                    value={formData.condition_notes} 
-                                    onChange={(val) => setFormData(p => ({ ...p, condition_notes: val }))} 
+                                <ConditionNotesSection
+                                    value={formData.condition_notes}
+                                    onChange={(val) => setFormData(p => ({ ...p, condition_notes: val }))}
                                 />
                             )}
                         </AnimatePresence>
@@ -536,29 +564,51 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-white rounded-[40px] border border-indigo-50 p-8 shadow-sm">
-                             {formData.officialAspects?.map((aspect, idx) => {
-                                const aspectName = aspect.localizedAspectName;
-                                // Find if we have a value for this aspect (case-insensitive key match)
-                                const matchedKey = Object.keys(formData.item_specifics).find(k => k.toLowerCase() === aspectName.toLowerCase());
+                        <div className="bg-white rounded-[40px] border border-indigo-50 p-8 shadow-sm divide-y divide-indigo-50">
+                            {/* 1. Official eBay Aspects */}
+                            {formData.officialAspects && formData.officialAspects.length > 0 ? formData.officialAspects.map((aspect) => {
+                                const matchedKey = Object.keys(formData.item_specifics).find(k => k.toLowerCase() === aspect.localizedAspectName.toLowerCase());
                                 const value = matchedKey ? formData.item_specifics[matchedKey] : '';
-                                
-                                let statusLabel = aspect.usage; // RECOMMEND, OPTIONAL
-                                if (aspect.required) statusLabel = 'REQUIRED';
-                                if (value && matchedKey) statusLabel = 'AI ANALYZED';
-
                                 return (
-                                    <SearchableSelect 
-                                        key={aspectName}
-                                        label={aspectName}
+                                    <SearchableSelect
+                                        key={aspect.localizedAspectName}
+                                        label={aspect.localizedAspectName}
                                         value={value}
                                         options={aspect.values || []}
-                                        metrics={
-                                            <span className={`${statusLabel === 'AI ANALYZED' ? 'text-indigo-500' : statusLabel === 'REQUIRED' ? 'text-rose-500' : 'text-gray-400'} font-bold uppercase tracking-widest text-[9px]`}>
-                                                {statusLabel}
-                                            </span>
-                                        }
-                                        onChange={(val) => handleItemSpecificsChange(aspectName, val)}
+                                        metrics={<span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">{aspect.usage}</span>}
+                                        onChange={(val) => handleItemSpecificsChange(aspect.localizedAspectName, val)}
+                                    />
+                                );
+                            }) : (
+                                aspectsLoading ? (
+                                    <div className="py-12 text-center bg-indigo-50/20 rounded-3xl">
+                                        <Loader2 className="w-6 h-6 animate-spin text-indigo-400 mx-auto mb-3" />
+                                        <p className="text-indigo-400 text-xs font-bold italic tracking-tight">Syncing Marketplace Aspects...</p>
+                                    </div>
+                                ) : (
+                                    !initialData && <div className="py-12 text-center bg-red-50/20 rounded-3xl border border-dashed border-red-100">
+                                        <p className="text-red-400 text-xs font-bold italic">No official aspects found or failed to load.</p>
+                                    </div>
+                                )
+                            )}
+
+                            {/* 2. Custom/Additional Specifics */}
+                            {Object.entries(formData.item_specifics).map(([key, value]) => {
+                                const lowerKey = key.toLowerCase();
+                                const isOfficial = formData.officialAspects?.some(a => a.localizedAspectName.toLowerCase() === lowerKey);
+
+                                // BLACKLIST REDUNDANT FIELDS
+                                const isBlacklisted = ['condition', 'policy', 'return policy', 'shipping', 'payment', 'seller notes'].some(b => lowerKey.includes(b));
+
+                                if (isOfficial || isBlacklisted) return null;
+                                return (
+                                    <SearchableSelect
+                                        key={key}
+                                        label={key}
+                                        value={value}
+                                        options={[]}
+                                        metrics={<span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">CUSTOM</span>}
+                                        onChange={(val) => handleItemSpecificsChange(key, val)}
                                     />
                                 );
                             })}
@@ -567,13 +617,13 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
 
                     <div className="pt-12 border-t border-gray-100">
                         <h3 className="text-xl font-black text-gray-900 mb-8 tracking-tight flex items-center gap-3">
-                             <ImageIcon className="w-6 h-6 text-indigo-500" /> Analyzed Images
+                            <ImageIcon className="w-6 h-6 text-indigo-500" /> Analyzed Images
                         </h3>
                         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-6">
                             {formData.images.map((img, idx) => (
                                 <div key={idx} className="relative aspect-square rounded-[30px] overflow-hidden border border-indigo-50 group shadow-sm hover:shadow-lg transition-all">
                                     <img src={img} className="w-full h-full object-cover" />
-                                    <button onClick={() => removeImage(idx)} className="absolute top-2 right-2 bg-white/90 p-2 rounded-xl text-rose-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white"><X className="w-3 h-3"/></button>
+                                    <button onClick={() => removeImage(idx)} className="absolute top-2 right-2 bg-white/90 p-2 rounded-xl text-rose-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white"><X className="w-3 h-3" /></button>
                                 </div>
                             ))}
                         </div>
@@ -585,9 +635,9 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                             <h3 className="text-xl font-black uppercase tracking-widest mb-10 flex items-center gap-3">
                                 <Sparkles className="w-6 h-6 text-indigo-400" /> AI Description
                             </h3>
-                            <div contentEditable={true} className="min-h-[400px] outline-none text-gray-300 text-lg leading-relaxed prose prose-invert max-w-none" 
-                                onBlur={(e) => setFormData(p => ({ ...p, description: e.target.innerHTML }))} 
-                                dangerouslySetInnerHTML={{ __html: formData.description }} 
+                            <div contentEditable={true} className="min-h-[400px] outline-none text-gray-300 text-lg leading-relaxed prose prose-invert max-w-none"
+                                onBlur={(e) => setFormData(p => ({ ...p, description: e.target.innerHTML }))}
+                                dangerouslySetInnerHTML={{ __html: formData.description }}
                             />
                         </div>
                     </div>
@@ -595,7 +645,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
 
                 <div className="lg:col-span-4 space-y-10 sticky top-10">
                     <div className="bg-white rounded-[40px] border border-indigo-50 p-6 shadow-sm">
-                         <div className="flex items-center gap-2 mb-6">
+                        <div className="flex items-center gap-2 mb-6">
                             <ImageIcon className="w-4 h-4 text-indigo-400" />
                             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest font-mono">AI Visual Evidence</span>
                         </div>
@@ -603,9 +653,17 @@ const AiProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
                     <div className="bg-white rounded-[40px] border border-indigo-50 p-8 shadow-sm space-y-4">
                         <button type="submit" disabled={isFetching} className="w-full py-6 bg-indigo-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200">
-                            {isFetching ? <Loader2 className="w-5 h-5 animate-spin"/> : <Zap className="w-5 h-5"/>} Save AI Listing
+                            {isFetching ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />} {initialData?.id ? 'Update AI Record' : 'Save AI Listing'}
                         </button>
-                        <button type="button" onClick={() => { window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); alert("AI DATA SYNCED!"); }} className="w-full py-6 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-blue-700 transition-all">
+                        <button 
+                            type="button" 
+                            onClick={() => { 
+                                console.log("%c [Frontend] Pushing Data TO EXTENSION:", "color: #4F46E5; font-weight: bold;", formData);
+                                window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); 
+                                alert("AI DATA SYNCED TO EXTENSION!"); 
+                            }} 
+                            className="w-full py-6 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                        >
                             <ExternalLink className="w-5 h-5" /> Push To eBay (Ext)
                         </button>
                         <button type="button" disabled={isFetching} onClick={() => onSubmit(formData, true)} className="w-full py-6 bg-emerald-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200">

@@ -99,10 +99,12 @@ const SearchableSelect = ({ label, value, options = [], onChange, metrics }) => 
     return (
         <div className="flex items-center justify-between py-4 border-b border-gray-50 group relative" ref={wrapperRef}>
             <div className="w-[35%] flex flex-col group">
-                <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-black text-gray-700 uppercase tracking-tight">{label}</span>
-                    {metrics}
+                <div className="flex flex-col pr-4">
+                    <span className="text-[10px] font-black whitespace-normal leading-tight">
+                        {typeof value === 'object' ? (value?.fullName || value?.name || 'Select Category...') : (label || 'Select...')}
+                    </span>
                 </div>
+                {metrics}
             </div>
             <div className="w-[63%] relative">
                 <div onClick={() => setIsOpen(!isOpen)} className={`w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-transparent hover:border-indigo-200 flex items-center justify-between cursor-pointer transition-all ${isOpen ? 'bg-white ring-4 ring-indigo-50 border-indigo-600 shadow-sm' : ''}`}>
@@ -195,6 +197,7 @@ const EbayProductForm = ({ initialData, onSubmit, isFetching }) => {
         officialAspects: [],
         images: [],
         variations: [],
+        sku: '',
         source: 'scraper'
     });
 
@@ -255,11 +258,11 @@ const EbayProductForm = ({ initialData, onSubmit, isFetching }) => {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[11px] font-black text-emerald-400 uppercase tracking-widest block font-mono">Brand</label>
-                                <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="text-lg font-bold text-slate-800 bg-transparent border-b border-emerald-50 outline-none w-full py-2 placeholder:text-emerald-200" placeholder="Brand..." />
+                                <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="text-lg font-bold text-emerald-900 bg-transparent border-b border-emerald-50 outline-none w-full py-2 hover:border-emerald-300 focus:border-emerald-600 transition-all placeholder:text-emerald-200" placeholder="Brand..." />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[11px] font-black text-emerald-400 uppercase tracking-widest block font-mono">Custom SKU</label>
-                                <input type="text" name="sku" value={formData.sku || ''} onChange={handleChange} className="text-lg font-bold text-slate-800 bg-transparent border-b border-emerald-50 outline-none w-full py-2 placeholder:text-emerald-200" placeholder="SKU (Optional)..." />
+                                <input type="text" name="sku" value={formData.sku || ''} onChange={handleChange} className="text-lg font-bold text-emerald-900 bg-transparent border-b border-emerald-50 outline-none w-full py-2 hover:border-emerald-300 focus:border-emerald-600 transition-all placeholder:text-emerald-200" placeholder="SKU (Optional)..." />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[11px] font-black text-emerald-400 uppercase tracking-widest block font-mono">Condition</label>
@@ -341,7 +344,7 @@ const EbayProductForm = ({ initialData, onSubmit, isFetching }) => {
                     </div>
                     <div className="bg-white rounded-[40px] border border-emerald-50 p-8 shadow-sm space-y-4">
                         <button type="submit" disabled={isFetching} className="w-full py-6 bg-emerald-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200">
-                            {isFetching ? <Loader2 className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5"/>} Update Imported Listing
+                            {isFetching ? <Loader2 className="w-5 h-5 animate-spin"/> : <Zap className="w-5 h-5"/>} {initialData?.id ? 'Update Record' : 'Save Imported Product'}
                         </button>
                         <button type="button" onClick={() => { window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); alert("DATA SYNCED!"); }} className="w-full py-6 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-blue-700 transition-all">
                             <ExternalLink className="w-5 h-5" /> Push To eBay (Ext)

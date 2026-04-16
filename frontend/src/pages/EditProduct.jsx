@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import AiProductForm from '../components/AiProductForm';
+import ImportProductForm from '../components/ImportProductForm';
 import ProductForm from '../components/ProductForm';
-import { getProductById, updateProduct } from '../services/api';
-import { ChevronLeft, ExternalLink } from 'lucide-react';
+import { getProductById, updateProduct, listProduct } from '../services/api';
+import { ChevronLeft, ExternalLink, Sparkles, Globe } from 'lucide-react';
 
 const EditProduct = () => {
     const { id } = useParams();
@@ -25,17 +27,32 @@ const EditProduct = () => {
         loadProduct();
     }, [id]);
 
-    const handleListOnEbay = () => {
-        window.postMessage({ type: 'EbayAutoLister_SendData', payload: product }, '*');
-        alert('Data sent to eBay Auto Lister. If you have the Chrome Extension installed, a new tab will open shortly.');
-    };
-
-    const handleUpdate = async (formData) => {
+    const handleUpdate = async (formData, isListing = false, isDraft = false) => {
         try {
+            setLoading(true);
+            // 1. Always sync changes to DB first
             await updateProduct(id, formData);
-            navigate('/products');
+            
+            // 2. If it's just a regular record update, go back
+            if (!isListing && !isDraft) {
+                navigate('/products');
+                return;
+            }
+
+            // 3. If Listing or Draft, call the Marketplace API
+            try {
+                const action = isDraft ? "Saving Draft..." : "Publishing Listing...";
+                console.log(action); 
+                const res = await listProduct(id, isDraft);
+                alert(`✅ Successfully ${isDraft ? 'saved as Draft' : 'Published to eBay'}: ${res.message}`);
+                navigate('/products');
+            } catch (err) {
+                alert('Marketplace Action Failed: ' + (err.response?.data?.details || err.message));
+            }
         } catch (err) {
-            alert('Failed to update product');
+            alert('Failed to update record in Database');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -56,23 +73,42 @@ const EditProduct = () => {
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
-                        <p className="text-gray-500 mt-1">Update details for SKU: <span className="font-mono text-[#4F46E5]">{product?.sku}</span></p>
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Edit Product Record</h1>
+                        <p className="text-gray-500 mt-1">Refining details for SKU: <span className="font-mono text-blue-600 font-bold">{product?.sku || 'PENDING'}</span></p>
                     </div>
                 </div>
-                <button 
-                    onClick={handleListOnEbay}
-                    className="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-medium transition-all border border-blue-200"
-                >
-                    <ExternalLink className="w-4 h-4" />
-                    List on eBay
-                </button>
             </div>
 
-            <ProductForm
-                initialData={product}
-                onSubmit={handleUpdate}
-            />
+            <div className="bg-white rounded-[40px] p-8 border border-gray-100 shadow-sm mb-8">
+                <div className="flex items-center gap-4">
+                    <div className={`p-4 rounded-3xl ${product?.source === 'ai' ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+                        {product?.source === 'ai' ? <Sparkles className="w-6 h-6" /> : <Globe className="w-6 h-6" />}
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-slate-900">
+                            {product?.source === 'ai' ? 'AI Optimized Edit' : 'Marketplace Data Sync'}
+                        </h2>
+                        <p className="text-sm text-slate-400 font-medium">Using {product?.source === 'ai' ? 'AI Vision Form' : 'eBay Scraper Form'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {product?.source === 'ai' ? (
+                <AiProductForm
+                    initialData={product}
+                    onSubmit={handleUpdate}
+                />
+            ) : product?.source === 'scraped' || product?.source === 'ebay' ? (
+                <ImportProductForm
+                    initialData={product}
+                    onSubmit={handleUpdate}
+                />
+            ) : (
+                <ProductForm
+                    initialData={product}
+                    onSubmit={handleUpdate}
+                />
+            )}
         </div>
     );
 };
