@@ -100,9 +100,12 @@ exports.getAllProducts = async (req, res) => {
             
             // Reformat variations back to the grouped format if the frontend expects it
             const variationMap = {};
-            product.variations.forEach(({ name, value }) => {
-                if (!variationMap[name]) variationMap[name] = [];
-                variationMap[name].push(value);
+            const variations = product.variations || []; // Safety check
+            variations.forEach(({ name, value }) => {
+                if (name && value) {
+                    if (!variationMap[name]) variationMap[name] = [];
+                    variationMap[name].push(value);
+                }
             });
             product.variationsFormatted = Object.keys(variationMap).map(name => ({ name, values: variationMap[name] }));
             
@@ -126,9 +129,12 @@ exports.getProduct = async (req, res) => {
 
         // Reformat variations for frontend
         const variationMap = {};
-        product.variations.forEach(({ name, value }) => {
-            if (!variationMap[name]) variationMap[name] = [];
-            variationMap[name].push(value);
+        const variations = product.variations || []; // Safety check
+        variations.forEach(({ name, value }) => {
+            if (name && value) {
+                if (!variationMap[name]) variationMap[name] = [];
+                variationMap[name].push(value);
+            }
         });
         product.variations = Object.keys(variationMap).map(name => ({
             name,

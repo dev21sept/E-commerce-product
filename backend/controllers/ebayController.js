@@ -3,54 +3,43 @@ const ebayService = require('../services/ebayApiService');
 const Product = require('../models/Product');
 const Setting = require('../models/Setting');
 
-// Handle eBay Marketplace Account Deletion Notification (Mandatory for Production Keys)
+// Handle eBay Marketplace Account Deletion Notification (Mandatory for Compliance)
 exports.handleDeletionNotification = async (req, res) => {
     try {
-        console.log(`\n--- [EBAY DELETION] Incoming Request ---`);
-        console.log(`Method: ${req.method}`);
-        console.log(`Query:`, req.query);
+        const challengeCode = req.query.challenge_code;
         
         // 1. Handle Challenge Verification (GET)
-        const challengeCode = req.query.challenge_code;
         if (challengeCode) {
-            console.log(`Processing Challenge Verification...`);
-            const verificationToken = process.env.EBAY_VERIFICATION_TOKEN || 'secret123';
-            // Use a fallback for endpoint if the env variable isn't set
-            const endpoint = process.env.EBAY_DELETION_ENDPOINT || `https://${req.get('host')}/api/ebay/deletion`;
+            const verificationToken = process.env.EBAY_VERIFICATION_TOKEN;
+            // Use BACKEND_URL from .env if available, otherwise fallback to request host
+            const baseUrl = (process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+            const endpoint = `${baseUrl}/api/ebay/deletion`;
             
-            console.log(`Token: ${verificationToken ? 'SET' : 'MISSING'}`);
-            console.log(`Using Endpoint: ${endpoint}`);
+            if (!verificationToken) {
+                console.warn(`[EBAY DELETION] Warning: EBAY_VERIFICATION_TOKEN not set in .env`);
+            }
 
             const hash = crypto.createHash('sha256');
-            hash.update(challengeCode + verificationToken + endpoint);
+            hash.update(challengeCode + (verificationToken || '') + endpoint);
             const responseHash = hash.digest('hex');
 
-            console.log(`✅ Challenge Handled Successfully`);
+            // Only log verification for debugging if needed, otherwise keep it quiet
             return res.status(200).json({
                 challengeResponse: responseHash
             });
         }
 
-        // 2. Handle Test/Actual Notification (POST)
-        console.log(`Processing POST Notification...`);
-        // Safely log body without crashing
-        try {
-            const bodyStr = req.body ? JSON.stringify(req.body) : "Empty Body";
-            console.log(`Body Snippet:`, bodyStr.substring(0, 200));
-        } catch (e) {
-            console.log(`Could not stringify body, maybe not JSON`);
+        // 2. Handle Actual Notification (POST)
+        if (req.method === 'POST') {
+            // Success response is mandatory for eBay
+            return res.status(200).send('OK');
         }
-        
-        console.log(`✅ POST Handled Successfully`);
-        return res.status(200).send('OK');
+
+        return res.status(400).send('Invalid Request');
 
     } catch (error) {
         console.error(`❌ [EBAY DELETION ERROR]:`, error.message);
-        console.error(error.stack);
-        return res.status(500).json({ 
-            error: "Internal Server Error", 
-            message: error.message 
-        });
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 };
 
