@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Product = require('../models/Product');
 
 // Create a new product (MongoDB version)
@@ -90,17 +91,26 @@ exports.createProduct = async (req, res) => {
 
 // Get all products (MongoDB version)
 exports.getAllProducts = async (req, res) => {
+    console.log(`[API] GET /products called (DB State: ${mongoose.connection.readyState})`);
+    
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ error: 'Database not ready' });
+    }
+
     try {
-        const products = await Product.find().sort({ created_at: -1 });
+        console.log(`[MongoDB] Querying products with 10s timeout...`);
+        // Simple find without sort first to test speed
+        const products = await Product.find({})
+            .maxTimeMS(10000) // 10 seconds timeout at MongoDB level
+            .lean(); // Faster, returns plain JS objects
+
+        console.log(`[MongoDB] Query finished. Found ${products.length} products`);
         
-        // Map to keep frontend compatibility (e.g. converting _id to id if needed)
         const formattedProducts = products.map(p => {
-            const product = p.toObject();
-            product.id = product._id.toString();
+            const product = { ...p, id: p._id.toString() };
             
-            // Reformat variations back to the grouped format if the frontend expects it
             const variationMap = {};
-            const variations = product.variations || []; // Safety check
+            const variations = product.variations || []; 
             variations.forEach(({ name, value }) => {
                 if (name && value) {
                     if (!variationMap[name]) variationMap[name] = [];
@@ -112,8 +122,10 @@ exports.getAllProducts = async (req, res) => {
             return product;
         });
 
+        console.log(`[API] Sending ${formattedProducts.length} products`);
         res.json(formattedProducts);
     } catch (error) {
+        console.error(`[API ERROR] getAllProducts:`, error.message);
         res.status(500).json({ error: 'Failed to fetch products', details: error.message });
     }
 };

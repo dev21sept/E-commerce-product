@@ -38,8 +38,16 @@ exports.handleDeletionNotification = async (req, res) => {
         return res.status(400).send('Invalid Request');
 
     } catch (error) {
-        console.error(`❌ [EBAY DELETION ERROR]:`, error.message);
-        return res.status(500).json({ error: "Internal Server Error" });
+        console.error(`❌ [EBAY DELETION CRASH]:`, {
+            message: error.message,
+            stack: error.stack,
+            method: req.method,
+            query: req.query
+        });
+        return res.status(500).json({ 
+            error: "Internal Server Error", 
+            details: error.message 
+        });
     }
 };
 

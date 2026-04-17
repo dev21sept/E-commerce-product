@@ -74,6 +74,9 @@ exports.listOnEbay = async (req, res) => {
         const product = await Product.findById(productId);
         if (!product) return res.status(404).json({ error: 'Product not found' });
 
+        const sku = product.sku || `SKU-${product._id.toString().substring(18)}`;
+        const imageList = product.images || [];
+
         // 1. Prepare Inventory Item
         // Filter out invalid/local URLs that eBay API will reject
         const validImages = imageList
