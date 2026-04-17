@@ -373,21 +373,12 @@ async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0'
  */
 async function uploadPicture(userToken, base64Data) {
     try {
-        // Remove data:image/jpeg;base64, prefix if present
-        const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+        // Remove data:image/xxx;base64, prefix and ALL whitespace/newlines
+        let cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+        cleanBase64 = cleanBase64.replace(/\s/g, ""); // Remove all spaces, newlines, etc.
         
-        const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
-        <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-          <RequesterCredentials>
-            <eBayAuthToken>${userToken}</eBayAuthToken>
-          </RequesterCredentials>
-          <PictureData>${cleanBase64}</PictureData>
-          <PictureSet>Standard</PictureSet>
-          <ExtensionData>
-            <Name>PictureName</Name>
-            <Value>ItemImage</Value>
-          </ExtensionData>
-        </UploadSiteHostedPicturesRequest>`;
+        // Use a more compact XML to avoid issues with large strings and whitespaces
+        const xmlPayload = `<?xml version="1.0" encoding="utf-8"?><UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${userToken}</eBayAuthToken></RequesterCredentials><PictureData>${cleanBase64}</PictureData><PictureSet>Standard</PictureSet></UploadSiteHostedPicturesRequest>`;
 
         const response = await axios.post(TRADING_API_URL, xmlPayload, {
             headers: {
