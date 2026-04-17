@@ -74,10 +74,13 @@ exports.listOnEbay = async (req, res) => {
         const product = await Product.findById(productId);
         if (!product) return res.status(404).json({ error: 'Product not found' });
 
-        const sku = product.sku || `SKU-${product._id.toString().substring(18)}`;
+        // FORCE UNIQUE SKU for every attempt to ensure fresh data on eBay
+        const timestamp = Date.now().toString().substring(8);
+        const sku = (product.sku || `SKU-${product._id.toString().substring(18)}`) + "-" + timestamp;
         const imageList = product.images || [];
 
         // 1. Prepare Inventory Item
+        // ... (Image processing logic remains same but logs more)
         // Detect and Upload Base64 images to eBay EPS if necessary
         const processedImages = [];
         console.log(`[EPS DEBUG] Starting image processing for ${imageList.length} total images.`);
@@ -132,6 +135,8 @@ exports.listOnEbay = async (req, res) => {
         if (validImages.length > 0) {
             inventoryItem.product.imageUrls = validImages;
         }
+
+        console.log(`[PAYLOAD DEBUG] Inventory Item for SKU ${sku}:`, JSON.stringify(inventoryItem, null, 2));
 
         // Map Condition
         const cond = (product.condition_name || "").toLowerCase();
