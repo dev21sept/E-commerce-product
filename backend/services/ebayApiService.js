@@ -166,8 +166,26 @@ async function createOffer(token, offerData) {
         });
         return response.data; // Includes offerId
     } catch (error) {
-        console.error('Error creating offer:', error.response?.data || error.message);
+        // Return the error data so the controller can handle "Offer already exists"
         throw error;
+    }
+}
+
+/**
+ * Gets all offers for a specific SKU
+ */
+async function getOffers(token, sku) {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/inventory/v1/offer?sku=${sku}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Language': 'en-US'
+            }
+        });
+        return response.data.offers || [];
+    } catch (error) {
+        console.error(`Error fetching offers for SKU ${sku}:`, error.response?.data || error.message);
+        return [];
     }
 }
 
@@ -414,5 +432,6 @@ module.exports = {
     initDefaultPaymentPolicy,
     initDefaultReturnPolicy,
     getItemAspectsForCategory,
-    getCategorySuggestions
+    getCategorySuggestions,
+    getOffers
 };

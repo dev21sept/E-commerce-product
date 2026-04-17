@@ -217,8 +217,25 @@ exports.listOnEbay = async (req, res) => {
         };
 
         console.log('Step 2: Creating Offer...');
-        const offerResponse = await ebayService.createOffer(token, offer);
-        const offerId = offerResponse.offerId;
+        let offerId;
+        try {
+            const offerResponse = await ebayService.createOffer(token, offer);
+            offerId = offerResponse.offerId;
+        } catch (error) {
+            const ebayError = error.response?.data?.errors?.[0];
+            if (ebayError?.errorId === 25001 || ebayError?.message?.includes('already exists')) {
+                console.log(`[RECOVERY] Offer already exists for ${sku}. Fetching existing...`);
+                const existingOffers = await ebayService.getOffers(token, sku);
+                if (existingOffers.length > 0) {
+                    offerId = existingOffers[0].offerId;
+                    console.log(`[RECOVERY] Found existing Offer ID: ${offerId}`);
+                } else {
+                    throw error; // Re-throw if we can't find it
+                }
+            } else {
+                throw error;
+            }
+        }
 
         // 5. Publish Offer (Skip if draft)
         const isDraft = req.query.draft === 'true';
