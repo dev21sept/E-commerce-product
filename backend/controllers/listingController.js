@@ -84,9 +84,12 @@ exports.listOnEbay = async (req, res) => {
             .filter(url => !url.includes('localhost') && !url.includes('127.0.0.1'))
             .slice(0, 12);
 
-        if (validImages.length === 0 && imageList.length > 0) {
-            console.warn("[DIRECT LISTING] Localhost/Invalid images detected. eBay API requires public URLs.");
-            // We'll proceed but eBay might warn or fail if images are mandatory.
+        if (validImages.length === 0) {
+            console.warn("[DIRECT LISTING] No valid public URLs found for images.");
+            return res.status(400).json({ 
+                error: 'Image Error', 
+                details: 'eBay requires at least one public image URL (https). Local uploads or Base64 images are not supported by the Direct API. Please use images already hosted online.' 
+            });
         }
 
         const inventoryItem = {
