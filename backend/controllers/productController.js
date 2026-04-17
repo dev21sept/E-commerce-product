@@ -93,8 +93,10 @@ exports.createProduct = async (req, res) => {
 exports.getAllProducts = async (req, res) => {
     console.log(`[API] GET /products called (DB State: ${mongoose.connection.readyState})`);
     
-    if (mongoose.connection.readyState !== 1) {
-        return res.status(503).json({ error: 'Database not ready' });
+    // If disconnected, try to connect instead of just failing
+    if (mongoose.connection.readyState === 0) {
+        const connectMongoDB = require('../config/mongodb');
+        connectMongoDB(); // Fire and forget, Mongoose will buffer
     }
 
     try {
