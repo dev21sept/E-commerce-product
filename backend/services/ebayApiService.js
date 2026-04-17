@@ -3,11 +3,16 @@ const qs = require('qs');
 
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
 const EBAY_CERT_ID = process.env.EBAY_CERT_ID;
+const EBAY_DEV_ID = process.env.EBAY_DEV_ID;
 const EBAY_ENVIRONMENT = process.env.EBAY_ENVIRONMENT || 'sandbox';
 
 const API_BASE_URL = EBAY_ENVIRONMENT === 'sandbox' 
     ? 'https://api.sandbox.ebay.com' 
     : 'https://api.ebay.com';
+
+const TRADING_API_URL = EBAY_ENVIRONMENT === 'sandbox'
+    ? 'https://api.sandbox.ebay.com/ws/api.dll'
+    : 'https://api.ebay.com/ws/api.dll';
 
 const AUTH_BASE_URL = EBAY_ENVIRONMENT === 'sandbox'
     ? 'https://auth.sandbox.ebay.com'
@@ -344,11 +349,60 @@ async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0'
     }
 }
 
+/**
+ * Uploads a picture to eBay Picture Services (EPS)
+ * This allows using local Base64 images with the REST Inventory API.
+ */
+async function uploadPicture(userToken, base64Data) {
+    try {
+        // Remove data:image/jpeg;base64, prefix if present
+        const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+        
+        const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+        <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <RequesterCredentials>
+            <eBayAuthToken>${userToken}</eBayAuthToken>
+          </RequesterCredentials>
+          <PictureData>${cleanBase64}</PictureData>
+          <PictureSet>Standard</PictureSet>
+          <ExtensionData>
+            <Name>PictureName</Name>
+            <Value>ItemImage</Value>
+          </ExtensionData>
+        </UploadSiteHostedPicturesRequest>`;
+
+        const response = await axios.post(TRADING_API_URL, xmlPayload, {
+            headers: {
+                'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
+                'X-EBAY-API-SITEID': '0',
+                'X-EBAY-API-APP-NAME': EBAY_APP_ID,
+                'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
+                'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
+                'X-EBAY-API-COMPATIBILITY-LEVEL': '967',
+                'Content-Type': 'text/xml'
+            }
+        });
+
+        // Simple regex to extract the URL from the XML response
+        const match = response.data.match(/<SiteHostedPictureDetails>[\s\S]*?<FullURL>(.*?)<\/FullURL>/);
+        if (match && match[1]) {
+            return match[1];
+        } else {
+            console.error("EPS Upload Response:", response.data);
+            throw new Error("Failed to extract image URL from eBay EPS response");
+        }
+    } catch (error) {
+        console.error('Error uploading to eBay EPS:', error.message);
+        throw error;
+    }
+}
+
 module.exports = {
     getAppToken,
     getUserConsentUrl,
     getUserToken,
     refreshUserToken,
+    uploadPicture,
     createOrReplaceInventoryItem,
     createOffer,
     publishOffer,

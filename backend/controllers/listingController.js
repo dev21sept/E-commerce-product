@@ -78,8 +78,26 @@ exports.listOnEbay = async (req, res) => {
         const imageList = product.images || [];
 
         // 1. Prepare Inventory Item
+        // Detect and Upload Base64 images to eBay EPS if necessary
+        const processedImages = [];
+        console.log(`[EPS] Processing ${imageList.length} images...`);
+
+        for (const img of imageList) {
+            if (img.startsWith('data:image') || img.length > 2000) {
+                try {
+                    console.log(`[EPS] Uploading local image to eBay...`);
+                    const ebayUrl = await ebayService.uploadPicture(token, img);
+                    processedImages.push(ebayUrl);
+                } catch (e) {
+                    console.error(`[EPS] Upload failed for one image, skipping...`, e.message);
+                }
+            } else if (img.startsWith('http')) {
+                processedImages.push(img);
+            }
+        }
+
         // Filter out invalid/local URLs that eBay API will reject
-        const validImages = imageList
+        const validImages = processedImages
             .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')))
             .filter(url => !url.includes('localhost') && !url.includes('127.0.0.1'))
             .slice(0, 12);
