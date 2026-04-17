@@ -80,19 +80,27 @@ exports.listOnEbay = async (req, res) => {
         // 1. Prepare Inventory Item
         // Detect and Upload Base64 images to eBay EPS if necessary
         const processedImages = [];
-        console.log(`[EPS] Processing ${imageList.length} images...`);
+        console.log(`[EPS DEBUG] Starting image processing for ${imageList.length} total images.`);
 
-        for (const img of imageList) {
-            if (img.startsWith('data:image') || img.length > 2000) {
+        for (let i = 0; i < imageList.length; i++) {
+            const img = imageList[i];
+            const isBase64 = img?.startsWith('data:image') || img?.length > 2000;
+            const isUrl = img?.startsWith('http');
+
+            if (isBase64) {
                 try {
-                    console.log(`[EPS] Uploading local image to eBay...`);
+                    console.log(`[EPS DEBUG] Image ${i+1}: Uploading Base64 image to eBay EPS...`);
                     const ebayUrl = await ebayService.uploadPicture(token, img);
+                    console.log(`[EPS DEBUG] Image ${i+1}: EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
                     processedImages.push(ebayUrl);
                 } catch (e) {
-                    console.error(`[EPS] Upload failed for one image, skipping...`, e.message);
+                    console.error(`[EPS DEBUG] Image ${i+1}: EPS Upload FAILED:`, e.message);
                 }
-            } else if (img.startsWith('http')) {
+            } else if (isUrl) {
+                console.log(`[EPS DEBUG] Image ${i+1}: Already a URL, keeping: ${img.substring(0, 50)}...`);
                 processedImages.push(img);
+            } else {
+                console.warn(`[EPS DEBUG] Image ${i+1}: Skipped (Invalid format or too short)`);
             }
         }
 
@@ -101,6 +109,12 @@ exports.listOnEbay = async (req, res) => {
             .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')))
             .filter(url => !url.includes('localhost') && !url.includes('127.0.0.1'))
             .slice(0, 12);
+
+        console.log(`[EPS DEBUG] Final count of valid images for eBay: ${validImages.length}`);
+
+        if (validImages.length === 0 && imageList.length > 0) {
+            throw new Error("Photos processing failed: No valid public URLs were generated. Ensure photos are uploaded or are valid links.");
+        }
 
         const inventoryItem = {
             availability: { shipToLocationAvailability: { quantity: 1 } },
@@ -117,8 +131,6 @@ exports.listOnEbay = async (req, res) => {
         // Only add imageUrls if we actually have public URLs
         if (validImages.length > 0) {
             inventoryItem.product.imageUrls = validImages;
-        } else {
-            console.warn("[DIRECT LISTING] Proceeding without images. Public URLs (https) are missing.");
         }
 
         // Map Condition
