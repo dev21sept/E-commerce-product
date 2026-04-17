@@ -80,9 +80,9 @@ exports.listOnEbay = async (req, res) => {
         const imageList = product.images || [];
 
         // 1. Prepare Inventory Item
-        // ... (Image processing logic remains same but logs more)
         // Detect and Upload Base64 images to eBay EPS if necessary
         const processedImages = [];
+        let firstUploadError = null;
         console.log(`[EPS DEBUG] Starting image processing for ${imageList.length} total images.`);
 
         for (let i = 0; i < imageList.length; i++) {
@@ -97,7 +97,9 @@ exports.listOnEbay = async (req, res) => {
                     console.log(`[EPS DEBUG] Image ${i+1}: EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
                     processedImages.push(ebayUrl);
                 } catch (e) {
-                    console.error(`[EPS DEBUG] Image ${i+1}: EPS Upload FAILED:`, e.message);
+                    const errMsg = e.response?.data || e.message;
+                    console.error(`[EPS DEBUG] Image ${i+1}: EPS Upload FAILED:`, errMsg);
+                    if (!firstUploadError) firstUploadError = errMsg;
                 }
             } else if (isUrl) {
                 console.log(`[EPS DEBUG] Image ${i+1}: Already a URL, keeping: ${img.substring(0, 50)}...`);
@@ -116,7 +118,8 @@ exports.listOnEbay = async (req, res) => {
         console.log(`[EPS DEBUG] Final count of valid images for eBay: ${validImages.length}`);
 
         if (validImages.length === 0 && imageList.length > 0) {
-            throw new Error("Photos processing failed: No valid public URLs were generated. Ensure photos are uploaded or are valid links.");
+            const extraDetails = typeof firstUploadError === 'string' ? firstUploadError : JSON.stringify(firstUploadError);
+            throw new Error(`Photos processing failed. eBay EPS said: ${extraDetails.substring(0, 200)}`);
         }
 
         const inventoryItem = {
