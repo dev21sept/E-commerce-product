@@ -401,13 +401,20 @@ async function uploadPicture(userToken, base64Data) {
             }
         });
 
+        // Check for Error in XML Response
+        if (response.data.includes('<Ack>Failure</Ack>') || response.data.includes('<Ack>Error</Ack>')) {
+            const errorMatch = response.data.match(/<LongMessage>(.*?)<\/LongMessage>/) || response.data.match(/<ShortMessage>(.*?)<\/ShortMessage>/);
+            const ebayError = errorMatch ? errorMatch[1] : `Unknown eBay Error. Raw: ${response.data.substring(0, 200)}`;
+            throw new Error(`eBay EPS Error: ${ebayError}`);
+        }
+
         // Simple regex to extract the URL from the XML response
         const match = response.data.match(/<SiteHostedPictureDetails>[\s\S]*?<FullURL>(.*?)<\/FullURL>/);
         if (match && match[1]) {
             return match[1];
         } else {
             console.error("EPS Upload Response:", response.data);
-            throw new Error("Failed to extract image URL from eBay EPS response");
+            throw new Error(`Failed to extract image URL. Response start: ${response.data.substring(0, 150)}`);
         }
     } catch (error) {
         console.error('Error uploading to eBay EPS:', error.message);
