@@ -84,26 +84,24 @@ exports.listOnEbay = async (req, res) => {
             .filter(url => !url.includes('localhost') && !url.includes('127.0.0.1'))
             .slice(0, 12);
 
-        if (validImages.length === 0) {
-            console.warn("[DIRECT LISTING] No valid public URLs found for images.");
-            return res.status(400).json({ 
-                error: 'Image Error', 
-                details: 'eBay requires at least one public image URL (https). Local uploads or Base64 images are not supported by the Direct API. Please use images already hosted online.' 
-            });
-        }
-
         const inventoryItem = {
             availability: { shipToLocationAvailability: { quantity: 1 } },
             condition: 'NEW', // Default, should map from condition_name
             product: {
                 title: product.title.substring(0, 80),
                 description: (product.description || product.title).substring(0, 4000),
-                imageUrls: validImages,
                 aspects: {
                     Brand: [product.brand || 'Unbranded'],
                 }
             }
         };
+
+        // Only add imageUrls if we actually have public URLs
+        if (validImages.length > 0) {
+            inventoryItem.product.imageUrls = validImages;
+        } else {
+            console.warn("[DIRECT LISTING] Proceeding without images. Public URLs (https) are missing.");
+        }
 
         // Map Condition
         const cond = (product.condition_name || "").toLowerCase();
