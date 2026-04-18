@@ -18,7 +18,7 @@ async function saveSetting(key, value) {
         await Setting.findOneAndUpdate(
             { setting_key: key },
             { setting_value: value, updated_at: Date.now() },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
         );
     } catch (e) {
         console.error('Error saving setting to MongoDB:', e);
