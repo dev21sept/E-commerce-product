@@ -102,8 +102,24 @@ exports.listOnEbay = async (req, res) => {
                     if (!firstUploadError) firstUploadError = errMsg;
                 }
             } else if (isUrl) {
-                console.log(`[EPS DEBUG] Image ${i+1}: Already a URL, keeping: ${img.substring(0, 50)}...`);
-                processedImages.push(img);
+                // If the URL is too long for eBay (limit 500), we must re-upload it to EPS
+                if (img.length > 450) {
+                    try {
+                        console.log(`[EPS DEBUG] Image ${i+1}: URL too long (${img.length} chars). Re-uploading to eBay EPS...`);
+                        const response = await axios.get(img, { responseType: 'arraybuffer' });
+                        const base64 = Buffer.from(response.data, 'binary').toString('base64');
+                        const ebayUrl = await ebayService.uploadPicture(token, `data:image/jpeg;base64,${base64}`);
+                        console.log(`[EPS DEBUG] Image ${i+1}: Re-upload Success -> ${ebayUrl.substring(0, 50)}...`);
+                        processedImages.push(ebayUrl);
+                    } catch (e) {
+                        console.error(`[EPS DEBUG] Image ${i+1}: URL re-upload FAILED:`, e.message);
+                        // If re-upload fails, we still keep the long URL as a fallback, though eBay might reject it later
+                        processedImages.push(img);
+                    }
+                } else {
+                    console.log(`[EPS DEBUG] Image ${i+1}: Short URL, keeping: ${img.substring(0, 50)}...`);
+                    processedImages.push(img);
+                }
             } else {
                 console.warn(`[EPS DEBUG] Image ${i+1}: Skipped (Invalid format or too short)`);
             }
