@@ -413,6 +413,48 @@ async function uploadPicture(userToken, base64Data) {
     }
 }
 
+/**
+ * Gets orders for the authenticated user from Fulfillment API
+ * Filters: default is last 30 days, PAID status
+ */
+async function getOrders(token) {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/fulfillment/v1/order`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        return response.data; // { orders: [], total: X, ... }
+    } catch (error) {
+        console.error('Error fetching eBay orders:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * Updates an order with tracking information
+ * trackingData: { trackingNumber: string, shippingCarrierCode: string, lineItems: [{ lineItemId: string, quantity: number }] }
+ */
+async function updateShippingFulfillment(token, orderId, trackingData) {
+    try {
+        const response = await axios.post(
+            `${API_BASE_URL}/sell/fulfillment/v1/order/${orderId}/shipping_fulfillment`,
+            trackingData,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error(`Error updating tracking for order ${orderId}:`, error.response?.data || error.message);
+        throw error;
+    }
+}
+
 module.exports = {
     getAppToken,
     getUserConsentUrl,
@@ -431,5 +473,7 @@ module.exports = {
     initDefaultReturnPolicy,
     getItemAspectsForCategory,
     getCategorySuggestions,
-    getOffers
+    getOffers,
+    getOrders,
+    updateShippingFulfillment
 };
