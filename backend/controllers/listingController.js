@@ -319,6 +319,17 @@ exports.listOnEbay = async (req, res) => {
         const fullError = JSON.stringify(error.response?.data || error.message);
         console.error('Full Error Details:', fullError);
         
+        // 🚨 HANDLE BUSINESS POLICY ELIGIBILITY (Error 20403)
+        if (ebayError?.errorId === 20403 || fullError.includes("not eligible for Business Policy")) {
+            return res.status(403).json({
+                error: 'Business Policies Not Activated',
+                details: 'Apne eBay Sandbox account mein Business Policies "Opt-in" karein.',
+                instruction: 'Niche diye gaye link par jaakar "Get Started" par click karein:',
+                link: 'https://www.bizpolicy.sandbox.ebay.com/businesspolicy/policyoptin',
+                nextSteps: 'Activate karne ke baad, fir se "List on eBay" try karein.'
+            });
+        }
+
         res.status(500).json({ 
             error: 'Listing failed', 
             details: ebayError?.message || error.message,
