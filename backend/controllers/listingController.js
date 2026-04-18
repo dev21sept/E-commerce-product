@@ -169,10 +169,17 @@ exports.listOnEbay = async (req, res) => {
         if (product.item_specifics) {
             const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : product.item_specifics;
             Object.entries(specs).forEach(([k, v]) => {
-                if (v) inventoryItem.product.aspects[k] = [Array.isArray(v) ? v[0] : String(v)];
+                // eBay REST API does not allow dots (.) or special chars in aspect names
+                const cleanKey = k.replace(/[^\w\s]/gi, '').trim(); 
+                const cleanVal = Array.isArray(v) ? v[0] : String(v);
+
+                if (cleanKey && cleanVal && cleanVal.trim() !== "") {
+                    inventoryItem.product.aspects[cleanKey] = [cleanVal.trim().substring(0, 50)];
+                }
             });
         }
 
+        console.log(`[DEBUG] Final Inventory Item Payload:`, JSON.stringify(inventoryItem, null, 2));
         console.log('Step 1: Creating/Updating Inventory Item...');
         await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
 
@@ -255,6 +262,7 @@ exports.listOnEbay = async (req, res) => {
             }
         };
 
+        console.log(`[DEBUG] Final Offer Payload:`, JSON.stringify(offer, null, 2));
         console.log('Step 2: Creating Offer...');
         let offerId;
         try {
