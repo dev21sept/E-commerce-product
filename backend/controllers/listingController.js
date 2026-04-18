@@ -236,7 +236,7 @@ exports.listOnEbay = async (req, res) => {
             marketplaceId: 'EBAY_US',
             format: 'FIXED_PRICE',
             availableQuantity: 1,
-            categoryId: product.categoryId || product.category_id || '31387', 
+            categoryId: product.categoryId || product.category_id || '171228', 
             listingDescription: (product.description || product.title),
             pricingSummary: {
                 price: {
@@ -289,6 +289,9 @@ exports.listOnEbay = async (req, res) => {
         console.log('Step 3: Publishing Offer...');
         const publishResponse = await ebayService.publishOffer(token, offerId);
         
+        const isSandbox = process.env.EBAY_ENVIRONMENT === 'sandbox';
+        const ebayDomain = isSandbox ? 'sandbox.ebay.com' : 'ebay.com';
+        
         console.log(`✅ [SUCCESS] Product ${productId} listed as ${publishResponse.listingId}`);
         
         res.json({ 
@@ -296,17 +299,19 @@ exports.listOnEbay = async (req, res) => {
             message: 'SUCCESS! Listed on eBay!', 
             sku, 
             listingId: publishResponse.listingId,
-            ebayUrl: `https://www.sandbox.ebay.com/itm/${publishResponse.listingId}`
+            ebayUrl: `https://www.${ebayDomain}/itm/${publishResponse.listingId}`
         });
 
     } catch (error) {
         console.error('--- EBAY LISTING ERROR ---');
         const ebayError = error.response?.data?.errors?.[0];
-        console.error('Details:', ebayError || error.message);
+        const fullError = JSON.stringify(error.response?.data || error.message);
+        console.error('Full Error Details:', fullError);
         
         res.status(500).json({ 
             error: 'Listing failed', 
-            details: ebayError?.message || error.message
+            details: ebayError?.message || error.message,
+            fullError: fullError // Adding this to help debug cryptic errors like "Invalid ."
         });
     }
 };
