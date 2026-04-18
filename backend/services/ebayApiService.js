@@ -373,12 +373,21 @@ async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0'
  */
 async function uploadPicture(userToken, base64Data) {
     try {
-        // Remove data:image/xxx;base64, prefix and ALL whitespace/newlines
+        // Remove all variations of data:image prefix
         let cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
-        cleanBase64 = cleanBase64.replace(/\s/g, ""); // Remove all spaces, newlines, etc.
+        // Remove any remaining whitespace, newlines, or carriage returns to prevent XML corruption
+        cleanBase64 = cleanBase64.replace(/[\r\n\t\s]+/g, "");
         
-        // Use a more compact XML to avoid issues with large strings and whitespaces
-        const xmlPayload = `<?xml version="1.0" encoding="utf-8"?><UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>${userToken}</eBayAuthToken></RequesterCredentials><PictureData>${cleanBase64}</PictureData><PictureSet>Standard</PictureSet></UploadSiteHostedPicturesRequest>`;
+        console.log(`[EPS] Prepared Base64 size: ${cleanBase64.length} chars (approx ${Math.round((cleanBase64.length * 3) / 4 / 1024)} KB)`);
+
+        const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>${userToken}</eBayAuthToken>
+  </RequesterCredentials>
+  <PictureData>${cleanBase64}</PictureData>
+  <PictureSet>Standard</PictureSet>
+</UploadSiteHostedPicturesRequest>`;
 
         const response = await axios.post(TRADING_API_URL, xmlPayload, {
             headers: {
@@ -387,7 +396,7 @@ async function uploadPicture(userToken, base64Data) {
                 'X-EBAY-API-APP-NAME': EBAY_APP_ID,
                 'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
                 'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
-                'X-EBAY-API-COMPATIBILITY-LEVEL': '967',
+                'X-EBAY-API-COMPATIBILITY-LEVEL': '1113',
                 'Content-Type': 'text/xml'
             }
         });

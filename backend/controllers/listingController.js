@@ -134,8 +134,11 @@ exports.listOnEbay = async (req, res) => {
         console.log(`[EPS DEBUG] Final count of valid images for eBay: ${validImages.length}`);
 
         if (validImages.length === 0 && imageList.length > 0) {
+            console.error(`[EPS ERROR] All ${imageList.length} images failed to process.`);
+            // If all images fail, we can try to proceed with NO photos if eBay allows (usually doesn't)
+            // But let's throw a clear error for now
             const extraDetails = typeof firstUploadError === 'string' ? firstUploadError : JSON.stringify(firstUploadError);
-            throw new Error(`Photos processing failed. eBay EPS said: ${extraDetails.substring(0, 200)}`);
+            throw new Error(`All photos failed to upload to eBay. Primary Error: ${extraDetails.substring(0, 200)}`);
         }
 
         const inventoryItem = {
