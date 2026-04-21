@@ -368,6 +368,23 @@ async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0'
 }
 
 /**
+ * Gets valid Item Conditions for a specific Category from Taxonomy API
+ */
+async function getItemConditions(token, categoryId, categoryTreeId = '0') {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_conditions?category_id=${categoryId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return response.data.itemConditions || [];
+    } catch (error) {
+        console.error(`Error getting item conditions for category ${categoryId}:`, error.response?.data || error.message);
+        return [];
+    }
+}
+
+/**
  * Uploads a picture to eBay Picture Services (EPS)
  * This allows using local Base64 images with the REST Inventory API.
  */
@@ -464,6 +481,93 @@ async function updateShippingFulfillment(token, orderId, trackingData) {
     }
 }
 
+/**
+ * Gets inventory items for the authenticated user
+ * Supports pagination via limit and offset
+ */
+async function getInventoryItems(token, limit = 100, offset = 0) {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/inventory/v1/inventory_item?limit=${limit}&offset=${offset}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        return response.data; // { inventoryItems: [], total: X, ... }
+    } catch (error) {
+        console.error('Error fetching eBay inventory items:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * Gets the Authenticated User's Profile (Username/ID)
+ */
+async function getUserProfile(token) {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/commerce/identity/v1/user`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching User Profile:', error.response?.data || error.message);
+        // Fallback or re-throw
+        return null;
+    }
+}
+
+/**
+ * Fetches valid conditions for a specific eBay category
+ */
+async function getCategoryConditions(token, categoryId) {
+    try {
+        console.log(`[EBAY API] Fetching conditions via Taxonomy API for category: ${categoryId}`);
+        
+        // 1. First try the dedicated Taxonomy Conditions endpoint (Deepak's preference)
+        const conditions = await getItemConditions(token, categoryId);
+        
+        if (conditions && conditions.length > 0) {
+            console.log(`[EBAY] Found ${conditions.length} conditions via Taxonomy Conditions API.`);
+            return conditions.map(c => ({
+                condition_id: c.conditionId,
+                condition_name: c.conditionDisplayName,
+                label: c.conditionDisplayName,
+                id: c.conditionId, // Use the real eBay ConditionID
+                name: c.conditionDisplayName
+            }));
+        }
+
+        // 2. Fallback to Aspects if the direct endpoint returns nothing (unlikely for leaf categories)
+        console.log(`[EBAY] No conditions from primary endpoint, falling back to Aspects for: ${categoryId}`);
+        const aspectsData = await getItemAspectsForCategory(token, categoryId);
+        
+        if (aspectsData && aspectsData.aspects) {
+            const conditionAspect = aspectsData.aspects.find(a => 
+                a.localizedAspectName.toLowerCase().includes('condition')
+            );
+
+            if (conditionAspect && conditionAspect.aspectValues) {
+                console.log(`[EBAY] Extracted ${conditionAspect.aspectValues.length} condition values from Aspects.`);
+                return conditionAspect.aspectValues.map(v => ({
+                    condition_id: v.localizedValue, // Fallback ID if real ID isn't found
+                    condition_name: v.localizedValue,
+                    label: v.localizedValue,
+                    id: v.localizedValue, 
+                    name: v.localizedValue
+                }));
+            }
+        }
+        
+        console.warn(`[EBAY] No condition information found for category ${categoryId}`);
+        return [];
+    } catch (error) {
+        console.error('Error fetching category conditions:', error.response?.data || error.message);
+        return [];
+    }
+}
+
 module.exports = {
     getAppToken,
     getUserConsentUrl,
@@ -481,8 +585,13 @@ module.exports = {
     initDefaultPaymentPolicy,
     initDefaultReturnPolicy,
     getItemAspectsForCategory,
+    getItemConditions,
     getCategorySuggestions,
     getOffers,
     getOrders,
-    updateShippingFulfillment
+    getInventoryItems,
+    getCategoryConditions,
+    updateShippingFulfillment,
+    getUserProfile
 };
+

@@ -160,10 +160,19 @@ exports.listOnEbay = async (req, res) => {
 
         console.log(`[PAYLOAD DEBUG] Inventory Item for SKU ${sku}:`, JSON.stringify(inventoryItem, null, 2));
 
-        // Map Condition
+        // Map Condition (Standard eBay API Strings)
         const cond = (product.condition_name || "").toLowerCase();
-        if (cond.includes('new')) inventoryItem.condition = 'NEW';
-        else if (cond.includes('used') || cond.includes('pre-owned')) inventoryItem.condition = 'USED_EXCELLENT';
+        if (cond.includes('new')) {
+            inventoryItem.condition = 'NEW';
+        } else if (cond.includes('refurbished')) {
+            inventoryItem.condition = 'LIKE_NEW';
+        } else if (cond.includes('used') || cond.includes('pre-owned') || cond.includes('very good') || cond.includes('good') || cond.includes('excellent')) {
+            inventoryItem.condition = 'USED_EXCELLENT';
+        } else if (cond.includes('parts') || cond.includes('not working')) {
+            inventoryItem.condition = 'FOR_PARTS_OR_NOT_WORKING';
+        } else {
+            inventoryItem.condition = 'NEW'; // Default fallback
+        }
 
         // Map Item Specifics
         if (product.item_specifics) {

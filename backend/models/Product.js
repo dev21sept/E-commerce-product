@@ -8,6 +8,7 @@ const productSchema = new mongoose.Schema({
     category_id: String, // Keep for backward compatibility
     sku: String,
     brand: String,
+    condition_id: String,
     condition_name: String,
     condition_notes: String,
     retail_price: Number,

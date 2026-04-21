@@ -22,12 +22,12 @@ async function performProInjection(silent = false) {
     const url = window.location.href;
     const urlParams = new URLSearchParams(window.location.search);
     let draftId = urlParams.get('draftId') || urlParams.get('draftid');
-    
+
     if (!draftId) {
         const match = url.match(/draftId[=](\d+)/i) || url.match(/\/(\d{10,})/);
         draftId = match ? match[1] : null;
     }
-    
+
     if (!draftId || draftId.length < 5) {
         console.error("[eBay AutoLister] Could not find Draft ID in URL:", url);
         showStatus("Could not detect Draft ID", "error");
@@ -38,7 +38,7 @@ async function performProInjection(silent = false) {
 
     const attributes = {};
     let specifics = productData.item_specifics || {};
-    if (typeof specifics === 'string') try { specifics = JSON.parse(specifics); } catch(e) {}
+    if (typeof specifics === 'string') try { specifics = JSON.parse(specifics); } catch (e) { }
 
     // Map Specifics with PascalCase keys for better eBay compatibility
     for (let [key, val] of Object.entries(specifics)) {
@@ -57,12 +57,14 @@ async function performProInjection(silent = false) {
         removedFields: [],
         attributes: attributes,
         title: productData.title,
-        quantity: parseInt(productData.quantity) || 1
+        quantity: parseInt(productData.quantity) || 1,
+        customLabel: productData.sku || ""
     };
 
-    if (productData.price) {
+    const finalPrice = productData.selling_price || productData.price;
+    if (finalPrice) {
         body.price = {
-            value: String(productData.price).replace(/[^0-9.]/g, ''),
+            value: String(finalPrice).replace(/[^0-9.]/g, ''),
             currency: "USD"
         };
     }
@@ -76,18 +78,37 @@ async function performProInjection(silent = false) {
     }
 
     let srtToken = await getStorage("ebay_srt_token");
-    const headers = {
-        "accept": "*/*",
-        "content-type": "application/json",
-        "srt": srtToken || ""
+    const payload = {
+        requestId: crypto.randomUUID(),
+        removedFields: [],
+        attributes: attributes,
+        customLabel: productData.sku || "",
+        itemConditionDescription: productData.condition_notes || "",
+        requestMeta: { lastDeltaTimestamp: Date.now() }
     };
 
     try {
-        console.log("[eBay AutoLister] 🚀 Sending MEGA PAYLOAD:", body);
+        const headers = {
+            "accept": "*/*",
+            "content-type": "application/json; charset=UTF-8",
+            "sec-fetch-site": "same-origin"
+        };
+
+        // Try multiple ways to get SRT
+        if (srtToken) {
+            headers["srt"] = srtToken;
+        } else {
+            // Fallback: look for any meta tag or hidden input that might have it
+            const srtInput = document.querySelector('input[name="srt"], [data-srt]');
+            if (srtInput) headers["srt"] = srtInput.value || srtInput.getAttribute('data-srt');
+        }
+
+        console.log("[eBay AutoLister] 🚀 Performance PUT Save with SRT...");
+
         const response = await fetch(`https://www.ebay.com/lstng/api/listing_draft/${draftId}?mode=AddItem`, {
             method: "PUT",
             headers: headers,
-            body: JSON.stringify(body),
+            body: JSON.stringify(payload),
             credentials: "include"
         });
 
@@ -108,12 +129,12 @@ async function performProInjection(silent = false) {
 // --- FEATURE 0: ENSURE PROPER FORMAT ---
 async function ensureBuyItNowFormat() {
     console.log("[eBay AutoLister] Verifying Format...");
-    
+
     // 0. QUICK EXIT: If already set, don't do anything!
     const allTriggers = Array.from(document.querySelectorAll('button, [role="combobox"], .listbox__control, .ux-action-button'));
-    const currentMode = allTriggers.find(b => 
-        (b.innerText?.toLowerCase().includes("buy it now") || b.innerText?.toLowerCase().includes("fixed price")) && 
-        b.offsetParent !== null && 
+    const currentMode = allTriggers.find(b =>
+        (b.innerText?.toLowerCase().includes("buy it now") || b.innerText?.toLowerCase().includes("fixed price")) &&
+        b.offsetParent !== null &&
         !b.innerText.toLowerCase().includes("auction")
     );
 
@@ -125,22 +146,22 @@ async function ensureBuyItNowFormat() {
 
     // 1. Direct check for the "Auction" trigger (to switch it)
     const auctionTrigger = allTriggers.find(b => b.innerText?.toLowerCase().trim() === "auction" && b.offsetParent !== null);
-    
+
     if (auctionTrigger) {
         console.log("[eBay AutoLister] ⚡ Auction detected. Switching...");
         auctionTrigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
         auctionTrigger.click();
         await new Promise(r => setTimeout(r, 1200));
-        
+
         const options = Array.from(document.querySelectorAll('.listbox__option, [role="option"], .menu__item, .listbox__control'));
-        const binOption = options.find(o => 
-            (o.innerText.toLowerCase().includes("buy it now") || o.innerText.toLowerCase().includes("fixed price")) && 
+        const binOption = options.find(o =>
+            (o.innerText.toLowerCase().includes("buy it now") || o.innerText.toLowerCase().includes("fixed price")) &&
             o.innerText.toLowerCase() !== "auction"
         );
-        
+
         if (binOption) {
             binOption.click();
-            await new Promise(r => setTimeout(r, 3000)); 
+            await new Promise(r => setTimeout(r, 3000));
             setPageState('format_fixed', 'true');
             return true;
         }
@@ -151,7 +172,7 @@ async function ensureBuyItNowFormat() {
     if (warningLink) {
         warningLink.click();
         await new Promise(r => setTimeout(r, 1500));
-        return await ensureBuyItNowFormat(); 
+        return await ensureBuyItNowFormat();
     }
 
     return false;
@@ -165,11 +186,11 @@ async function setInputValue(selectorOrEl, value) {
     try {
         console.log(`[eBay AutoLister] Attempting to set "${value}" for:`, el);
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
+
         // 1. Try "Frequently selected" or visible options first (Best for eBay)
         const container = el.closest('.summary__attributes--field, [data-testid="attribute"], .ux-labels-values, .form-field, .aspect-name') || el.parentElement || document;
         const findOption = (root) => Array.from(root.querySelectorAll('button, span, a, [role="option"]'))
-                .find(s => s.innerText?.toLowerCase().trim() === String(value).toLowerCase().trim() && s !== el && s.offsetParent !== null);
+            .find(s => s.innerText?.toLowerCase().trim() === String(value).toLowerCase().trim() && s !== el && s.offsetParent !== null);
 
         let suggestion = findOption(container);
         if (suggestion) {
@@ -209,10 +230,10 @@ async function setInputValue(selectorOrEl, value) {
         if (input) {
             console.log("[eBay AutoLister] Typing value...");
             input.focus();
-            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set || 
-                               Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set ||
+                Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
             if (nativeSetter) { nativeSetter.call(input, value); } else { input.value = value; }
-            
+
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.dispatchEvent(new Event('change', { bubbles: true }));
             await new Promise(r => setTimeout(r, 1200));
@@ -220,7 +241,7 @@ async function setInputValue(selectorOrEl, value) {
             // Select from result list if it appeared
             const options = Array.from(document.querySelectorAll('.search-box-attributes__suggestion, .autocomplete__option, [role="option"], .listbox__option, .menu__item'))
                 .filter(o => o.offsetParent !== null);
-                
+
             if (options.length > 0) {
                 const match = options.find(o => o.innerText.toLowerCase().includes(String(value).toLowerCase())) || options[0];
                 console.log("[eBay AutoLister] Selecting from list:", match.innerText);
@@ -234,9 +255,9 @@ async function setInputValue(selectorOrEl, value) {
         }
 
         return false;
-    } catch(e) { 
+    } catch (e) {
         console.error("[eBay AutoLister] Error in setInputValue:", e);
-        return false; 
+        return false;
     }
 }
 
@@ -244,7 +265,7 @@ async function setInputValue(selectorOrEl, value) {
 // --- UTILITY: CONDITION MATCHER ---
 function findBestConditionMatch(elements, dbConditionText) {
     if (!dbConditionText) return null;
-    
+
     const cleanDb = dbConditionText.toLowerCase().split(':')[0].replace(/[*:]/g, '').trim();
     const dbWords = cleanDb.split(/\s+/).filter(w => w.length > 2);
     const isUsed = cleanDb.includes("used") || cleanDb.includes("pre-owned") || cleanDb.includes("worn");
@@ -291,10 +312,10 @@ function handleSuggestPage(productData) {
     if (!isSuggestUrl) return;
 
     console.log("[eBay AutoLister] 🔍 Suggestion Page Detected");
-    
+
     const gateKey = getGateKey('search_done', productData.title);
     const gateSet = getPageState(gateKey);
-    
+
     const input = document.querySelector('input[placeholder*="selling" i], input.textbox__control, #keyword, input[name="q"], input[name="keyword"]');
     const searchBtn = document.querySelector('button.keyword-suggestion__button, button[aria-label*="Search" i], .btn--primary, button.textbox__search-button');
 
@@ -311,26 +332,26 @@ function handleSuggestPage(productData) {
     }
 
     console.log("[eBay AutoLister] ✍️ Filling search field...");
-    
+
     // Support both String (Scraper) and Object (AI Form) category structures
     const rawCategory = productData.category;
     const catName = typeof rawCategory === 'object' ? (rawCategory?.fullName || rawCategory?.name || "") : (rawCategory || "");
     const catSearch = String(catName).trim();
-    
+
     const finalSearchTerm = catSearch || productData.searchTitle || productData.title;
-    
+
     setInputValue(input, finalSearchTerm).then(success => {
         if (success) {
-            setPageState(gateKey, "true"); 
+            setPageState(gateKey, "true");
             console.log("[eBay AutoLister] 👆 Clicking Search...");
-            setTimeout(() => { 
+            setTimeout(() => {
                 if (searchBtn && !searchBtn.disabled) {
                     searchBtn.click();
                     showStatus("🔍 Searching Category...", "success");
                 } else {
                     console.error("[eBay AutoLister] ❌ Search Button not found or disabled!");
                 }
-            }, 1000); 
+            }, 1000);
         }
     });
 
@@ -348,7 +369,7 @@ function handleSuggestPage(productData) {
                 const text = s.innerText.toLowerCase();
                 return text.includes(path) || (path.includes('>') && text.includes(path.split('>').pop().trim()));
             });
-            
+
             if (target) {
                 console.log("[eBay AutoLister] ✅ Matching category found. Selecting...");
                 setPageState(selectGateKey, "true");
@@ -367,18 +388,18 @@ function handleIdentifyPage(productData) {
     if (!isIdentifyUrl) return;
 
     console.log("[eBay AutoLister] 🎭 Identify Page Detected");
-    
+
     const gateKey = getGateKey('match_done', productData.title);
     if (getPageState(gateKey)) return;
 
-    const noMatchBtn = Array.from(document.querySelectorAll('button, span, div')).find(el => 
+    const noMatchBtn = Array.from(document.querySelectorAll('button, span, div')).find(el =>
         /continue without match|skip|did not find it|perfect match/i.test(el.innerText) && el.offsetParent !== null
     );
 
     if (noMatchBtn) {
         console.log("[eBay AutoLister] ⏭ Skipping product identity match...");
         const clickable = noMatchBtn.closest('button') || noMatchBtn;
-        setPageState(gateKey, "true"); 
+        setPageState(gateKey, "true");
         clickable.click();
         showStatus("⏭ Skipping Match...", "info");
     }
@@ -394,13 +415,13 @@ function handleConditionPage(productData) {
 
     const dbCondition = (productData.condition_name || productData.condition || "");
     const elements = Array.from(document.querySelectorAll('span, div, label, button, .radio__label, .ux-selection-box__label, .ux-selection-box__text, .ux-selection-box'));
-    
+
     const match = findBestConditionMatch(elements, dbCondition);
 
     if (match) {
         console.log(`[eBay AutoLister] ✅ Selecting Condition: ${match.innerText.trim()}`);
         const clickable = match.closest('button') || match.closest('[role="radio"]') || match.closest('.ux-selection-box') || match;
-        setPageState(gateKey, "true"); 
+        setPageState(gateKey, "true");
         clickable.click();
     } else {
         console.warn(`[eBay AutoLister] ❌ No candidate found for: ${dbCondition}`);
@@ -434,8 +455,8 @@ function getFieldLabelText(field) {
 
     const containerLabel = container
         ? container.querySelector(
-              "label, .ux-labels-values__labels-content, .aspect-name, span[class*=\"label\"], .summary__attributes--label, .field-label, .ux-combobox__label, h3"
-          )
+            "label, .ux-labels-values__labels-content, .aspect-name, span[class*=\"label\"], .summary__attributes--label, .field-label, .ux-combobox__label, h3"
+        )
         : null;
 
     const text =
@@ -483,6 +504,15 @@ function setNativeFieldValue(field, rawValue) {
     return true;
 }
 
+async function setInputValue(field, value) {
+    if (!field || value === undefined || value === null) return false;
+    const success = setNativeFieldValue(field, value);
+    if (success) {
+        await new Promise(r => setTimeout(r, 100)); // Small delay for state stability
+    }
+    return success;
+}
+
 async function fillDetectedFieldsStep() {
     const productData = await getStorage("ebayDraftData");
     if (!productData) return 0;
@@ -504,7 +534,8 @@ async function fillDetectedFieldsStep() {
         mpn: ["mpn", "part number", "manufacturer part number"],
         upc: ["upc"],
         ean: ["ean"],
-        isbn: ["isbn"]
+        isbn: ["isbn"],
+        sku: ["sku", "custom label", "custom label (sku)", "inventory number"]
     };
 
     const dataMap = new Map();
@@ -532,6 +563,7 @@ async function fillDetectedFieldsStep() {
     );
 
     let filledCount = 0;
+
     for (const field of fields) {
         if (field.offsetParent === null || field.disabled || field.readOnly) continue;
         const existingValue = String(field.value || "").trim();
@@ -560,7 +592,7 @@ async function fillTitlePrice() {
     const productData = await getStorage("ebayDraftData");
     if (!productData) return alert("No data found!");
     showStatus("⚡ Filling Title & Price...", "info");
-    
+
     // Title
     console.log("[eBay AutoLister] Title:", productData.title);
     const titleSels = 'input[name="title"], textarea[name="title"], input[id*="title"], #title, #editpane_title, [aria-label*="Title" i], [aria-label="Item title"], [aria-label="Listing title"], [data-testid*="title"] input, [data-testid*="title"] textarea';
@@ -575,7 +607,7 @@ async function fillTitlePrice() {
             ['input', 'change', 'blur'].forEach(e => titleEl.dispatchEvent(new Event(e, { bubbles: true })));
         }
     }
-    
+
     // Price Handling (Based on your HTML)
     const priceStr = String(productData.selling_price || productData.retail_price || "");
     const price = priceStr.replace(/[^\d.]/g, '');
@@ -583,14 +615,14 @@ async function fillTitlePrice() {
 
     if (price && price !== "0") {
         const priceSelectors = [
-            'input[name="price"].textbox__control', 
+            'input[name="price"].textbox__control',
             'input[aria-label="Item price"]',
             '[data-testid$="price"] input',
             '#price'
         ];
-        
+
         let priceInp = document.querySelector(priceSelectors.join(','));
-        
+
         if (!priceInp) {
             await ensureBuyItNowFormat();
             await new Promise(r => setTimeout(r, 1000));
@@ -601,9 +633,43 @@ async function fillTitlePrice() {
             priceInp.focus();
             const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
             if (nativeSetter) { nativeSetter.call(priceInp, price); } else { priceInp.value = price; }
-            
+
             ['input', 'change', 'blur'].forEach(e => priceInp.dispatchEvent(new Event(e, { bubbles: true })));
             console.log("[eBay AutoLister] Price set successfully.");
+        }
+    }
+
+    // SKU / Custom Label - UI Injection (Visual confirmation)
+    if (productData.sku) {
+        console.log("[eBay AutoLister] Injecting SKU into UI:", productData.sku);
+        const skuSelectors = [
+            'input[aria-label*="Custom label" i]',
+            'input[name="customLabel"]',
+            'input[id*="customLabel"]',
+            '[data-testid*="custom-label"] input'
+        ];
+
+        let skuInp = document.querySelector(skuSelectors.join(','));
+
+        if (!skuInp) {
+            skuInp = Array.from(document.querySelectorAll('input:not([type="hidden"])')).find(el => {
+                const label = getFieldLabelText(el);
+                return (label.includes('sku') || label.includes('custom label')) && !label.includes('title');
+            });
+        }
+
+        if (skuInp) {
+            skuInp.focus();
+            if (setNativeFieldValue(skuInp, productData.sku)) {
+                console.log("[eBay AutoLister] SKU set successfully.");
+            } else {
+                // Last ditch effort for React inputs
+                document.execCommand('insertText', false, productData.sku);
+                skuInp.value = productData.sku;
+            }
+            ['input', 'change', 'blur'].forEach(e => skuInp.dispatchEvent(new Event(e, { bubbles: true })));
+        } else {
+            console.warn("[eBay AutoLister] ⚠️ SKU field not found in DOM.");
         }
     }
 
@@ -611,13 +677,13 @@ async function fillTitlePrice() {
     // Condition Selection - Ultra Hybrid Matcher
     const dbCondition = (productData.condition_name || productData.condition || "");
     const isUsed = dbCondition.toLowerCase().includes("used") || dbCondition.toLowerCase().includes("pre-owned") || dbCondition.toLowerCase().includes("worn");
-    
+
     const condTrigger = Array.from(document.querySelectorAll('button, .ux-selection-box'))
         .find(b => {
             const text = b.innerText.toLowerCase();
             return (text.includes("condition") || text.includes("new") || text.includes("used") || text.includes("pre-owned")) && b.offsetParent !== null;
         });
-    
+
     if (condTrigger) {
         const current = condTrigger.innerText.toLowerCase();
         const isCurrentCorrect = isUsed ? (current.includes("used") || current.includes("pre-owned") || current.includes("worn")) : (!current.includes("used") && !current.includes("pre-owned") && current.includes("new"));
@@ -626,7 +692,7 @@ async function fillTitlePrice() {
             console.log(`[eBay AutoLister] Triggering condition menu...`);
             condTrigger.click();
             await new Promise(r => setTimeout(r, 1200));
-            
+
             const options = Array.from(document.querySelectorAll('.listbox__option, [role="option"], label, .menu__item, .ux-selection-box, .ux-selection-box__text'));
             const match = findBestConditionMatch(options, dbCondition);
 
@@ -654,7 +720,7 @@ async function fillTitlePrice() {
             'textarea[id*="sellerNotes"]',
             '.ux-text-area textarea'
         ];
-        
+
         // Search globally and also within specific condition containers
         let noteInp = null;
         for (const sel of noteSelectors) {
@@ -690,10 +756,10 @@ async function fillTitlePrice() {
 async function fillDescriptionStep() {
     const productData = await getStorage("ebayDraftData");
     if (!productData) return;
-    
+
     // Safety check for UI
     if (isTopFrame) showStatus("⚡ Injecting Description...", "info");
-    
+
     const htmlContent = productData.description || productData.about_item || productData.title;
 
     // Handle Top Frame (finding iframes and direct editors)
@@ -709,7 +775,7 @@ async function fillDescriptionStep() {
         const editors = document.querySelectorAll('.ck-editor__editable, [contenteditable="true"][aria-label*="Description" i], #desc_wrapper [contenteditable="true"], textarea[name="desc"], textarea[id*="desc"], .html-editor textarea');
         editors.forEach(editor => {
             editor.focus();
-            
+
             if (editor.tagName === 'TEXTAREA') {
                 console.log("[eBay AutoLister] 📝 Injecting into TEXTAREA...");
                 editor.value = htmlContent;
@@ -724,7 +790,7 @@ async function fillDescriptionStep() {
                     editor.innerHTML = htmlContent;
                 }
             }
-            
+
             ['input', 'change', 'blur', 'keyup'].forEach(evtType => {
                 editor.dispatchEvent(new Event(evtType, { bubbles: true }));
             });
@@ -734,7 +800,7 @@ async function fillDescriptionStep() {
         if (htmlToggle && htmlToggle.checked) {
             setTimeout(() => htmlToggle.click(), 1000);
         }
-        
+
         // Same-origin iframes
         document.querySelectorAll('iframe').forEach(iframe => {
             try {
@@ -752,7 +818,7 @@ async function fillDescriptionStep() {
                     }
                     ['input', 'change', 'blur'].forEach(evtType => body.dispatchEvent(new Event(evtType, { bubbles: true })));
                 }
-            } catch(e) {}
+            } catch (e) { }
         });
     }
 
@@ -768,10 +834,10 @@ async function fillDescriptionStep() {
         } catch (e) {
             document.body.innerHTML = htmlContent;
         }
-        
+
         const dsDiv = document.getElementById('ds_div') || document.getElementById('desc_div');
         if (dsDiv) dsDiv.innerHTML = htmlContent;
-        
+
         ['input', 'change', 'blur', 'keyup'].forEach(evtType => document.body.dispatchEvent(new Event(evtType, { bubbles: true })));
     }
 
@@ -801,11 +867,11 @@ async function fillImagesStep() {
             if (dataUrl) {
                 const r = await fetch(dataUrl);
                 const blob = await r.blob();
-                dataTransfer.items.add(new File([blob], `image_${i}.jpg`, {type:'image/jpeg'}));
+                dataTransfer.items.add(new File([blob], `image_${i}.jpg`, { type: 'image/jpeg' }));
             }
         }
         fileInput.files = dataTransfer.files;
-        fileInput.dispatchEvent(new Event('change', {bubbles:true}));
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
     showStatus("✅ Images Queued!", "success");
 }
@@ -815,16 +881,16 @@ async function fillSpecificsStep() {
     const productData = await getStorage("ebayDraftData");
     if (!productData) return alert("Product data not found!");
     showStatus("⚡ Filling Item Specifics...", "info");
-    
+
     // 1. Expand "Show More"
-    const moreBtn = Array.from(document.querySelectorAll('button')).find(b => 
+    const moreBtn = Array.from(document.querySelectorAll('button')).find(b =>
         ["show more", "see all", "view more", "more aspects"].some(t => b.innerText.toLowerCase().includes(t)) && b.offsetParent !== null
     );
     if (moreBtn) { moreBtn.click(); await new Promise(r => setTimeout(r, 1000)); }
 
     let specifics = productData.item_specifics || {};
-    if (typeof specifics === 'string') try { specifics = JSON.parse(specifics); } catch(e) {}
-    
+    if (typeof specifics === 'string') try { specifics = JSON.parse(specifics); } catch (e) { }
+
     if (productData.brand) specifics["Brand"] = productData.brand;
     if (productData.color) specifics["Color"] = productData.color;
     if (productData.size) specifics["Size"] = productData.size;
@@ -928,7 +994,7 @@ async function fillSpecificsStep() {
         for (const key of remaining) {
             const addBtn = Array.from(document.querySelectorAll('button, .ux-action-link, span')).find(b => ["add custom", "add specific", "add an aspect"].some(t => b.innerText.toLowerCase().includes(t)) && b.offsetParent !== null);
             if (!addBtn) break;
-            
+
             addBtn.click();
             await new Promise(r => setTimeout(r, 1200));
             const modal = document.querySelector('[role="dialog"], .lightbox-dialog');
@@ -951,21 +1017,21 @@ let isHandlingVariations = false;
 
 async function handleVariationsWizard(productData) {
     if (isHandlingVariations) return;
-    
+
     const isInsideIframe = window.location.href.includes("bulkedit.ebay.com/msku");
     const wizardModal = document.querySelector('.variation-wizard, .modal-dialog, .msku-dialog, .variations-v3-overlay');
-    
+
     if (!isInsideIframe && !wizardModal) return;
 
     isHandlingVariations = true;
     const modal = isInsideIframe ? document.body : wizardModal;
     console.log("[eBay AutoLister] 🎭 Variation Engine Started");
     showStatus("🎭 Starting Variations...", "success");
-    
+
     try {
-        await new Promise(r => setTimeout(r, 1500)); 
+        await new Promise(r => setTimeout(r, 1500));
         const variations = productData.variations || [];
-        
+
         if (variations.length === 0) {
             showStatus("⚠️ No variations data found!", "error");
             return;
@@ -973,7 +1039,7 @@ async function handleVariationsWizard(productData) {
 
         for (const v of variations) {
             showStatus(`🔍 Looking for attribute: "${v.name}"`, "info");
-            
+
             // 1. SELECT ATTRIBUTE TAB
             const allElements = Array.from(modal.querySelectorAll('button, span, div, .ux-action-link, .msku-attribute'));
             let attrLink = allElements.find(el => {
@@ -981,7 +1047,7 @@ async function handleVariationsWizard(productData) {
                 const target = v.name.toLowerCase();
                 return text.startsWith(target) && el.offsetParent !== null;
             });
-            
+
             if (!attrLink) {
                 console.log(`[eBay AutoLister] Attribute "${v.name}" not found. Trying to add...`);
                 showStatus(`➕ Adding missing attribute: "${v.name}"`, "info");
@@ -994,20 +1060,20 @@ async function handleVariationsWizard(productData) {
                         const match = labels.find(l => l.innerText.toLowerCase().trim() === v.name.toLowerCase());
                         if (match) {
                             console.log(`[eBay AutoLister] Selecting existing attribute checkbox: ${v.name}`);
-                            match.click(); 
+                            match.click();
                         }
                         else {
                             console.log(`[eBay AutoLister] Creating custom attribute: ${v.name}`);
                             const own = labels.find(l => l.innerText.toLowerCase().includes("add your own"));
-                            if (own) { 
+                            if (own) {
                                 own.click(); await new Promise(r => setTimeout(r, 800));
                                 const inp = attrModal.querySelector('input[type="text"]');
                                 if (inp) await setInputValue(inp, v.name);
                             }
                         }
                         const save = Array.from(attrModal.querySelectorAll('button')).find(b => /Save|Add|Done/i.test(b.innerText));
-                        if (save) { 
-                            save.click(); await new Promise(r => setTimeout(r, 2000)); 
+                        if (save) {
+                            save.click(); await new Promise(r => setTimeout(r, 2000));
                         }
                     }
                 }
@@ -1017,8 +1083,8 @@ async function handleVariationsWizard(productData) {
             if (attrLink) {
                 console.log(`[eBay AutoLister] Activating attribute tab: ${v.name}`);
                 attrLink.click();
-                await new Promise(r => setTimeout(r, 1200)); 
-                
+                await new Promise(r => setTimeout(r, 1200));
+
                 // 2. SELECT VALUES
                 for (const val of v.values) {
                     showStatus(`👉 Looking for value: "${val}"`, "info");
@@ -1027,20 +1093,20 @@ async function handleVariationsWizard(productData) {
                         const text = (o.innerText || "").trim().toLowerCase();
                         return text === val.toLowerCase() || (text.includes(val.toLowerCase()) && text.length < val.length + 5);
                     });
-                    
+
                     if (match) {
                         const btn = match.tagName === 'BUTTON' ? match : match.closest('button, .ux-selection-box') || match;
-                        const isChecked = btn.getAttribute('aria-pressed') === 'true' || 
-                                          btn.classList.contains('selected') || 
-                                          btn.classList.contains('checked');
+                        const isChecked = btn.getAttribute('aria-pressed') === 'true' ||
+                            btn.classList.contains('selected') ||
+                            btn.classList.contains('checked');
 
                         if (!isChecked) {
                             console.log(`[eBay AutoLister] Clicking value: ${val}`);
                             btn.click();
                             // Fallback for tricky buttons
-                            setTimeout(() => { 
+                            setTimeout(() => {
                                 if (btn.getAttribute('aria-pressed') !== 'true' && !btn.classList.contains('selected') && !btn.classList.contains('checked')) {
-                                    btn.dispatchEvent(new Event('click', {bubbles: true})); 
+                                    btn.dispatchEvent(new Event('click', { bubbles: true }));
                                 }
                             }, 100);
                             await new Promise(r => setTimeout(r, 600));
@@ -1063,10 +1129,10 @@ async function handleVariationsWizard(productData) {
                     }
                 }
                 const done = Array.from(modal.querySelectorAll('button')).find(b => /Update|Done|Close/i.test(b.innerText) && b.offsetParent !== null);
-                if (done) { 
+                if (done) {
                     console.log(`[eBay AutoLister] Clicking "Done" for attribute: ${v.name}`);
-                    done.click(); 
-                    await new Promise(r => setTimeout(r, 1200)); 
+                    done.click();
+                    await new Promise(r => setTimeout(r, 1200));
                 }
             }
         }
@@ -1074,9 +1140,9 @@ async function handleVariationsWizard(productData) {
         showStatus("🏁 Moving to Prices & Qty...", "info");
         console.log("[eBay AutoLister] Moving to next step (Continue/Next)...");
         const next = Array.from(modal.querySelectorAll('button')).find(b => (b.innerText.toLowerCase().includes("continue") || b.innerText.toLowerCase().includes("next")) && b.offsetParent !== null);
-        if (next) { 
-            next.click(); 
-            await new Promise(r => setTimeout(r, 2000)); 
+        if (next) {
+            next.click();
+            await new Promise(r => setTimeout(r, 2000));
         } else {
             console.warn("[eBay AutoLister] 'Continue' or 'Next' button not found. Assuming already on grid or final step.");
         }
@@ -1106,11 +1172,11 @@ async function handleVariationsWizard(productData) {
         }
         showStatus("✅ Variations Complete!", "success");
         console.log("[eBay AutoLister] 🎭 Variations Wizard Process Completed.");
-    } catch(e) { 
-        console.error("[eBay AutoLister] Wizard Error:", e); 
+    } catch (e) {
+        console.error("[eBay AutoLister] Wizard Error:", e);
         showStatus("❌ Variations Fill Failed!", "error");
-    } finally { 
-        isHandlingVariations = false; 
+    } finally {
+        isHandlingVariations = false;
     }
 }
 
@@ -1119,7 +1185,7 @@ async function performVariationsFill() {
     const productData = await getStorage("ebayDraftData");
     if (!productData || !productData.variations) return alert("No variations data found!");
     showStatus("⚡ Detecting Wizard...", "info");
-    
+
     // Precise button detection: Strictly scope to the Variations section
     const varSection = document.querySelector('.summary__variations, [data-testid="variations-section"]');
     let varBtn = null;
@@ -1132,7 +1198,7 @@ async function performVariationsFill() {
             const label = (el.getAttribute('aria-label') || "").toLowerCase();
             return (text.includes("variation") || label.includes("variation")) && el.offsetParent !== null;
         });
-        
+
         // Final fallback within section: the main edit button class
         if (!varBtn) varBtn = varSection.querySelector('.summary__header-edit-button');
     }
@@ -1140,11 +1206,11 @@ async function performVariationsFill() {
     if (!varBtn) {
         console.warn("[eBay AutoLister] Variations Edit button not found within the expected section.");
     }
-    
+
     if (varBtn) {
         varBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
         varBtn.click();
-        
+
         // Wait for modal OR iframe to appear
         let attempts = 0;
         const checkModal = setInterval(async () => {
@@ -1211,19 +1277,29 @@ function showStatus(msg, type = "info") {
 
 // --- NEW ONE CLICK AUTOMATION LOGIC ---
 async function performFullAutomation() {
-    showStatus("🚀 STARTING MEGA SYNC...", "info");
+    showStatus("🚀 STARTING ONE-CLICK SYNC...", "info");
     try {
-        // Step 1: MEGA SYNC (Title, Price, Specifics, Description, Condition Notes)
-        await performProInjection(true); // silent = true to prevent early reload
+        // Step 1: UI Injections (Title, Price, SKU)
+        await fillTitlePrice();
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Step 2: Pro API Sync (Specifics & SKU background save)
+        await performProInjection(true); 
+        await new Promise(r => setTimeout(r, 2500));
+
+        // Step 3: Description (Iframe Injection)
+        await fillDescriptionStep();
         await new Promise(r => setTimeout(r, 2000));
         
-        // Step 2: Photos (Always needs UI interaction)
+        // Step 4: Photos (Always needs UI interaction)
         await fillImagesStep();
         
         showStatus("✅ ALL STEPS SYNCED! RELOADING PAGE...", "success");
-        setTimeout(() => window.location.reload(), 2000);
+        setTimeout(() => {
+            window.location.reload();
+        }, 3000);
     } catch (e) {
-        console.error("[eBay AutoLister] Full Auto Error:", e);
+        console.error("[eBay AutoLister] ONE-CLICK ERROR:", e);
         showStatus("❌ ONE-CLICK ERROR: " + e.message, "error");
     }
 }
@@ -1239,7 +1315,7 @@ function createManualButton(productData) {
 
     const createBtn = (text, color, action) => {
         const btn = document.createElement('button');
-        btn.innerText = text; 
+        btn.innerText = text;
         btn.style.cssText = `padding:8px 12px; background:${color}; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:11px; transition:all 0.2s; width:100%; text-align:center; text-transform:uppercase; letter-spacing:0.4px;`;
         btn.onmouseenter = () => { btn.style.transform = 'translateY(-1px)'; btn.style.filter = 'brightness(1.05)'; };
         btn.onmouseleave = () => { btn.style.transform = 'translateY(0)'; btn.style.filter = 'brightness(1.0)'; };
@@ -1247,20 +1323,11 @@ function createManualButton(productData) {
         return btn;
     };
 
-    // 1. ONE CLICK AUTOMATION (NEW)
+    // 1. ONE CLICK AUTOMATION
     container.appendChild(createBtn('ONE CLICK FULL AUTO', 'linear-gradient(135deg, #10B981, #059669)', performFullAutomation));
-    
-    // 2. ITEM SPECIFICS (RENAMED PINK BUTTON)
-    container.appendChild(createBtn('Item Specifics', 'linear-gradient(135deg, #FF0080, #7928CA)', performProInjection));
-    
-    // 3. MANUAL STEPS
-    container.appendChild(createBtn('Title & Price', '#1F2937', fillTitlePrice));
-    container.appendChild(createBtn('Description', '#374151', fillDescriptionStep));
-    container.appendChild(createBtn('Upload Photos', '#4B5563', fillImagesStep));
 
-    if (productData.variations && productData.variations.length > 0) {
-        container.appendChild(createBtn('Fill Variations', '#D97706', performVariationsFill));
-    }
+    // 2. PHOTOS (Manual Fallback)
+    container.appendChild(createBtn('Photos', '#6366F1', fillImagesStep));
 
     document.body.appendChild(container);
 }
@@ -1268,7 +1335,7 @@ function createManualButton(productData) {
 // --- AUTOMATION GATE ---
 setInterval(async () => {
     if (!chrome.runtime?.id) return;
-    
+
     // Check if data exists for debugging
     const dataCheck = await getStorage("ebayDraftData");
     if (!dataCheck) {
@@ -1299,7 +1366,7 @@ setInterval(async () => {
         if (isIframeWizard || wizardModal || hasWizardTitle) {
             console.log("[eBay AutoLister] 🎭 Wizard/Modal detected in loop. Triggering auto-fill...");
             handleVariationsWizard(productData);
-            return; 
+            return;
         }
     }
 
@@ -1311,10 +1378,10 @@ setInterval(async () => {
     handleConditionPage(productData);
 
     if (isMainListing) {
-        if (isTopFrame) createManualButton(productData); 
-        
+        if (isTopFrame) createManualButton(productData);
+
         if (!getPageState('format_fixed')) {
-            const success = await ensureBuyItNowFormat(); 
+            const success = await ensureBuyItNowFormat();
             if (success) {
                 const trigger = document.querySelector('.pricing-format button, [role="combobox"]');
                 if (trigger && trigger.innerText.toLowerCase().includes("buy it now")) {

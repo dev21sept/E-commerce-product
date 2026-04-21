@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, DollarSign, Package, Tag, ArrowUpRight, Link2, Sparkles, Plus, ExternalLink, Clock } from 'lucide-react';
-import { getProducts, getEbayAuthUrl } from '../services/api';
+import { getProducts, getOrders, getEbayAuthUrl } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
 
 const Dashboard = () => {
     const location = useLocation();
     const [stats, setStats] = useState({
         totalProducts: 0,
+        totalOrders: 0,
         totalValue: 0,
         aiCount: 0,
         ebayCount: 0
@@ -24,13 +25,19 @@ const Dashboard = () => {
 
         const fetchData = async () => {
             try {
-                const products = await getProducts();
-                const totalValue = products.reduce((sum, p) => sum + Number(p.selling_price || 0), 0);
+                const [products, ordersData] = await Promise.all([
+                    getProducts(),
+                    getOrders()
+                ]);
+                
+                const orders = ordersData.orders || [];
+                const totalValue = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
                 const aiCount = products.filter(p => p.source === 'ai').length;
-                const ebayCount = products.filter(p => p.source === 'ebay').length;
+                const ebayCount = products.filter(p => p.source === 'ebay' || p.source === 'scraper').length;
 
                 setStats({
                     totalProducts: products.length,
+                    totalOrders: orders.length,
                     totalValue,
                     aiCount,
                     ebayCount
@@ -46,16 +53,24 @@ const Dashboard = () => {
         fetchData();
     }, [location]);
 
-    const handleEbayConnect = () => {
-        window.open('https://signin.ebay.com/signin/', '_blank');
+
+    const handleEbayConnect = async () => {
+        try {
+            const url = await getEbayAuthUrl();
+            if (url) window.location.href = url;
+        } catch (error) {
+            console.error('Error getting eBay auth URL:', error);
+            alert('Failed to get eBay connection link. Check backend status.');
+        }
     };
 
     const statCards = [
-        { name: 'Total Inventory', value: stats.totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', trend: '+12% from last month' },
-        { name: 'Total Portfolio Value', value: `$${stats.totalValue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: 'Average price: $' + (stats.totalProducts > 0 ? (stats.totalValue / stats.totalProducts).toFixed(2) : 0) },
-        { name: 'AI Gen Listings', value: stats.aiCount, icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-50', trend: ((stats.aiCount / stats.totalProducts || 0) * 100).toFixed(0) + '% of total' },
-        { name: 'eBay Imports', value: stats.ebayCount, icon: Link2, color: 'text-orange-600', bg: 'bg-orange-50', trend: ((stats.ebayCount / stats.totalProducts || 0) * 100).toFixed(0) + '% of total' },
+        { name: 'Total Products', value: stats.totalProducts, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', trend: 'Total Inventory' },
+        { name: 'Active Orders', value: stats.totalOrders, icon: ShoppingBag, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: 'Sales from eBay' },
+        { name: 'Total Sales', value: `$${stats.totalValue.toLocaleString()}`, icon: DollarSign, color: 'text-indigo-600', bg: 'bg-indigo-50', trend: 'Lifetime Revenue' },
+        { name: 'AI Gen Listings', value: stats.aiCount, icon: Sparkles, color: 'text-purple-600', bg: 'bg-purple-50', trend: ((stats.aiCount / stats.totalProducts || 0) * 100).toFixed(0) + '% AI Power' },
     ];
+
 
     return (
         <div className="space-y-6 md:space-y-8 animate-in fade-in duration-700 max-w-7xl mx-auto">
@@ -65,7 +80,8 @@ const Dashboard = () => {
                     <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
                         Welcome Back, Admin <span className="text-xl md:text-2xl animate-bounce">👋</span>
                     </h1>
-                    <p className="text-gray-500 mt-1 font-medium italic text-sm">VA Help Listing - Real-time inventory insights.</p>
+                    <p className="text-gray-500 mt-1 font-medium italic text-sm">Real-time inventory & sales insights.</p>
+
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     <button 

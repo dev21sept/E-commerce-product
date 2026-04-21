@@ -6,10 +6,10 @@ exports.createProduct = async (req, res) => {
     console.log("[MongoDB] Attempting to create a new product...");
     try {
         const {
-            title, description, category, category_id, categoryId, brand,
-            condition_name, retail_price, selling_price, discount_percentage,
-            seller_name, seller_feedback, ebay_url, about_item, item_specifics,
-            images, variations, video_url, overwrite
+            title, description, category, category_id, categoryId, brand, sku,
+            condition_name, condition_notes, condition_id, gender, retail_price, selling_price, 
+            discount_percentage, seller_name, seller_feedback, ebay_url, about_item, 
+            item_specifics, officialAspects, images, variations, video_url, overwrite
         } = req.body;
 
         const finalCategoryId = categoryId || category_id;
@@ -63,7 +63,11 @@ exports.createProduct = async (req, res) => {
             category,
             category_id: finalCategoryId,
             brand,
+            sku,
             condition_name,
+            condition_notes,
+            condition_id,
+            gender,
             retail_price: parseFloat(retail_price) || 0,
             selling_price: parseFloat(selling_price) || 0,
             discount_percentage,
@@ -72,6 +76,7 @@ exports.createProduct = async (req, res) => {
             ebay_url,
             about_item,
             item_specifics,
+            officialAspects,
             images: images || [],
             variations: formattedVariations,
             video_url,
@@ -92,7 +97,7 @@ exports.createProduct = async (req, res) => {
 // Get all products (MongoDB version)
 exports.getAllProducts = async (req, res) => {
     console.log(`[API] GET /products called (DB State: ${mongoose.connection.readyState})`);
-    
+
     // If disconnected, try to connect instead of just failing
     if (mongoose.connection.readyState === 0) {
         const connectMongoDB = require('../config/mongodb');
@@ -101,18 +106,21 @@ exports.getAllProducts = async (req, res) => {
 
     try {
         console.log(`[MongoDB] Querying products with 10s timeout...`);
-        // Simple find without sort first to test speed
+        // Speed Optimization: Only fetch fields needed for the table/list
+        // This avoids loading heavy descriptions and all images for every record
         const products = await Product.find({})
-            .maxTimeMS(10000) // 10 seconds timeout at MongoDB level
-            .lean(); // Faster, returns plain JS objects
+            .select('title sku selling_price images category updated_at source ai_generated brand condition_name condition_notes gender item_specifics variations description')
+            .sort({ updated_at: -1 })
+            .maxTimeMS(10000)
+            .lean();
 
         console.log(`[MongoDB] Query finished. Found ${products.length} products`);
-        
+
         const formattedProducts = products.map(p => {
             const product = { ...p, id: p._id.toString() };
-            
+
             const variationMap = {};
-            const variations = product.variations || []; 
+            const variations = product.variations || [];
             variations.forEach(({ name, value }) => {
                 if (name && value) {
                     if (!variationMap[name]) variationMap[name] = [];
@@ -120,7 +128,7 @@ exports.getAllProducts = async (req, res) => {
                 }
             });
             product.variationsFormatted = Object.keys(variationMap).map(name => ({ name, values: variationMap[name] }));
-            
+
             return product;
         });
 
@@ -166,7 +174,7 @@ exports.updateProduct = async (req, res) => {
     try {
         const {
             title, description, category, categoryId, brand, sku,
-            condition_name, condition_notes, retail_price, selling_price,
+            condition_name, condition_notes, condition_id, gender, retail_price, selling_price,
             discount_percentage, seller_name, seller_feedback,
             ebay_url, about_item, item_specifics, officialAspects, images, variations, video_url
         } = req.body;
@@ -188,10 +196,10 @@ exports.updateProduct = async (req, res) => {
             req.params.id,
             {
                 title, description, category, category_id: categoryId, categoryId, brand, sku,
-                condition_name, condition_notes, retail_price: parseFloat(retail_price) || 0, 
+                condition_name, condition_notes, condition_id, gender, retail_price: parseFloat(retail_price) || 0,
                 selling_price: parseFloat(selling_price) || 0,
                 discount_percentage, seller_name, seller_feedback,
-                ebay_url, about_item, item_specifics, officialAspects, images, 
+                ebay_url, about_item, item_specifics, officialAspects, images,
                 variations: formattedVariations, video_url,
                 updated_at: Date.now()
             },

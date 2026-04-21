@@ -14,41 +14,36 @@ body {
 }
 
 .sidebar-link {
-  @apply flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200;
+  @apply flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300;
 }
 
 .sidebar-link.active {
-  @apply bg-[#4F46E5]/10 text-[#4F46E5];
+  @apply bg-[#4F46E5] text-white shadow-lg shadow-indigo-100;
 }
 
 .sidebar-link:not(.active) {
   @apply text-gray-500 hover:bg-gray-50 hover:text-gray-900;
 }
 
-.card {
-  @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden;
+/* Glassmorphism & Effects */
+.glass {
+  @apply bg-white/80 backdrop-blur-md border border-white/20;
 }
 
-.btn-primary {
-  @apply bg-[#4F46E5] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#4338CA] transition-all duration-200 disabled:opacity-50 shadow-md active:scale-95 flex items-center gap-2;
+.animate-in {
+  animation: animate-in 0.5s ease-out;
 }
 
-.form-input {
-  @apply w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] transition-all duration-200;
+@keyframes animate-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.form-label {
-  @apply block text-sm font-medium text-gray-700 mb-1;
+/* Custom Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-200 rounded-full hover:bg-gray-300;
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

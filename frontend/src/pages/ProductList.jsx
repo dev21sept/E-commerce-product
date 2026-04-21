@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2, Sparkles, Zap, FileText, Tag, TrendingUp } from 'lucide-react';
 import { getProducts, deleteProduct, getEbayAuthUrl, listProduct } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 
 const ProductList = () => {
+    const { showConfirm } = useToast();
     const location = useLocation();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -80,11 +82,11 @@ const ProductList = () => {
         const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.category?.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        const matchesSource = sourceFilter === 'all' || 
-            (sourceFilter === 'ai' && p.source === 'ai') || 
+
+        const matchesSource = sourceFilter === 'all' ||
+            (sourceFilter === 'ai' && p.source === 'ai') ||
             (sourceFilter === 'ebay' && (p.source === 'ebay' || p.source === 'scraper'));
-            
+
         return matchesSearch && matchesSource;
     });
 
@@ -132,37 +134,34 @@ const ProductList = () => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    
+
                     {/* Source Filter Buttons */}
                     <div className="flex p-1 bg-gray-100 rounded-xl w-full md:w-fit overflow-x-auto no-scrollbar">
                         <button
                             onClick={() => setSourceFilter('all')}
-                            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                                sourceFilter === 'all' 
-                                    ? 'bg-white text-gray-900 shadow-sm' 
+                            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === 'all'
+                                    ? 'bg-white text-gray-900 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                                }`}
                         >
                             All
                         </button>
                         <button
                             onClick={() => setSourceFilter('ebay')}
-                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                                sourceFilter === 'ebay' 
-                                    ? 'bg-white text-blue-600 shadow-sm' 
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === 'ebay'
+                                    ? 'bg-white text-blue-600 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                                }`}
                         >
                             <Link2 className="w-3.5 h-3.5" />
                             eBay
                         </button>
                         <button
                             onClick={() => setSourceFilter('ai')}
-                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                                sourceFilter === 'ai' 
-                                    ? 'bg-white text-emerald-600 shadow-sm' 
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === 'ai'
+                                    ? 'bg-white text-emerald-600 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-700'
-                            }`}
+                                }`}
                         >
                             <Sparkles className="w-3.5 h-3.5" />
                             AI
@@ -261,23 +260,23 @@ const ProductList = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2.5">
-                                                <button 
-                                                    onClick={() => handlePreviewListing(product)} 
-                                                    className="w-9 h-9 flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-100 shadow-sm" 
+                                                <button
+                                                    onClick={() => handlePreviewListing(product)}
+                                                    className="w-9 h-9 flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-100 shadow-sm"
                                                     title="Preview & List to Marketplaces"
                                                 >
                                                     <Sparkles className="w-4 h-4" />
                                                 </button>
-                                                <Link 
-                                                    to={`/products/edit/${product.id}`} 
-                                                    className="w-9 h-9 flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-100 shadow-sm" 
+                                                <Link
+                                                    to={`/products/edit/${product.id}`}
+                                                    className="w-9 h-9 flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-100 shadow-sm"
                                                     title="Edit Product"
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </Link>
-                                                <button 
-                                                    onClick={() => handleDelete(product.id)} 
-                                                    className="w-9 h-9 flex items-center justify-center text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all border border-red-100 shadow-sm" 
+                                                <button
+                                                    onClick={() => handleDelete(product.id)}
+                                                    className="w-9 h-9 flex items-center justify-center text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-all border border-red-100 shadow-sm"
                                                     title="Delete Product"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -299,11 +298,11 @@ const ProductList = () => {
             </div>
             {/* Preview Modal */}
             {previewProduct && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
                     onClick={() => setPreviewProduct(null)}
                 >
-                    <div 
+                    <div
                         className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -548,7 +547,7 @@ const ProductList = () => {
                                     )}
                                 </div>
                             </div>
-                            
+
                             <button
                                 onClick={() => setPreviewProduct(null)}
                                 className="w-full py-3 rounded-xl bg-white border border-gray-200 font-bold text-gray-500 hover:bg-gray-50 transition-all active:scale-95 text-xs"

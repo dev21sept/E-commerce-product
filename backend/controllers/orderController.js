@@ -1,5 +1,6 @@
 const ebayService = require('../services/ebayApiService');
 const Setting = require('../models/Setting');
+const Order = require('../models/Order');
 
 // Helper to get a setting from MongoDB
 async function getSetting(key) {
@@ -52,19 +53,18 @@ async function getValidToken() {
 }
 
 /**
- * Fetch all orders from eBay
+ * Fetch all orders from Database (Synced from eBay)
  */
 exports.getOrders = async (req, res) => {
     try {
-        const token = await getValidToken();
-        if (!token) return res.status(401).json({ error: 'eBay not connected' });
-
-        const ordersData = await ebayService.getOrders(token);
-        res.json(ordersData);
+        const orders = await Order.find().sort({ createdDate: -1 });
+        res.json({ orders, total: orders.length });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch orders', details: error.message });
+        res.status(500).json({ error: 'Failed to fetch orders from database', details: error.message });
     }
 };
+
+
 
 /**
  * Update tracking information for an order

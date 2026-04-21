@@ -127,7 +127,7 @@ const SearchableDropdown = ({ value, onSelect, options = [], placeholder }) => {
 };
 
 const SearchableCondition = ({ value, onChange }) => (
-    <SearchableDropdown value={value} onSelect={onChange} placeholder="Search condition..." options={EBAY_CONDITIONS} />
+    <SearchableDropdown value={value} onSelect={(val) => onChange(val)} placeholder="Search condition..." options={EBAY_CONDITIONS} />
 );
 
 // --- PRODUCT GALLERY COMPONENT ---
@@ -355,6 +355,7 @@ const SearchableCategory = ({ value, onChange }) => {
 const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
     const [formData, setFormData] = useState({ title: '', description: '', category: '', categoryId: '', brand: '', condition_name: '', retail_price: '', selling_price: '', ebay_url: '', item_specifics: {}, officialAspects: [], images: [], variations: [] });
     const [aspectsLoading, setAspectsLoading] = useState(false);
+    const descriptionRef = useRef(null);
 
     useEffect(() => { 
         if (initialData) { 
@@ -403,9 +404,29 @@ const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
             }
         }
     };
-    const handleSubmit = (e) => { e.preventDefault(); onSubmit(formData); };
+    const handlePreSubmit = (e, isListing = false, isDraft = false) => {
+        e.preventDefault();
+        const finalDescription = descriptionRef.current ? descriptionRef.current.innerHTML : formData.description;
+        onSubmit({ ...formData, description: finalDescription }, isListing, isDraft);
+    };
+
+    const removeVariationValue = (vIdx, valIdx) => {
+        const newVars = [...formData.variations];
+        newVars[vIdx].values = newVars[vIdx].values.filter((_, i) => i !== valIdx);
+        setFormData(p => ({ ...p, variations: newVars }));
+    };
+
+    const addVariationValue = (vIdx) => {
+        const val = prompt("Enter new value for " + formData.variations[vIdx].name);
+        if (val) {
+            const newVars = [...formData.variations];
+            newVars[vIdx].values.push(val);
+            setFormData(p => ({ ...p, variations: newVars }));
+        }
+    };
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-12 pb-24">
+        <form onSubmit={(e) => handlePreSubmit(e, false, false)} className="space-y-12 pb-24">
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
                 <div className="lg:col-span-8 space-y-12">
                     <div className="space-y-8">
@@ -429,11 +450,27 @@ const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
                             </div>
                             <div>
                                 <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 block font-mono">Condition</label>
-                                <SearchableCondition value={formData.condition_name} onChange={(val) => setFormData(p => ({ ...p, condition_name: val }))} />
+                                <SearchableCondition 
+                                    value={formData.condition_name} 
+                                    onChange={(selected) => {
+                                        if (typeof selected === 'object') {
+                                            setFormData(p => ({ ...p, condition_name: selected.label, condition_id: selected.id }));
+                                        } else {
+                                            setFormData(p => ({ ...p, condition_name: selected }));
+                                        }
+                                    }} 
+                                />
                             </div>
                             <div>
                                 <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 block font-mono">Inventory SKU</label>
-                                <input type="text" name="sku" value={formData.sku || ''} onChange={handleChange} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-4 focus:ring-slate-100 transition-all font-mono" placeholder="Enter SKU..." />
+                                <input 
+                                    type="text" 
+                                    name="sku" 
+                                    value={formData.sku || ''} 
+                                    onChange={handleChange} 
+                                    className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:ring-4 focus:ring-slate-100 transition-all font-mono" 
+                                    placeholder="Enter SKU..." 
+                                />
                             </div>
                         </div>
 
@@ -500,9 +537,47 @@ const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
                         </div>
                     </div>
                     {formData.variations && formData.variations.length > 0 && (
-                        <div className="pt-12 border-t border-gray-100"><h3 className="text-xl font-black text-gray-900 tracking-tight mb-8">Scraped Variations</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{formData.variations.map((v, idx) => ( <div key={idx} className="bg-white p-6 rounded-[30px] border border-gray-100 shadow-sm"><label className="text-[10px] font-black text-orange-600 uppercase tracking-widest block mb-3">{v.name}</label><div className="flex flex-wrap gap-2">{v.values.map((val, vidx) => ( <span key={vidx} className="px-3 py-1.5 bg-orange-50 text-orange-700 text-[11px] font-bold rounded-xl border border-orange-100">{val}</span> ))}</div></div> ))}</div></div>
+                        <div className="pt-12 border-t border-gray-100">
+                            <h3 className="text-xl font-black text-gray-900 tracking-tight mb-8">Scraped Variations</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {formData.variations.map((v, vIdx) => (
+                                    <div key={vIdx} className="bg-white p-6 rounded-[30px] border border-gray-100 shadow-sm relative overflow-hidden group">
+                                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button type="button" onClick={() => addVariationValue(vIdx)} className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <label className="text-[10px] font-black text-orange-600 uppercase tracking-widest block mb-3">{v.name}</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {v.values.map((val, valIdx) => (
+                                                <span key={valIdx} className="px-3 py-1.5 bg-orange-50 text-orange-700 text-[11px] font-bold rounded-xl border border-orange-100 flex items-center gap-2 group/pill">
+                                                    {val}
+                                                    <button type="button" onClick={() => removeVariationValue(vIdx, valIdx)} className="hover:text-rose-500 opacity-0 group-hover/pill:opacity-100 transition-all">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                            {v.values.length === 0 && <span className="text-[10px] text-gray-400 italic">No values defined</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
-                    <div className="pt-12 border-t border-gray-100"><div className="bg-gray-900 rounded-[50px] p-10 md:p-14 text-white shadow-2xl relative overflow-hidden"><h3 className="text-xl font-black uppercase tracking-widest mb-10 flex items-center gap-3"><FileText className="w-6 h-6 text-indigo-400" /> Scraped Description</h3><div contentEditable={true} className="min-h-[400px] outline-none text-gray-300 text-lg leading-relaxed prose prose-invert max-w-none shadow-description" onBlur={(e) => setFormData(p => ({ ...p, description: e.target.innerHTML }))} dangerouslySetInnerHTML={{ __html: formData.description }} /></div></div>
+                    <div className="pt-12 border-t border-gray-100">
+                        <div className="bg-gray-900 rounded-[50px] p-10 md:p-14 text-white shadow-2xl relative overflow-hidden">
+                            <h3 className="text-xl font-black uppercase tracking-widest mb-10 flex items-center gap-3">
+                                <FileText className="w-6 h-6 text-indigo-400" /> Scraped Description
+                            </h3>
+                            <div 
+                                ref={descriptionRef}
+                                contentEditable={true} 
+                                className="min-h-[400px] outline-none text-gray-300 text-lg leading-relaxed prose prose-invert max-w-none shadow-description" 
+                                onBlur={(e) => setFormData(p => ({ ...p, description: e.target.innerHTML }))} 
+                                dangerouslySetInnerHTML={{ __html: formData.description }} 
+                            />
+                        </div>
+                    </div>
                 </div>
                 <div className="lg:col-span-4 space-y-10 sticky top-10">
                     <div className="bg-white rounded-[40px] border border-gray-100 p-6 shadow-sm">
@@ -518,10 +593,10 @@ const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
                             <button type="submit" disabled={isFetching} className="py-5 bg-slate-900 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-indigo-600 transition-all">
                                 {isFetching ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} Update
                             </button>
-                            <button type="button" disabled={isFetching} onClick={() => onSubmit(formData, true, true)} className="py-5 bg-amber-500 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all shadow-lg shadow-amber-100">
+                            <button type="button" disabled={isFetching} onClick={(e) => handlePreSubmit(e, true, true)} className="py-5 bg-amber-500 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-amber-600 transition-all shadow-lg shadow-amber-100">
                                 <FileText className="w-4 h-4"/> Draft
                             </button>
-                            <button type="button" disabled={isFetching} onClick={() => onSubmit(formData, true, false)} className="py-5 bg-indigo-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+                            <button type="button" disabled={isFetching} onClick={(e) => handlePreSubmit(e, true, false)} className="py-5 bg-indigo-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
                                 <Plus className="w-4 h-4"/> List API
                             </button>
                             <button 

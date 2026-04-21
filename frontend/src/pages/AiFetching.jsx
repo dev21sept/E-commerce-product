@@ -6,8 +6,11 @@ import AiFetchSection from '../components/AiFetchSection';
 import { createProduct, listProduct } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { useToast } from '../components/Toast';
+
 const AiFetching = () => {
     const navigate = useNavigate();
+    const { showConfirm } = useToast();
     const [isFetching, setIsFetching] = useState(false);
     const [scrapedData, setScrapedData] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -35,8 +38,8 @@ const AiFetching = () => {
             let targetId = response.productId || response.id;
             
             if (response.duplicate) {
-                const shouldOverwrite = window.confirm('This product already exists! Overwrite and continue?');
-                if (shouldOverwrite) {
+                const ok = await showConfirm('This product already exists! Overwrite and continue?');
+                if (ok) {
                     const updateRes = await createProduct({ ...productWithSource, overwrite: true });
                     targetId = updateRes.productId || updateRes.id;
                 } else {
@@ -100,6 +103,7 @@ const AiFetching = () => {
                             initialData={scrapedData}
                             onSubmit={handleSaveProduct}
                             isFetching={isFetching}
+                            onReset={() => setScrapedData(null)}
                         />
                     </motion.div>
                 )}

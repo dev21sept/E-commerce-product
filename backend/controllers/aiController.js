@@ -7,7 +7,15 @@ const Product = require('../models/Product');
 exports.analyzeProductImage = async (req, res) => {
     console.log(`\n--- [AI STUDIO] New Analysis Request Received ---`);
     try {
-        const { images, platform = 'ebay', structure = ['Brand', 'Size', 'Color'], descriptionStyle = 'AI Generated', customTemplateText = '', gender = 'Unisex', condition = 'New' } = req.body;
+        const {
+            images,
+            platform = 'ebay',
+            structure = ['Brand', 'Product Type', 'Model / Series', 'Material', 'Key Features', 'Size'],
+            descriptionStyle = 'AI Generated',
+            customTemplateText = '',
+            gender = 'Unisex',
+            condition = 'New'
+        } = req.body;
         console.log(`Platform: ${platform}, Images: ${images?.length || 0}`);
 
         if (!images || images.length === 0) {
@@ -87,8 +95,8 @@ exports.analyzeProductImage = async (req, res) => {
                                 ? `1. Analyze ALL provided images thoroughly.
 2. Carefully read ALL visible tags, brand logos, model numbers, and text on the product/box.
 3. Use this deep visual and textual evidence to determine the exact product identity.
-4. Provide a highly specific, concise search query (2-5 words) that matches its exact eBay Leaf Category (e.g., 'Mens Graphic T-Shirts', 'Wireless In-Ear Headphones', 'Portable Electric Fans').
-5. Return your response ONLY as a JSON object with 'category_query'. Be ruthlessly accurate.`
+4. Provide a HIGHLY SPECIFIC search query (3-6 words) that targets the ABSOLUTE LEAF CATEGORY (the deepest possible level). (e.g., instead of 'Clothing', use 'Mens Graphic T-Shirts' or 'NFL Fan Apparel T-Shirts').
+5. Return your response ONLY as a JSON object with 'category_query'. You MUST be as detailed as possible to avoid broad parent categories like 'Clothing' (ID 206).`
                                 : platform === 'vinted'
                                     ? "Identify the ABSOLUTE LEAF CATEGORY (deepest possible sub-category) for Vinted for ANY product (e.g., T-shirts, Shirts, Pants, Shoes). NEVER stop at a general category; always identify the final specific sub-category based on the product's visual features (e.g., instead of just 'Shirts', identify if it's 'Long-sleeved shirts' or 'Button-down shirts'). Return the full hierarchical path separated by '>' (e.g., Men > Clothing > Tops & T-shirts > T-shirts > Print T-shirts). Response ONLY as JSON: { \"category\": \"...\" }"
                                     : `Identify the ${platform} category path for this product. Return your response ONLY as a JSON object with 'category'. Keep it accurate for ${platform}'s structure.`
@@ -111,11 +119,16 @@ exports.analyzeProductImage = async (req, res) => {
                 const appToken = await ebayApiService.getAppToken();
                 const suggestions = await ebayApiService.getCategorySuggestions(appToken, query);
                 if (suggestions && suggestions.length > 0) {
-                    categoryId = suggestions[0].category.categoryId;
+                    // Find the best suggestion (eBay usually sorts by relevance, but we want to ensure it has a valid ID)
+                    const bestSuggest = suggestions[0];
+                    categoryId = bestSuggest.category.categoryId;
 
-                    let ancestors = suggestions[0].categoryTreeNodeAncestors || [];
+                    let ancestors = bestSuggest.categoryTreeNodeAncestors || [];
+                    // Ensure ancestors are sorted by level
                     ancestors.sort((a, b) => a.categoryTreeNodeLevel - b.categoryTreeNodeLevel);
-                    categoryPath = ancestors.map(a => a.categoryName).concat(suggestions[0].category.categoryName).join(' > ');
+                    categoryPath = ancestors.map(a => a.categoryName).concat(bestSuggest.category.categoryName).join(' > ');
+                    
+                    console.log(`[AI] Suggestion: ${categoryPath} (Leaf ID: ${categoryId})`);
                 } else {
                     categoryPath = query;
                 }
@@ -137,6 +150,19 @@ exports.analyzeProductImage = async (req, res) => {
                 console.log(`--- Fetching official eBay aspects for Category: ${categoryId} ---`);
                 const appToken = await ebayApiService.getAppToken();
                 const aspectsData = await ebayApiService.getItemAspectsForCategory(appToken, categoryId);
+
+               // eBay aspects might use different names. We look for anything related to "Condition"
+            const conditionAspect = aspectsData.aspects.find(a => 
+                a.localizedAspectName.toLowerCase().includes('condition') || 
+                a.localizedAspectName.toLowerCase() === 'cond'
+            );
+
+            if (conditionAspect && conditionAspect.aspectValues) {
+                console.log(`[EBAY] Found ${conditionAspect.aspectValues.length} condition values for category ${categoryId}`);
+                // Note: This logic is for internal reference/validation
+            } else {
+                console.warn(`[EBAY] Aspect 'Condition' not found in features for ${categoryId}. Aspects found: ${aspectsData.aspects.map(a => a.localizedAspectName).join(', ')}`);
+            }
 
                 if (aspectsData && aspectsData.aspects) {
                     officialAspects = aspectsData.aspects.map(aspect => ({
@@ -209,9 +235,10 @@ exports.analyzeProductImage = async (req, res) => {
    - For Clothing/Shoes: Rely strictly on visual cues, tags, material textures, and physical design to fill fields.
    - For Electronics/Other: Use your vast knowledge base to infer missing technical specifics (e.g., connectivity, wattage, specs) based on the visual model or type of the product if text is not visible. Fill as many as you logically can.
    
-4. Pricing: Estimate a realistic 'selling_price' (e.g. 25.00) in USD based on the item's brand, model, and condition. Do NOT return 0.00 if you can guess a market value.
+    
+4. Pricing: Estimate a realistic 'selling_price' in USD.
 
-Context: Gender: ${gender}, Condition: ${condition}, Category: ${categoryPath}.
+Context: Gender: ${gender}, Category: ${categoryPath}.
 
 Response ONLY as JSON: {
   "brand": "Company Name",
@@ -220,7 +247,9 @@ Response ONLY as JSON: {
   "item_specifics": { "FieldName": "Value", ... },
   "selling_price": 0.00,
   "target_platform": "${platform}"
-}`
+} 
+
+CRITICAL: DO NOT include 'condition_name' or any related state. This will be fetched via API.`
                         },
                         ...imageContent
                     ]
@@ -230,6 +259,10 @@ Response ONLY as JSON: {
         });
 
         const finalData = JSON.parse(mainResponse.choices[0].message.content);
+
+        // --- DYNAMIC SKU GENERATION ---
+        const productCount = await Product.countDocuments();
+        finalData.sku = `VA${productCount + 1}A`;
 
         // --- MANUALLY BUILD THE TITLE BASED ON STRUCTURE ---
         // This ensures the AI CANNOT inject extra fields into the final string

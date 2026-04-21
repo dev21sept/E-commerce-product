@@ -94,6 +94,11 @@ exports.fetchEbayData = async (req, res) => {
 
         productData.ebayUrl = url;
         
+        // --- DYNAMIC SKU GENERATION ---
+        const Product = require('../models/Product');
+        const productCount = await Product.countDocuments();
+        productData.sku = `VA${productCount + 1}E`;
+        
         // Map scraper field names to frontend form field names
         productData.condition_name = productData.condition;
         productData.condition_notes = productData.conditionNotes;

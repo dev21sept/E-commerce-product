@@ -3,9 +3,9 @@ import axios from 'axios';
 const isProduction = import.meta.env.MODE === 'production' || window.location.hostname.includes('hostingersite.com');
 
 const api = axios.create({
-    baseURL: isProduction 
+    baseURL: isProduction
         //? 'https://capable-mercy-production-8c90.up.railway.app/api'
-        ?'https://e-commerce-product-cdfx.vercel.app/api'
+        ? 'https://e-commerce-product-cdfx.vercel.app/api'
         : 'http://localhost:5000/api',
     timeout: 120000
 });
@@ -15,7 +15,33 @@ export const getEbayAuthUrl = async (state = 'dashboard') => {
     return response.data;
 };
 
+export const syncEbayData = async () => {
+    const response = await api.get('/ebay/sync');
+    return response.data;
+};
+
+export const getEbayPolicies = async () => {
+    const response = await api.get('/ebay/policies');
+    return response.data;
+};
+
+export const getEbayLocations = async () => {
+    const response = await api.get('/ebay/locations');
+    return response.data;
+};
+
+export const getEbayConnectionStatus = async () => {
+    const response = await api.get('/ebay/connection-status');
+    return response.data;
+};
+
+export const getCategoryConditions = async (categoryId) => {
+    const response = await api.get(`/ebay/conditions?categoryId=${categoryId}`);
+    return response.data;
+};
+
 export const listProduct = async (productId, isDraft = false) => {
+
     const response = await api.post(`/listing/ebay/${productId}${isDraft ? '?draft=true' : ''}`);
     return response.data;
 };
@@ -73,7 +99,13 @@ export const saveAiListing = async (data) => {
     return response.data;
 };
 
+export const getOrders = async () => {
+    const response = await api.get('/orders');
+    return response.data;
+};
+
 export const searchCategories = async (query) => {
+
     const response = await api.get(`/ai/search-categories?query=${query}`);
     return response.data;
 };
