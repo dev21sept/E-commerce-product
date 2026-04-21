@@ -128,7 +128,7 @@ const Layout = ({ children, onLogout, user }) => {
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Active Account</p>
                                     <div className="flex flex-col">
                                         <p className="text-xs font-black text-gray-900 leading-tight">
-                                            {ebayStatus.connected ? (ebayStatus.sellerName || 'CONNECTED') : 'DISCONNECTED'}
+                                            {ebayStatus.sellerName || ''}
                                         </p>
                                         {ebayStatus.connected && ebayStatus.sellerEmail && (
                                             <p className="text-[9px] text-gray-400 font-bold truncate mt-0.5">
