@@ -300,7 +300,20 @@ exports.getInventoryLocations = async (req, res) => {
 exports.getConnectionStatus = async (req, res) => {
     try {
         const token = await getValidToken();
-        const sellerName = await getSetting('ebay_seller_name');
+        let sellerName = await getSetting('ebay_seller_name');
+        
+        // Self-healing: If connected but name is missing, fetch it now
+        if (token && (!sellerName || sellerName === 'Unknown User')) {
+            try {
+                const profile = await ebayService.getUserProfile(token);
+                if (profile && profile.userId) {
+                    sellerName = profile.userId;
+                    await saveSetting('ebay_seller_name', sellerName);
+                }
+            } catch (err) {
+                console.error('Self-healing profile fetch failed:', err.message);
+            }
+        }
         
         res.json({
             connected: !!token,
