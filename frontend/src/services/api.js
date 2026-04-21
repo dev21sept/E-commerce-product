@@ -35,6 +35,11 @@ export const getEbayConnectionStatus = async () => {
     return response.data;
 };
 
+export const disconnectEbay = async () => {
+    const response = await api.post('/ebay/disconnect');
+    return response.data;
+};
+
 export const getCategoryConditions = async (categoryId) => {
     const response = await api.get(`/ebay/conditions?categoryId=${categoryId}`);
     return response.data;

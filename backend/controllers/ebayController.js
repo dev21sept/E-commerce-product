@@ -317,7 +317,8 @@ exports.getConnectionStatus = async (req, res) => {
         
         res.json({
             connected: !!token,
-            sellerName: sellerName || 'Unknown User'
+            sellerName: sellerName || null,
+            environment: (process.env.EBAY_ENVIRONMENT || 'production').toUpperCase()
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch connection status' });
@@ -336,6 +337,23 @@ exports.getCategoryConditions = async (req, res) => {
     } catch (error) {
         console.error('Error in getCategoryConditions controller:', error.message);
         res.status(500).json({ error: 'Failed to fetch category conditions' });
+    }
+};
+
+/**
+ * Disconnect eBay (Logout)
+ */
+exports.disconnectEbay = async (req, res) => {
+    try {
+        await saveSetting('ebay_access_token', null);
+        await saveSetting('ebay_refresh_token', null);
+        await saveSetting('ebay_token_expiry', null);
+        await saveSetting('ebay_seller_name', null);
+        
+        console.log('--- EBAY ACCOUNT DISCONNECTED SUCCESFULLY ---');
+        res.json({ success: true, message: 'Disconnected from eBay' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to disconnect' });
     }
 };
 

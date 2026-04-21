@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { syncEbayData, getEbayConnectionStatus, getEbayAuthUrl } from '../services/api';
+import { syncEbayData, getEbayConnectionStatus, getEbayAuthUrl, disconnectEbay } from '../services/api';
 import { 
     LayoutDashboard, 
     ShoppingBag, 
@@ -54,6 +54,16 @@ const Layout = ({ children, onLogout, user }) => {
         };
         fetchStatus();
     }, []);
+
+    const handleEbayDisconnect = async () => {
+        if (!window.confirm('Are you sure you want to disconnect this eBay account? You will need to login again to list products.')) return;
+        try {
+            await disconnectEbay();
+            setEbayStatus({ connected: false, sellerName: '', environment: 'PRODUCTION' });
+        } catch (err) {
+            console.error('Failed to disconnect eBay:', err);
+        }
+    };
 
     const navGroups = [
         {
@@ -114,15 +124,29 @@ const Layout = ({ children, onLogout, user }) => {
                                 <Database className="w-4 h-4 text-[#4F46E5]" />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-xs font-bold text-gray-900 leading-tight">
-                                    {ebayStatus.connected ? (ebayStatus.sellerName || 'eBay Connected') : 'eBay Disconnected'}
-                                </p>
-                                <p className={`text-[10px] flex items-center gap-1 font-medium ${ebayStatus.connected ? 'text-green-600' : 'text-amber-600'}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ebayStatus.connected ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                                    {ebayStatus.connected ? 'Sync Active' : 'Login Required'}
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <p className="text-xs font-black text-gray-900 leading-tight truncate">
+                                        {ebayStatus.connected ? (ebayStatus.sellerName || 'eBay Account') : 'EBAY DISCONNECTED'}
+                                    </p>
+                                    <span className="text-[8px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-md tracking-tighter uppercase">
+                                        {ebayStatus.environment || 'PRODUCTION'}
+                                    </span>
+                                </div>
+                                <p className={`text-[9px] flex items-center gap-1 font-black uppercase tracking-tight ${ebayStatus.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${ebayStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                                    {ebayStatus.connected ? 'Connectivity Active' : 'Login Required'}
                                 </p>
                             </div>
                         </div>
+                        
+                        {ebayStatus.connected && (
+                            <button 
+                                onClick={handleEbayDisconnect}
+                                className="w-full mt-3 py-1.5 border border-rose-100 bg-rose-50/30 text-rose-500 text-[9px] font-black rounded-lg uppercase tracking-widest hover:bg-rose-50 transition-colors"
+                            >
+                                Force Logout eBay
+                            </button>
+                        )}
                         <button 
                             onClick={async () => {
                                 if (ebayStatus.connected) {
