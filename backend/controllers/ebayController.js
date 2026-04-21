@@ -110,11 +110,16 @@ exports.handleCallback = async (req, res) => {
         
         // Fetch and save the seller's profile info
         try {
-            console.log('Fetching eBay user profile...');
+            console.log('Fetching eBay user profile during callback...');
             const profile = await ebayService.getUserProfile(tokens.access_token);
-            if (profile && profile.userId) {
-                console.log(`Connected to eBay account: ${profile.userId}`);
-                await saveSetting('ebay_seller_name', profile.userId);
+            if (profile) {
+                const name = profile.businessAccount?.name || profile.userId || profile.username;
+                const email = profile.businessAccount?.email || null;
+                
+                if (name) await saveSetting('ebay_seller_name', name);
+                if (email) await saveSetting('ebay_seller_email', email);
+                
+                console.log(`Connected to eBay account: ${name} (${email})`);
             }
         } catch (profileErr) {
             console.error('Error fetching user profile during callback:', profileErr.message);
@@ -308,25 +313,31 @@ exports.getConnectionStatus = async (req, res) => {
                 console.log('--- SELF HEALING: FETCHING EBAY USERNAME ---');
                 const profile = await ebayService.getUserProfile(token);
                 console.log('--- RAW EBAY PROFILE DATA:', JSON.stringify(profile));
-                if (profile && profile.userId) {
-                    sellerName = profile.userId;
-                    await saveSetting('ebay_seller_name', sellerName);
-                    console.log('--- SUCCESSFULLY SAVED EBAY ID:', sellerName);
-                } else if (profile && profile.username) {
-                    // Fallback to username if userId is missing but username exists
-                    sellerName = profile.username;
-                    await saveSetting('ebay_seller_name', sellerName);
-                } else {
-                    console.warn('--- EBAY PROFILE DATA INCOMPLETE:', profile);
+                if (profile) {
+                    // Prioritize Business Name, then UserID
+                    let name = profile.businessAccount?.name || profile.userId || profile.username;
+                    let email = profile.businessAccount?.email || null;
+                    
+                    if (name) {
+                        sellerName = name;
+                        await saveSetting('ebay_seller_name', name);
+                    }
+                    if (email) {
+                        await saveSetting('ebay_seller_email', email);
+                    }
+                    console.log('--- SUCCESSFULLY SAVED EBAY PROFILE:', { name, email });
                 }
             } catch (err) {
                 console.error('Self-healing profile fetch failed:', err.message);
             }
         }
         
+        const sellerEmail = await getSetting('ebay_seller_email');
+        
         res.json({
             connected: !!token,
             sellerName: sellerName || null,
+            sellerEmail: sellerEmail || null,
             environment: (process.env.EBAY_ENVIRONMENT || 'production').toUpperCase()
         });
     } catch (error) {

@@ -126,10 +126,15 @@ const Layout = ({ children, onLogout, user }) => {
                             <div className="overflow-hidden">
                                 <div className="flex flex-col mb-1">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Active Account</p>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-col">
                                         <p className="text-xs font-black text-gray-900 leading-tight">
-                                            {ebayStatus.connected ? (ebayStatus.sellerName || '') : 'DISCONNECTED'}
+                                            {ebayStatus.connected ? (ebayStatus.sellerName || 'CONNECTED') : 'DISCONNECTED'}
                                         </p>
+                                        {ebayStatus.connected && ebayStatus.sellerEmail && (
+                                            <p className="text-[9px] text-gray-400 font-bold truncate mt-0.5">
+                                                {ebayStatus.sellerEmail}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <p className={`text-[9px] flex items-center gap-1 font-black uppercase tracking-tight ${ebayStatus.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
