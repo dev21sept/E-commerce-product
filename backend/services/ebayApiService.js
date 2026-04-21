@@ -505,7 +505,8 @@ async function getInventoryItems(token, limit = 100, offset = 0) {
  */
 async function getUserProfile(token) {
     try {
-        const response = await axios.get(`${API_BASE_URL}/commerce/identity/v1/user`, {
+        const baseUrl = EBAY_ENVIRONMENT === 'sandbox' ? 'https://apiz.sandbox.ebay.com' : 'https://apiz.ebay.com';
+        const response = await axios.get(`${baseUrl}/commerce/identity/v1/user/`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
