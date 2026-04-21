@@ -124,13 +124,16 @@ const Layout = ({ children, onLogout, user }) => {
                                 <Database className="w-4 h-4 text-[#4F46E5]" />
                             </div>
                             <div className="overflow-hidden">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                    <p className="text-xs font-black text-gray-900 leading-tight truncate">
-                                        {ebayStatus.connected ? (ebayStatus.sellerName || 'eBay Account') : 'EBAY DISCONNECTED'}
-                                    </p>
-                                    <span className="text-[8px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-md tracking-tighter uppercase">
-                                        {ebayStatus.environment || 'PRODUCTION'}
-                                    </span>
+                                <div className="flex flex-col mb-1">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Active Account</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-xs font-black text-gray-900 leading-tight">
+                                            {ebayStatus.connected ? (ebayStatus.sellerName || 'EBAY USER') : 'DISCONNECTED'}
+                                        </p>
+                                        <span className="text-[7px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-md tracking-tighter uppercase whitespace-nowrap">
+                                            {ebayStatus.environment || 'PRODUCTION'}
+                                        </span>
+                                    </div>
                                 </div>
                                 <p className={`text-[9px] flex items-center gap-1 font-black uppercase tracking-tight ${ebayStatus.connected ? 'text-emerald-500' : 'text-rose-500'}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${ebayStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
