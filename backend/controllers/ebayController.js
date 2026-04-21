@@ -307,12 +307,17 @@ exports.getConnectionStatus = async (req, res) => {
             try {
                 console.log('--- SELF HEALING: FETCHING EBAY USERNAME ---');
                 const profile = await ebayService.getUserProfile(token);
+                console.log('--- RAW EBAY PROFILE DATA:', JSON.stringify(profile));
                 if (profile && profile.userId) {
                     sellerName = profile.userId;
                     await saveSetting('ebay_seller_name', sellerName);
-                    console.log('--- SUCCESSFULLY RECOVERED USERNAME:', sellerName);
+                    console.log('--- SUCCESSFULLY SAVED EBAY ID:', sellerName);
+                } else if (profile && profile.username) {
+                    // Fallback to username if userId is missing but username exists
+                    sellerName = profile.username;
+                    await saveSetting('ebay_seller_name', sellerName);
                 } else {
-                    console.warn('--- EBAY PROFILE FETCHED BUT userId MISSING ---', profile);
+                    console.warn('--- EBAY PROFILE DATA INCOMPLETE:', profile);
                 }
             } catch (err) {
                 console.error('Self-healing profile fetch failed:', err.message);

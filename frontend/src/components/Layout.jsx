@@ -128,7 +128,7 @@ const Layout = ({ children, onLogout, user }) => {
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Active Account</p>
                                     <div className="flex items-center gap-2">
                                         <p className="text-xs font-black text-gray-900 leading-tight">
-                                            {ebayStatus.connected ? (ebayStatus.sellerName || 'EBAY USER') : 'DISCONNECTED'}
+                                            {ebayStatus.connected ? (ebayStatus.sellerName || '') : 'DISCONNECTED'}
                                         </p>
                                         <span className="text-[7px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-md tracking-tighter uppercase whitespace-nowrap">
                                             {ebayStatus.environment || 'PRODUCTION'}
