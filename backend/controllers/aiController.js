@@ -213,21 +213,21 @@ exports.analyzeProductImage = async (req, res) => {
                             text: `Analyze images for a professional ${platform} listing.
                             
 1. Title Components - Extract these precise attributes: [${structure.join(', ')}]
+   Your primary goal is to create a LONG, DESCRIPTIVE, HIGH-CONVERSION title (70-80 characters).
    Use these strict definitions for what each attribute means:
    - "Brand": Company name (e.g., Nike, Apple, Levi's)
-   - "Product Type": What the item physically is (e.g., Sneakers, T-Shirt, Portable Fan, Laptop)
+   - "Product Type": What the item physically is (e.g., Sneakers, T-Shirt, Portable Fan, Laptop). NEVER LEAVE THIS BLANK. If it's a shirt, write "T-Shirt" or "Polo". If shoes, write "Sneakers".
    - "Model / Series": The specific named model (e.g., Air Max 97, ThinkPad T480, 501)
-   - "Size": The specific size tag (e.g., 9, XL, 36x30)
-   - "Color": Outer color (e.g., Black, Red)
-   - "Material": What it's made of (e.g., Leather, Denim, Stainless Steel)
-   - "Style / Use Case": The fashion sub-style or functional purpose (e.g., Running, Athletic, Vintage, Business)
-   - "Key Features": 1-2 words for a standout detail (e.g., Wireless, Waterproof, Graphic)
-   - "Gender / Department": (e.g., Men's, Women's, Unisex)
+   - "Size": The specific size tag (e.g., 9, XL, 36x30). Prepend the word "Size" internally if not present.
+   - "Color": Outer color (e.g., Black, Navy Blue, Forest Green). Be specific!
+   - "Material": What it's made of (e.g., Leather, 100% Cotton, Denim, Stainless Steel)
+   - "Key Features": 2-3 words for standout details (e.g., Graphic Print, Vintage 90s, Embroidered Logo, Waterproof)
+   - "Gender / Department": (e.g., Men's, Women's, Boys, Unisex)
 
    CRITICAL RULES FOR TITLE PARTS:
-   - Make your best professional guess for every requested attribute based on the image. (e.g., if you see running shoes, the Product Type is "Sneakers" and Style is "Running").
-   - DO NOT leave requested attributes blank if you can logically infer them.
-   - Return ONLY the exact attributes requested in the list. Do not include unrequested ones.
+   - BE AGGRESSIVE: Use all available visual evidence to fill every requested attribute.
+   - BEST GUESS: If a tag isn't visible, use visual cues (e.g. if it has a hood, it's a "Hoodie"). If it's green, the Color is "Green".
+   - DESCRIPTIVE: Use 2-3 words for Product Type if it helps (e.g. "Graphic Tee T-Shirt" instead of just "Shirt").
    - Output these as a JSON object inside 'title_parts'.
    
 2. ${descriptionInstruction}

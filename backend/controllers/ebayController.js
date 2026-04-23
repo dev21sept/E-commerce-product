@@ -125,10 +125,10 @@ exports.handleCallback = async (req, res) => {
             console.error('Error fetching user profile during callback:', profileErr.message);
         }
 
-        // Trigger background sync for both Inventory and Orders
-        console.log('Starting full eBay sync (Inventory + Orders)...');
-        exports.syncInventory(tokens.access_token).catch(err => console.error('Initial inventory sync error:', err));
-        exports.syncOrders(tokens.access_token).catch(err => console.error('Initial orders sync error:', err));
+        // Trigger background sync only if explicitly requested or just leave it for the manual button
+        console.log('--- Skip auto-sync on callback (User controlled) ---');
+        // exports.syncInventory(tokens.access_token).catch(err => console.error('Initial inventory sync error:', err));
+        // exports.syncOrders(tokens.access_token).catch(err => console.error('Initial orders sync error:', err));
 
         const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').trim().replace(/\/$/, '');
         const redirectPath = state === 'products' ? '/products' : '/';
@@ -221,10 +221,14 @@ exports.syncInventory = async (providedToken = null) => {
                     updated_at: Date.now()
                 };
 
-                // Upsert based on SKU
+                // Smart Deduplication: Match by SKU first, then by Title if SKU is missing
+                const searchCriteria = item.sku 
+                    ? { sku: item.sku } 
+                    : { title: item.product.title, source: 'ebay' };
+                
                 await Product.findOneAndUpdate(
-                    { sku: item.sku },
-                    product,
+                    searchCriteria,
+                    { ...product, updated_at: Date.now() },
                     { upsert: true, new: true }
                 );
                 totalSynced++;

@@ -568,11 +568,22 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                     'Gender / Department': getAiVal('Department', ['gender', 'Gender', 'department'])
                 };
 
+                // AUTO-ARCHITECT: Enable all parts that have values
+                const foundParts = Object.keys(mappedParts).filter(k => mappedParts[k] && mappedParts[k].trim() !== '' && mappedParts[k] !== 'null');
+                const currentStructure = formData.structure || [];
+                const newStructure = [...new Set([...currentStructure, ...foundParts])];
+                
+                // Maintain a clean title_sequence order for the UI
+                const currentSequence = formData.title_sequence || [];
+                const newSequence = [...new Set([...currentSequence, ...Object.keys(mappedParts)])];
+
                 setFormData(prev => ({
                     ...prev,
                     ...result.data,
                     sku: prev.sku || result.data.sku,
-                    title_parts: { ...prev.title_parts, ...mappedParts }
+                    title_parts: { ...prev.title_parts, ...mappedParts },
+                    structure: newStructure,
+                    title_sequence: newSequence
                 }));
             }
         } catch (error) {
@@ -909,7 +920,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                 <SearchableDropdown
                                     options={policies.fulfillment}
                                     value={formData.fulfillment_policy?.name}
-                                    onSelect={(val) => setFormData({ ...formData, fulfillment_policy: val })}
+                                    onSelect={(val) => setFormData({ ...formData, fulfillment_policy: val.value })}
                                     placeholder="Search Policy..."
                                 />
                             </div>
@@ -918,7 +929,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                 <SearchableDropdown
                                     options={policies.payment}
                                     value={formData.payment_policy?.name}
-                                    onSelect={(val) => setFormData({ ...formData, payment_policy: val })}
+                                    onSelect={(val) => setFormData({ ...formData, payment_policy: val.value })}
                                     placeholder="Search Policy..."
                                 />
                             </div>
@@ -927,7 +938,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                 <SearchableDropdown
                                     options={policies.returns}
                                     value={formData.return_policy?.name}
-                                    onSelect={(val) => setFormData({ ...formData, return_policy: val })}
+                                    onSelect={(val) => setFormData({ ...formData, return_policy: val.value })}
                                     placeholder="Search Policy..."
                                 />
                             </div>
@@ -936,7 +947,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                 <SearchableDropdown
                                     options={locations}
                                     value={formData.inventory_location?.name}
-                                    onSelect={(val) => setFormData({ ...formData, inventory_location: val })}
+                                    onSelect={(val) => setFormData({ ...formData, inventory_location: val.value })}
                                     placeholder="Select Location..."
                                 />
                             </div>
