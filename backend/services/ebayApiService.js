@@ -66,7 +66,10 @@ function getUserConsentUrl(ruName, state = 'dashboard') {
         'https://api.ebay.com/oauth/api_scope/sell.inventory',
         'https://api.ebay.com/oauth/api_scope/sell.marketing',
         'https://api.ebay.com/oauth/api_scope/sell.account',
-        'https://api.ebay.com/oauth/api_scope/sell.fulfillment'
+        'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+        'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly',
+        'https://api.ebay.com/oauth/api_scope/commerce.identity.address.readonly',
+        'https://api.ebay.com/oauth/api_scope/commerce.identity.email.readonly'
     ].join(' ');
 
     return `${AUTH_BASE_URL}/oauth2/authorize?client_id=${EBAY_APP_ID}&response_type=code&redirect_uri=${ruName}&scope=${encodeURIComponent(scope)}&state=${state}`;

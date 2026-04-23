@@ -58,7 +58,13 @@ const AiFetching = () => {
             }
         } catch (err) {
             console.error('Save/List error:', err);
-            alert('Failed: ' + (err.response?.data?.details || err.message));
+            const isAuthError = err.response?.status === 401 || (err.response?.data?.details && err.response.data.details.includes('401'));
+            
+            if (isAuthError) {
+                alert('⚠️ EBAY SESSION EXPIRED! \n\nYour eBay connection is no longer valid. Please click "CONNECT EBAY" in the sidebar to re-login.');
+            } else {
+                alert('Failed: ' + (err.response?.data?.details || err.message));
+            }
         } finally {
             setIsFetching(false);
         }
