@@ -332,12 +332,18 @@ exports.getConnectionStatus = async (req, res) => {
             }
         }
         
+        const isConnected = !!token;
+        
+        if (!isConnected) {
+            console.warn('--- STATUS CHECK: Ebay is DISCONNECTED (No token) ---');
+        }
+        
         const sellerEmail = await getSetting('ebay_seller_email');
         
         res.json({
-            connected: !!token,
-            sellerName: sellerName || null,
-            sellerEmail: sellerEmail || null,
+            connected: isConnected,
+            sellerName: isConnected ? (sellerName || null) : null,
+            sellerEmail: isConnected ? (sellerEmail || null) : null,
             environment: (process.env.EBAY_ENVIRONMENT || 'production').toUpperCase()
         });
     } catch (error) {
@@ -378,31 +384,35 @@ exports.disconnectEbay = async (req, res) => {
 };
 
 async function getValidToken() {
-
-
     try {
-        console.log('Fetching tokens from MongoDB...');
         let accessToken = await getSetting('ebay_access_token');
         let refreshToken = await getSetting('ebay_refresh_token');
         let expiresAt = await getSetting('ebay_token_expiry');
 
         if (!refreshToken) {
-            console.error('CRITICAL: No refresh token found. User MUST login again.');
+            console.error('--- CRITICAL: Refresh Token missing from Database ---');
             return null;
         }
         
-        if (!expiresAt || Date.now() > Number(expiresAt) - 60000) { 
-            console.log('Refreshing eBay token using refresh token...');
-            const newTokenData = await ebayService.refreshUserToken(refreshToken);
-            accessToken = newTokenData;
-            expiresAt = Date.now() + (7200 * 1000); // 2 hours
-            
-            await saveSetting('ebay_access_token', accessToken);
-            await saveSetting('ebay_token_expiry', expiresAt.toString());
+        // If expired or about to expire in 5 mins
+        if (!expiresAt || Date.now() > Number(expiresAt) - 300000) { 
+            console.log('--- REFRESHING EBAY TOKEN (Session management) ---');
+            try {
+                const newTokenData = await ebayService.refreshUserToken(refreshToken);
+                accessToken = newTokenData;
+                expiresAt = Date.now() + (7200 * 1000); // Reset cooldown to 2 hours
+                
+                await saveSetting('ebay_access_token', accessToken);
+                await saveSetting('ebay_token_expiry', expiresAt.toString());
+                console.log('--- TOKEN REFRESHED SUCCESSFULLY ---');
+            } catch (err) {
+                console.error('--- TOKEN REFRESH FAILED. RE-LOGIN REQUIRED ---', err.message);
+                return null;
+            }
         }
         return accessToken;
     } catch (error) {
-        console.error('Token Retrieval/Refresh Error:', error.message);
+        console.error('Fatal Token Error:', error.message);
         return null;
     }
 }
