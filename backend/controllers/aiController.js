@@ -212,28 +212,32 @@ exports.analyzeProductImage = async (req, res) => {
                             type: "text",
                             text: `Analyze images for a professional ${platform} listing.
                             
-1. Title Components - Extract these precise attributes: [${structure.join(', ')}]
-   Your primary goal is to create a LONG, DESCRIPTIVE, HIGH-CONVERSION title (70-80 characters).
-   Use these strict definitions for what each attribute means:
-   - "Brand": Company name (e.g., Nike, Apple, Levi's)
-   - "Product Type": What the item physically is (e.g., Sneakers, T-Shirt, Portable Fan, Laptop). NEVER LEAVE THIS BLANK. If it's a shirt, write "T-Shirt" or "Polo". If shoes, write "Sneakers".
-   - "Model / Series": The specific named model (e.g., Air Max 97, ThinkPad T480, 501)
-   - "Size": The specific size tag (e.g., 9, XL, 36x30). Prepend the word "Size" internally if not present.
-   - "Color": Outer color (e.g., Black, Navy Blue, Forest Green). Be specific!
-   - "Material": What it's made of (e.g., Leather, 100% Cotton, Denim, Stainless Steel)
-   - "Key Features": 2-3 words for standout details (e.g., Graphic Print, Vintage 90s, Embroidered Logo, Waterproof)
-   - "Gender / Department": (e.g., Men's, Women's, Boys, Unisex)
+1. Visual Research & Title Construction:
+   - YOU ARE A MARKETPLACE RESEARCHER. Imagine you are performing a reverse image search on Google Lens and eBay.
+   - Identify the EXACT retail name of this product. If it's a specific limited edition or a named series (e.g., "NFL 49ers Patrick Willis St. Patricks Day Graphic Tee"), find that exact phrasing.
+   - Look for keywords that top sellers use to rank higher (e.g. "Vintage", "Rare", "Authentic", "Official Licensed").
+   - Extract these precise attributes for the Title Sequence: [${structure.join(', ')}]
+   
+   CRITICAL DEFINITIONS:
+   - "Brand": (e.g., Nike, Reebok, Adidas)
+   - "Product Type": Use high-value terms (e.g., "Graphic T-Shirt", "Full Zip Windbreaker", "Running Sneakers"). NEVER LEAVE BLANK.
+   - "Model / Series": The exact named line (e.g., "Dri-FIT", "Force One", "Cooperstown Collection")
+   - "Size": e.g., XL, 10.5.
+   - "Color": Primary and secondary colors (e.g., "Dark Green / White"). Be specific!
+   - "Material": (e.g., "Heavyweight Cotton", "Gore-Tex")
+   - "Key Features": Standout selling points (e.g., "Embroidered Logo", "Holographic Tag", "Double Sided")
+   - "Gender / Department": (e.g., Men's, Women's, Youth)
 
-   CRITICAL RULES FOR TITLE PARTS:
-   - BE AGGRESSIVE: Use all available visual evidence to fill every requested attribute.
-   - BEST GUESS: If a tag isn't visible, use visual cues (e.g. if it has a hood, it's a "Hoodie"). If it's green, the Color is "Green".
-   - DESCRIPTIVE: Use 2-3 words for Product Type if it helps (e.g. "Graphic Tee T-Shirt" instead of just "Shirt").
-   - Output these as a JSON object inside 'title_parts'.
+   CRITICAL RULES:
+   - GOAL: A professional, keyword-rich title between 70-80 characters.
+   - NO BLANKS: Fill every requested attribute by inferring from visual cues.
+   - WEB LOGIC: Use the most common retail name found across the web for this exact item.
+   - Output as a JSON object inside 'title_parts'.
    
 2. ${descriptionInstruction}
 3. Item Specifics - FILL EVERY FIELD: ${aspectNamesList.join(', ')}. 
    - For Clothing/Shoes: Rely strictly on visual cues, tags, material textures, and physical design to fill fields.
-   - For Electronics/Other: Use your vast knowledge base to infer missing technical specifics (e.g., connectivity, wattage, specs) based on the visual model or type of the product if text is not visible. Fill as many as you logically can.
+   - For Electronics/Other: Use your vast knowledge base to infer missing technical specifics based on visual cues.
    
     
 4. Pricing: Estimate a realistic 'selling_price' in USD.
@@ -242,6 +246,7 @@ Context: Gender: ${gender}, Category: ${categoryPath}.
 
 Response ONLY as JSON: {
   "brand": "Company Name",
+  "title": "A long, descriptive, 80-character marketplace title",
   "title_parts": { "AttributeName": "Value", ... },
   "description": "",
   "item_specifics": { "FieldName": "Value", ... },
@@ -264,35 +269,44 @@ CRITICAL: DO NOT include 'condition_name' or any related state. This will be fet
         const productCount = await Product.countDocuments();
         finalData.sku = `VA${productCount + 1}A`;
 
+        const aiResponseParts = finalData.title_parts || {};
+        const standardizedParts = {};
+
+        // --- STANDARDIZE PARTS FOR FRONTEND ARCHITECT ---
+        structure.forEach(key => {
+            const foundKey = Object.keys(aiResponseParts).find(k => k.toLowerCase() === key.toLowerCase());
+            standardizedParts[key] = foundKey ? aiResponseParts[foundKey] : '';
+        });
+
         // --- MANUALLY BUILD THE TITLE BASED ON STRUCTURE ---
-        // This ensures the AI CANNOT inject extra fields into the final string
-        const titleParts = finalData.title_parts || {};
         const titleString = structure
             .map(key => {
-                let val = titleParts[key] || '';
-                val = val.replace(/,/g, ''); // Remove commas
+                let val = standardizedParts[key] || '';
+                val = String(val).replace(/,/g, ''); // Remove commas
                 // If it's the Size field, prepend "Size " for clarity
-                if (key.toLowerCase() === 'size' && val && !val.toLowerCase().startsWith('size')) {
+                if (key.toLowerCase().includes('size') && val && !val.toLowerCase().startsWith('size')) {
                     return `Size ${val}`;
                 }
                 return val;
             })
-            .filter(val => val.trim() !== '')
+            .filter(val => val && val.toString().trim() !== '' && val !== 'null')
             .join(' ')
-            .replace(/\s+/g, ' ') // Clean up multiple spaces
+            .replace(/\s+/g, ' ')
             .substring(0, 80)
             .trim();
 
+        const finalTitle = titleString || finalData.title || standardizedParts['Brand'] || 'New Listing';
         const templatedDescription = wrapInTemplate(finalData.description, titleString);
 
         return res.json({
             success: true,
             data: {
                 ...finalData,
-                brand: finalData.brand || finalData.item_specifics?.Brand || finalData.title_parts?.Brand || '',
+                title_parts: standardizedParts, // SEND STANDARDIZED KEYS TO FRONTEND
+                brand: standardizedParts['Brand'] || finalData.brand || '',
                 description: templatedDescription,
-                title: titleString, // Overwrite with our strictly built string
-                searchTitle: categoryResult?.category_query || titleString,
+                title: finalTitle, // Overwrite with our strictly built string
+                searchTitle: categoryResult?.category_query || finalTitle,
                 category: {
                     name: categoryPath.split(' > ').pop(),
                     path: categoryPath.includes(' > ') ? categoryPath.split(' > ').slice(0, -1).join(' > ') : '',

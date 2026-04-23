@@ -581,6 +581,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                     ...prev,
                     ...result.data,
                     sku: prev.sku || result.data.sku,
+                    title: result.data.title || prev.title,
                     title_parts: { ...prev.title_parts, ...mappedParts },
                     structure: newStructure,
                     title_sequence: newSequence
