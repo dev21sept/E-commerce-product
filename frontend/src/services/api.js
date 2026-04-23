@@ -4,11 +4,18 @@ const isProduction = import.meta.env.MODE === 'production' || window.location.ho
 
 const api = axios.create({
     baseURL: isProduction
-        //? 'https://capable-mercy-production-8c90.up.railway.app/api'
         ? 'https://e-commerce-product-cdfx.vercel.app/api'
         : 'http://localhost:5000/api',
     timeout: 120000
 });
+
+// Simple In-Memory Cache
+const cache = {
+    policies: null,
+    locations: null,
+    products: null,
+    orders: null
+};
 
 export const getEbayAuthUrl = async (state = 'dashboard') => {
     const response = await api.get(`/ebay/auth-url?state=${state}`);
@@ -21,12 +28,16 @@ export const syncEbayData = async () => {
 };
 
 export const getEbayPolicies = async () => {
+    if (cache.policies) return cache.policies;
     const response = await api.get('/ebay/policies');
+    cache.policies = response.data;
     return response.data;
 };
 
 export const getEbayLocations = async () => {
+    if (cache.locations) return cache.locations;
     const response = await api.get('/ebay/locations');
+    cache.locations = response.data;
     return response.data;
 };
 
@@ -71,11 +82,14 @@ export const getCategoryAspects = async (categoryId) => {
 
 export const createProduct = async (productData) => {
     const response = await api.post('/products', productData);
+    cache.products = null; // Invalidate cache
     return response.data;
 };
 
-export const getProducts = async () => {
+export const getProducts = async (forceRefresh = false) => {
+    if (cache.products && !forceRefresh) return cache.products;
     const response = await api.get('/products');
+    cache.products = response.data;
     return response.data;
 };
 
