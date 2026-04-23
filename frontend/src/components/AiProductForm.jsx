@@ -400,12 +400,24 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                     getEbayPolicies(),
                     getEbayLocations()
                 ]);
+                
+                // Mapping eBay policy objects to label/value for SearchableDropdown
+                const mapPolicy = (arr = [], type) => arr.map(p => ({
+                    label: p.name,
+                    value: p, // Store full object
+                    description: p.description || `${type} policy`
+                }));
+
                 setPolicies({
-                    fulfillment: policiesData.fulfillment?.fulfillmentPolicies || [],
-                    payment: policiesData.payment?.paymentPolicies || [],
-                    returns: policiesData.returns?.returnPolicies || []
+                    fulfillment: mapPolicy(policiesData.fulfillment?.fulfillmentPolicies || [], 'Shipping'),
+                    payment: mapPolicy(policiesData.payment?.paymentPolicies || [], 'Payment'),
+                    returns: mapPolicy(policiesData.returns?.returnPolicies || [], 'Return')
                 });
-                setLocations(locationsData || []);
+                setLocations((locationsData || []).map(l => ({
+                    label: l.name,
+                    value: l,
+                    description: `${l.address?.city}, ${l.address?.stateOrProvince}`
+                })));
                 setAuthStatus('Connected');
             } catch (err) {
                 console.error("Error loading account settings:", err);
@@ -1175,8 +1187,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                         <button
                             type="button" disabled={isFetching}
                             onClick={() => {
-                                window.postMessage({ type: 'START_EBAY_LISTING', data: formData }, "*");
-                                alert("Extension Triggered!");
+                                window.postMessage({ type: 'EbayAutoLister_SendData', payload: formData }, "*");
                             }}
                             className="px-6 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-600 transition-all shadow-lg active:scale-95"
                         >
