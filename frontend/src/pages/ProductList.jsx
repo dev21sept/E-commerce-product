@@ -227,11 +227,11 @@ const ProductList = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-xs font-semibold text-gray-600">
-                                                {product.created_at ? new Date(product.created_at).toLocaleDateString() : 'N/A'}
+                                            <div className="text-[11px] font-bold text-slate-700">
+                                                {product.created_at ? new Date(product.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
                                             </div>
-                                            <div className="text-[10px] text-gray-400">
-                                                {product.created_at ? new Date(product.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            <div className="text-[10px] font-medium text-slate-400 mt-0.5">
+                                                {product.created_at ? new Date(product.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : ''}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
