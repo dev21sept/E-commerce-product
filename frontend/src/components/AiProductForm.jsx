@@ -409,9 +409,9 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                 }));
 
                 setPolicies({
-                    fulfillment: mapPolicy(policiesData.fulfillment?.fulfillmentPolicies || [], 'Shipping'),
-                    payment: mapPolicy(policiesData.payment?.paymentPolicies || [], 'Payment'),
-                    returns: mapPolicy(policiesData.returns?.returnPolicies || [], 'Return')
+                    fulfillment: mapPolicy(policiesData.fulfillment || [], 'Shipping'),
+                    payment: mapPolicy(policiesData.payment || [], 'Payment'),
+                    returns: mapPolicy(policiesData.returns || [], 'Return')
                 });
                 setLocations((locationsData || []).map(l => ({
                     label: l.name,
