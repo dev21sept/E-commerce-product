@@ -292,10 +292,10 @@ exports.listOnEbay = async (req, res) => {
         returnPolicyId = rList[0]?.returnPolicyId;
 
         if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
-            if (process.env.EBAY_ENVIRONMENT === 'production') {
+            if ((process.env.EBAY_ENVIRONMENT || 'production').toLowerCase() === 'production') {
                 throw new Error(`[Production] Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies on your eBay account.`);
             } else {
-                // Initialize defaults for Sandbox
+                // Sandbox fallback kept for reference; production should use real eBay policies.
                 if (!fulfillmentPolicyId) {
                     const res = await ebayService.initDefaultFulfillmentPolicy(token);
                     fulfillmentPolicyId = res.fulfillmentPolicyId;
@@ -372,7 +372,7 @@ exports.listOnEbay = async (req, res) => {
         console.log('Step 3: Publishing Offer...');
         const publishResponse = await ebayService.publishOffer(token, offerId);
 
-        const isSandbox = process.env.EBAY_ENVIRONMENT === 'sandbox';
+        const isSandbox = (process.env.EBAY_ENVIRONMENT || 'production').toLowerCase() === 'sandbox';
         const ebayDomain = isSandbox ? 'sandbox.ebay.com' : 'ebay.com';
 
         console.log(`✅ [SUCCESS] Product ${productId} listed as ${publishResponse.listingId}`);
@@ -395,10 +395,9 @@ exports.listOnEbay = async (req, res) => {
         if (ebayError?.errorId === 20403 || fullError.includes("not eligible for Business Policy")) {
             return res.status(403).json({
                 error: 'Business Policies Not Activated',
-                details: 'Apne eBay Sandbox account mein Business Policies "Opt-in" karein.',
-                instruction: 'Niche diye gaye link par jaakar "Get Started" par click karein:',
-                link: 'https://www.bizpolicy.sandbox.ebay.com/businesspolicy/policyoptin',
-                nextSteps: 'Activate karne ke baad, fir se "List on eBay" try karein.'
+                details: 'Your eBay account does not have Business Policies enabled.',
+                instruction: 'Please enable Shipping, Payment, and Return policies in your eBay account.',
+                nextSteps: 'After enabling policies, try "List on eBay" again.'
             });
         }
 

@@ -80,6 +80,28 @@ async function saveSetting(key, value) {
     }
 }
 
+function extractSellerProfile(profile) {
+    const businessName = profile?.businessAccount?.name || null;
+    const businessEmail = profile?.businessAccount?.email || null;
+    const profileName =
+        businessName ||
+        profile?.userId ||
+        profile?.username ||
+        [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim() ||
+        null;
+    const profileEmail =
+        businessEmail ||
+        profile?.email ||
+        profile?.primaryEmail ||
+        profile?.emailAddress ||
+        null;
+
+    return {
+        name: profileName,
+        email: profileEmail
+    };
+}
+
 exports.getAuthUrl = (req, res) => {
     const ruName = req.query.ruName || process.env.EBAY_RU_NAME;
     const state = req.query.state || 'dashboard'; 
@@ -117,8 +139,7 @@ exports.handleCallback = async (req, res) => {
             console.log('Fetching eBay user profile during callback...');
             const profile = await ebayService.getUserProfile(tokens.access_token);
             if (profile) {
-                const name = profile.businessAccount?.name || profile.userId || profile.username;
-                const email = profile.businessAccount?.email || null;
+                const { name, email } = extractSellerProfile(profile);
                 
                 if (name) await saveSetting('ebay_seller_name', name);
                 if (email) await saveSetting('ebay_seller_email', email);
@@ -297,7 +318,8 @@ exports.getInventoryLocations = async (req, res) => {
         if (!token) return res.status(401).json({ error: 'eBay not connected' });
 
         // Using a generic call to fetch locations
-        const response = await require('axios').get(`${process.env.EBAY_ENVIRONMENT === 'sandbox' ? 'https://api.sandbox.ebay.com' : 'https://api.ebay.com'}/sell/inventory/v1/location`, {
+        const ebayEnvironment = (process.env.EBAY_ENVIRONMENT || 'production').toLowerCase();
+        const response = await require('axios').get(`${ebayEnvironment === 'sandbox' ? 'https://api.sandbox.ebay.com' : 'https://api.ebay.com'}/sell/inventory/v1/location`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -314,25 +336,27 @@ exports.getConnectionStatus = async (req, res) => {
     try {
         const token = await getValidToken();
         let sellerName = await getSetting('ebay_seller_name');
+        let sellerEmail = await getSetting('ebay_seller_email');
+        let profileFetched = false;
         
-        // Self-healing: If connected but name is missing, fetch it now
-        if (token && (!sellerName || sellerName === 'Unknown User')) {
+        // Self-healing: If connected but name or email is missing, fetch it now.
+        if (token && (!sellerName || sellerName === 'Unknown User' || !sellerEmail)) {
             try {
-                console.log('--- SELF HEALING: FETCHING EBAY USERNAME ---');
+                console.log('--- SELF HEALING: FETCHING EBAY PROFILE ---');
                 const profile = await ebayService.getUserProfile(token);
                 console.log('--- RAW EBAY PROFILE DATA:', JSON.stringify(profile));
                 if (profile) {
-                    // Prioritize Business Name, then UserID
-                    let name = profile.businessAccount?.name || profile.userId || profile.username;
-                    let email = profile.businessAccount?.email || null;
+                    const { name, email } = extractSellerProfile(profile);
                     
                     if (name) {
                         sellerName = name;
                         await saveSetting('ebay_seller_name', name);
                     }
                     if (email) {
+                        sellerEmail = email;
                         await saveSetting('ebay_seller_email', email);
                     }
+                    profileFetched = true;
                     console.log('--- SUCCESSFULLY SAVED EBAY PROFILE:', { name, email });
                 }
             } catch (err) {
@@ -346,12 +370,12 @@ exports.getConnectionStatus = async (req, res) => {
             console.warn('--- STATUS CHECK: Ebay is DISCONNECTED (No token) ---');
         }
         
-        const sellerEmail = await getSetting('ebay_seller_email');
-        
         res.json({
             connected: isConnected,
             sellerName: isConnected ? (sellerName || null) : null,
             sellerEmail: isConnected ? (sellerEmail || null) : null,
+            profileDataAvailable: isConnected ? Boolean(sellerName || sellerEmail) : false,
+            profileFetched,
             environment: (process.env.EBAY_ENVIRONMENT || 'production').toUpperCase()
         });
     } catch (error) {
@@ -424,4 +448,3 @@ async function getValidToken() {
         return null;
     }
 }
-
