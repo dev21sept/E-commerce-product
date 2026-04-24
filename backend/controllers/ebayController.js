@@ -103,7 +103,7 @@ function extractSellerProfile(profile) {
 }
 
 exports.getAuthUrl = (req, res) => {
-    const ruName = req.query.ruName || process.env.EBAY_RU_NAME;
+    const ruName = process.env.EBAY_RU_NAME;
     const state = req.query.state || 'dashboard'; 
     if (!ruName) return res.status(400).json({ error: 'RuName is required' });
     
@@ -127,6 +127,9 @@ exports.handleCallback = async (req, res) => {
     }
 
     const ruName = process.env.EBAY_RU_NAME;
+    if (!ruName) {
+        return res.status(500).send('EBAY_RU_NAME is missing from production environment settings.');
+    }
     try {
         const tokens = await ebayService.getUserToken(code, ruName);
         
@@ -145,6 +148,7 @@ exports.handleCallback = async (req, res) => {
                 if (email) await saveSetting('ebay_seller_email', email);
                 
                 console.log(`Connected to eBay account: ${name} (${email})`);
+                console.log('--- PRODUCTION OAUTH TOKENS SAVED TO MONGODB ---');
             }
         } catch (profileErr) {
             console.error('Error fetching user profile during callback:', profileErr.message);
