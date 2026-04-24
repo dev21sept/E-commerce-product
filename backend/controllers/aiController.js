@@ -3,6 +3,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ebayApiService = require('../services/ebayApiService');
 const { wrapInTemplate } = require('../services/descriptionService');
 const Product = require('../models/Product');
+const { normalizeProductImages } = require('../utils/imageProcessor');
 
 exports.analyzeProductImage = async (req, res) => {
     console.log(`\n--- [AI STUDIO] New Analysis Request Received ---`);
@@ -327,7 +328,9 @@ CRITICAL: DO NOT include 'condition_name' or any related state. This will be fet
 exports.saveAiListing = async (req, res) => {
     try {
         const { officialAspects, ...data } = req.body;
+        const normalizedImages = await normalizeProductImages(data.images || []);
         const newProduct = new Product(data);
+        newProduct.images = normalizedImages;
         await newProduct.save();
         res.json({ success: true });
     } catch (error) {

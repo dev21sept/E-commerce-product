@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const { normalizeProductImages } = require('../utils/imageProcessor');
 
 // Create a new product (MongoDB version)
 exports.createProduct = async (req, res) => {
@@ -11,15 +12,16 @@ exports.createProduct = async (req, res) => {
             discount_percentage, seller_name, seller_feedback, ebay_url, about_item, 
             item_specifics, officialAspects, images, variations, video_url, overwrite
         } = req.body;
+        const normalizedImages = await normalizeProductImages(images || []);
 
         const finalCategoryId = categoryId || category_id;
 
         console.log(`[MongoDB] Saving product: ${title?.substring(0, 30)}...`);
 
         // IMAGE-BASED DEDUPLICATION: Search for existing product with one matching image
-        if (images && images.length > 0) {
+        if (normalizedImages.length > 0) {
             const existingProduct = await Product.findOne({
-                images: { $in: images.filter(img => img && img.length > 50) }
+                images: { $in: normalizedImages.filter(img => img && img.length > 50) }
             });
 
             if (existingProduct) {
@@ -77,7 +79,7 @@ exports.createProduct = async (req, res) => {
             about_item,
             item_specifics,
             officialAspects,
-            images: images || [],
+            images: normalizedImages,
             variations: formattedVariations,
             video_url,
             ai_generated: req.body.ai_generated || false,
@@ -178,6 +180,7 @@ exports.updateProduct = async (req, res) => {
             discount_percentage, seller_name, seller_feedback,
             ebay_url, about_item, item_specifics, officialAspects, images, variations, video_url
         } = req.body;
+        const normalizedImages = await normalizeProductImages(images || []);
 
         let formattedVariations = [];
         if (variations && Array.isArray(variations)) {
@@ -199,7 +202,7 @@ exports.updateProduct = async (req, res) => {
                 condition_name, condition_notes, condition_id, gender, retail_price: parseFloat(retail_price) || 0,
                 selling_price: parseFloat(selling_price) || 0,
                 discount_percentage, seller_name, seller_feedback,
-                ebay_url, about_item, item_specifics, officialAspects, images,
+                ebay_url, about_item, item_specifics, officialAspects, images: normalizedImages,
                 variations: formattedVariations, video_url,
                 updated_at: Date.now()
             },
