@@ -6,25 +6,14 @@ const FormData = require('form-data');
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
 const EBAY_CERT_ID = process.env.EBAY_CERT_ID;
 const EBAY_DEV_ID = process.env.EBAY_DEV_ID;
-const EBAY_ENVIRONMENT = (process.env.EBAY_ENVIRONMENT || 'production').toLowerCase();
-const IS_SANDBOX = EBAY_ENVIRONMENT === 'sandbox';
 
-// Keep sandbox endpoints available, but production is now the default runtime.
-const API_BASE_URL = IS_SANDBOX
-    ? 'https://api.sandbox.ebay.com' 
-    : 'https://api.ebay.com';
+const API_BASE_URL = 'https://api.ebay.com';
 
-const MEDIA_API_BASE_URL = IS_SANDBOX
-    ? 'https://apim.sandbox.ebay.com'
-    : 'https://apim.ebay.com';
+const MEDIA_API_BASE_URL = 'https://apim.ebay.com';
 
-const TRADING_API_URL = IS_SANDBOX
-    ? 'https://api.sandbox.ebay.com/ws/api.dll'
-    : 'https://api.ebay.com/ws/api.dll';
+const TRADING_API_URL = 'https://api.ebay.com/ws/api.dll';
 
-const AUTH_BASE_URL = IS_SANDBOX
-    ? 'https://auth.sandbox.ebay.com'
-    : 'https://auth.ebay.com';
+const AUTH_BASE_URL = 'https://auth.ebay.com';
 
 let cachedAppToken = null;
 let appTokenExpiry = null;
@@ -284,7 +273,7 @@ async function initDefaultFulfillmentPolicy(token) {
             optionType: 'DOMESTIC',
             costType: 'FLAT_RATE',
             shippingServices: [{
-                shippingServiceCode: 'USPSPriority', // Keep the default production-friendly shipping service code.
+                shippingServiceCode: 'USPSPriority',
                 shippingCost: { value: '0.00', currency: 'USD' }
             }]
         }],
@@ -691,8 +680,7 @@ async function getInventoryItems(token, limit = 100, offset = 0) {
  */
 async function getUserProfile(token) {
     try {
-        const baseUrl = IS_SANDBOX ? 'https://apiz.sandbox.ebay.com' : 'https://apiz.ebay.com';
-        const response = await axios.get(`${baseUrl}/commerce/identity/v1/user/`, {
+        const response = await axios.get('https://apiz.ebay.com/commerce/identity/v1/user/', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }

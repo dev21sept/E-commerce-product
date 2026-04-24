@@ -318,8 +318,7 @@ exports.getInventoryLocations = async (req, res) => {
         if (!token) return res.status(401).json({ error: 'eBay not connected' });
 
         // Using a generic call to fetch locations
-        const ebayEnvironment = (process.env.EBAY_ENVIRONMENT || 'production').toLowerCase();
-        const response = await require('axios').get(`${ebayEnvironment === 'sandbox' ? 'https://api.sandbox.ebay.com' : 'https://api.ebay.com'}/sell/inventory/v1/location`, {
+        const response = await require('axios').get('https://api.ebay.com/sell/inventory/v1/location', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -376,7 +375,7 @@ exports.getConnectionStatus = async (req, res) => {
             sellerEmail: isConnected ? (sellerEmail || null) : null,
             profileDataAvailable: isConnected ? Boolean(sellerName || sellerEmail) : false,
             profileFetched,
-            environment: (process.env.EBAY_ENVIRONMENT || 'production').toUpperCase()
+            environment: 'PRODUCTION'
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch connection status' });
@@ -448,3 +447,4 @@ async function getValidToken() {
         return null;
     }
 }
+

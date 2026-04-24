@@ -292,24 +292,7 @@ exports.listOnEbay = async (req, res) => {
         returnPolicyId = rList[0]?.returnPolicyId;
 
         if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
-            if ((process.env.EBAY_ENVIRONMENT || 'production').toLowerCase() === 'production') {
-                throw new Error(`[Production] Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies on your eBay account.`);
-            } else {
-                // Sandbox fallback kept for reference; production should use real eBay policies.
-                if (!fulfillmentPolicyId) {
-                    const res = await ebayService.initDefaultFulfillmentPolicy(token);
-                    fulfillmentPolicyId = res.fulfillmentPolicyId;
-                }
-                if (!paymentPolicyId) {
-                    const res = await ebayService.initDefaultPaymentPolicy(token);
-                    paymentPolicyId = res.paymentPolicyId;
-                }
-                if (!returnPolicyId) {
-                    const res = await ebayService.initDefaultReturnPolicy(token);
-                    returnPolicyId = res.returnPolicyId;
-                }
-                await new Promise(resolve => setTimeout(resolve, 3000));
-            }
+            throw new Error(`[Production] Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies on your eBay account.`);
         }
 
         // 4. Create Offer
@@ -372,9 +355,6 @@ exports.listOnEbay = async (req, res) => {
         console.log('Step 3: Publishing Offer...');
         const publishResponse = await ebayService.publishOffer(token, offerId);
 
-        const isSandbox = (process.env.EBAY_ENVIRONMENT || 'production').toLowerCase() === 'sandbox';
-        const ebayDomain = isSandbox ? 'sandbox.ebay.com' : 'ebay.com';
-
         console.log(`✅ [SUCCESS] Product ${productId} listed as ${publishResponse.listingId}`);
 
         res.json({
@@ -382,7 +362,7 @@ exports.listOnEbay = async (req, res) => {
             message: 'SUCCESS! Listed on eBay!',
             sku,
             listingId: publishResponse.listingId,
-            ebayUrl: `https://www.${ebayDomain}/itm/${publishResponse.listingId}`
+            ebayUrl: `https://www.ebay.com/itm/${publishResponse.listingId}`
         });
 
     } catch (error) {
