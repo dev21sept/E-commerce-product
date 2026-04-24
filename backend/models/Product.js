@@ -17,6 +17,8 @@ const productSchema = new mongoose.Schema({
     seller_name: String,
     seller_feedback: String,
     ebay_url: String,
+    ebayOfferId: String,
+    ebayListingId: String,
     video_url: String,
     about_item: String,
     item_specifics: mongoose.Schema.Types.Mixed,

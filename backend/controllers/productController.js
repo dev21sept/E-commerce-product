@@ -1,6 +1,95 @@
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const DeletedProduct = require('../models/DeletedProduct');
 const { normalizeProductImages } = require('../utils/imageProcessor');
+const ebayService = require('../services/ebayApiService');
+const Setting = require('../models/Setting');
+const connectMongoDB = require('../config/mongodb');
+
+async function getSetting(key) {
+    try {
+        const setting = await Setting.findOne({ setting_key: key });
+        return setting ? setting.setting_value : null;
+    } catch (e) {
+        console.error('Error fetching setting from MongoDB:', e);
+        return null;
+    }
+}
+
+async function getValidToken() {
+    try {
+        const accessToken = await getSetting('ebay_access_token');
+        const refreshToken = await getSetting('ebay_refresh_token');
+        const expiresAt = await getSetting('ebay_token_expiry');
+
+        if (!refreshToken) return null;
+
+        if (!expiresAt || Date.now() > Number(expiresAt) - 300000) {
+            const newTokenData = await ebayService.refreshUserToken(refreshToken);
+            return newTokenData;
+        }
+
+        return accessToken;
+    } catch (error) {
+        console.error('Token Retrieval Error:', error.message);
+        return null;
+    }
+}
+
+async function recordDeletionTombstone(product) {
+    try {
+        await DeletedProduct.findOneAndUpdate(
+            {
+                $or: [
+                    product.sku ? { sku: product.sku } : null,
+                    product.title ? { title: product.title, source: product.source || 'ebay' } : null,
+                    product.ebayOfferId ? { ebayOfferId: product.ebayOfferId } : null,
+                    product.ebayListingId ? { ebayListingId: product.ebayListingId } : null
+                ].filter(Boolean)
+            },
+            {
+                productId: product._id.toString(),
+                sku: product.sku || null,
+                title: product.title || null,
+                source: product.source || 'ebay',
+                ebayOfferId: product.ebayOfferId || null,
+                ebayListingId: product.ebayListingId || null,
+                deleted_at: Date.now()
+            },
+            { upsert: true, new: true }
+        );
+    } catch (error) {
+        console.error('Failed to create deletion tombstone:', error.message);
+    }
+}
+
+async function deleteRemoteEbayListing(product) {
+    const isEbaySource = ['ebay', 'scraper'].includes(product.source);
+    if (!isEbaySource && !product.ebayOfferId && !product.sku) {
+        return { skipped: true };
+    }
+
+    const token = await getValidToken();
+    if (!token) {
+        throw new Error('eBay session is not connected, so the remote listing could not be removed.');
+    }
+
+    if (product.ebayOfferId) {
+        try {
+            await ebayService.deleteOffer(token, product.ebayOfferId);
+            return { deleted: 'offer' };
+        } catch (offerError) {
+            console.warn(`Offer delete failed for ${product.ebayOfferId}, trying inventory item fallback: ${offerError.message}`);
+        }
+    }
+
+    if (product.sku) {
+        await ebayService.deleteInventoryItem(token, product.sku);
+        return { deleted: 'inventory_item' };
+    }
+
+    return { skipped: true };
+}
 
 // Create a new product (MongoDB version)
 exports.createProduct = async (req, res) => {
@@ -220,6 +309,17 @@ exports.updateProduct = async (req, res) => {
 // Delete product (MongoDB version)
 exports.deleteProduct = async (req, res) => {
     try {
+        const product = await Product.findById(req.params.id);
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        let remoteDeleteResult = { skipped: true };
+        try {
+            remoteDeleteResult = await deleteRemoteEbayListing(product.toObject());
+        } catch (remoteError) {
+            console.warn('Remote eBay delete warning:', remoteError.message);
+        }
+
+        await recordDeletionTombstone(product.toObject());
         await Product.findByIdAndDelete(req.params.id);
         res.json({ message: 'Product deleted successfully' });
     } catch (error) {

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const ebayService = require('../services/ebayApiService');
 const Product = require('../models/Product');
+const DeletedProduct = require('../models/DeletedProduct');
 const Setting = require('../models/Setting');
 const Order = require('../models/Order');
 
@@ -77,6 +78,15 @@ async function saveSetting(key, value) {
         );
     } catch (e) {
         console.error('Error saving setting to MongoDB:', e);
+    }
+}
+
+async function deleteSettings(keys = []) {
+    try {
+        await connectMongoDB();
+        await Setting.deleteMany({ setting_key: { $in: keys } });
+    } catch (e) {
+        console.error('Error deleting setting(s) from MongoDB:', e);
     }
 }
 
@@ -238,6 +248,18 @@ exports.syncInventory = async (providedToken = null) => {
             if (items.length === 0) break;
 
             for (const item of items) {
+                const tombstoneMatch = await DeletedProduct.findOne({
+                    $or: [
+                        item.sku ? { sku: item.sku } : null,
+                        item.product?.title ? { title: item.product.title, source: 'ebay' } : null
+                    ].filter(Boolean)
+                }).lean();
+
+                if (tombstoneMatch) {
+                    console.log(`[SYNC] Skipping deleted product: ${item.sku || item.product?.title || 'unknown'}`);
+                    continue;
+                }
+
                 // Map eBay item to our Product model
                 const product = {
                     title: item.product.title,
@@ -281,7 +303,7 @@ exports.syncInventory = async (providedToken = null) => {
 // Explicit Sync Endpoint
 exports.triggerSync = async (req, res) => {
     try {
-        const result = await this.syncInventory();
+        const result = await exports.syncInventory();
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -406,10 +428,13 @@ exports.getCategoryConditions = async (req, res) => {
  */
 exports.disconnectEbay = async (req, res) => {
     try {
-        await saveSetting('ebay_access_token', null);
-        await saveSetting('ebay_refresh_token', null);
-        await saveSetting('ebay_token_expiry', null);
-        await saveSetting('ebay_seller_name', null);
+        await deleteSettings([
+            'ebay_access_token',
+            'ebay_refresh_token',
+            'ebay_token_expiry',
+            'ebay_seller_name',
+            'ebay_seller_email'
+        ]);
         
         console.log('--- EBAY ACCOUNT DISCONNECTED SUCCESFULLY ---');
         res.json({ success: true, message: 'Disconnected from eBay' });

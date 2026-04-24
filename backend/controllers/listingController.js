@@ -342,6 +342,11 @@ exports.listOnEbay = async (req, res) => {
         // 5. Publish Offer (Skip if draft)
         const isDraft = req.query.draft === 'true';
         if (isDraft) {
+            await Product.findByIdAndUpdate(productId, {
+                sku,
+                ebayOfferId: offerId,
+                updated_at: Date.now()
+            });
             console.log(`✅ [SUCCESS] Product ${productId} saved as DRAFT (Offer ID: ${offerId})`);
             return res.json({
                 success: true,
@@ -352,8 +357,21 @@ exports.listOnEbay = async (req, res) => {
             });
         }
 
+        await Product.findByIdAndUpdate(productId, {
+            sku,
+            ebayOfferId: offerId,
+            updated_at: Date.now()
+        });
+
         console.log('Step 3: Publishing Offer...');
         const publishResponse = await ebayService.publishOffer(token, offerId);
+        await Product.findByIdAndUpdate(productId, {
+            sku,
+            ebayOfferId: offerId,
+            ebayListingId: publishResponse.listingId,
+            ebay_url: `https://www.ebay.com/itm/${publishResponse.listingId}`,
+            updated_at: Date.now()
+        });
 
         console.log(`✅ [SUCCESS] Product ${productId} listed as ${publishResponse.listingId}`);
 

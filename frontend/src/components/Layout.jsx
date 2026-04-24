@@ -59,7 +59,7 @@ const Layout = ({ children, onLogout, user }) => {
         if (!window.confirm('Are you sure you want to disconnect this eBay account? You will need to login again to list products.')) return;
         try {
             await disconnectEbay();
-            setEbayStatus({ connected: false, sellerName: '', environment: 'PRODUCTION' });
+            setEbayStatus({ connected: false, sellerName: '', sellerEmail: '', environment: 'PRODUCTION' });
         } catch (err) {
             console.error('Failed to disconnect eBay:', err);
         }

@@ -203,6 +203,36 @@ async function publishOffer(token, offerId) {
     }
 }
 
+async function deleteOffer(token, offerId) {
+    try {
+        const response = await axios.delete(`${API_BASE_URL}/sell/inventory/v1/offer/${offerId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Language': 'en-US'
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Error deleting offer ${offerId}:`, error.response?.data || error.message);
+        throw error;
+    }
+}
+
+async function deleteInventoryItem(token, sku) {
+    try {
+        const response = await axios.delete(`${API_BASE_URL}/sell/inventory/v1/inventory_item/${sku}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Language': 'en-US'
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Error deleting inventory item ${sku}:`, error.response?.data || error.message);
+        throw error;
+    }
+}
+
 /**
  * Step 4: Create or Update Location
  */
@@ -754,7 +784,9 @@ module.exports = {
     uploadPictureFromUrl,
     createOrReplaceInventoryItem,
     createOffer,
+    deleteOffer,
     publishOffer,
+    deleteInventoryItem,
     createOrUpdateLocation,
     getFulfillmentPolicies,
     getPaymentPolicies,
