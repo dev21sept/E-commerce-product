@@ -1,5 +1,6 @@
 const axios = require('axios');
 const qs = require('qs');
+const sharp = require('sharp');
 
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
 const EBAY_CERT_ID = process.env.EBAY_CERT_ID;
@@ -390,10 +391,39 @@ async function getItemConditions(token, categoryId, categoryTreeId = '0') {
  */
 async function uploadPicture(userToken, base64Data) {
     try {
-        // Remove all variations of data:image prefix
-        let cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
-        // Remove any remaining whitespace, newlines, or carriage returns to prevent XML corruption
-        cleanBase64 = cleanBase64.replace(/[\r\n\t\s]+/g, "");
+        if (typeof base64Data !== 'string' || !base64Data.trim()) {
+            throw new Error('Invalid image payload for EPS upload');
+        }
+        if (/^https?:\/\//i.test(base64Data.trim())) {
+            throw new Error('EPS upload received URL instead of Base64 data');
+        }
+
+        const trimmed = base64Data.trim();
+        const dataUriMatch = trimmed.match(/^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([\s\S]+)$/i);
+        let rawBase64 = dataUriMatch ? dataUriMatch[2] : trimmed;
+
+        // Remove whitespace/newlines that may be introduced by transport/logging.
+        rawBase64 = rawBase64.replace(/[\r\n\t\s]+/g, '');
+        if (!/^[a-z0-9+/=]+$/i.test(rawBase64)) {
+            throw new Error('Image data is not valid Base64');
+        }
+
+        const sourceBuffer = Buffer.from(rawBase64, 'base64');
+        if (!sourceBuffer.length) {
+            throw new Error('Decoded image buffer is empty');
+        }
+
+        // Re-encode with Sharp to ensure eBay receives a clean, standards-compliant image.
+        let normalizedBuffer;
+        try {
+            normalizedBuffer = await sharp(sourceBuffer)
+                .rotate()
+                .jpeg({ quality: 92, mozjpeg: true })
+                .toBuffer();
+        } catch (normalizeError) {
+            throw new Error(`Image normalization failed: ${normalizeError.message}`);
+        }
+        const cleanBase64 = normalizedBuffer.toString('base64');
         
         console.log(`[EPS] Prepared Base64 size: ${cleanBase64.length} chars (approx ${Math.round((cleanBase64.length * 3) / 4 / 1024)} KB)`);
 
@@ -402,6 +432,7 @@ async function uploadPicture(userToken, base64Data) {
   <RequesterCredentials>
     <eBayAuthToken>${userToken}</eBayAuthToken>
   </RequesterCredentials>
+  <PictureName>upload-${Date.now()}.jpg</PictureName>
   <PictureData>${cleanBase64}</PictureData>
   <PictureSet>Standard</PictureSet>
 </UploadSiteHostedPicturesRequest>`;
@@ -595,4 +626,3 @@ module.exports = {
     updateShippingFulfillment,
     getUserProfile
 };
-

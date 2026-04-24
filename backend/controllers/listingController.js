@@ -1,6 +1,7 @@
 const ebayService = require('../services/ebayApiService');
 const Product = require('../models/Product');
 const Setting = require('../models/Setting');
+const axios = require('axios');
 
 // Helper to get a setting from MongoDB
 async function getSetting(key) {
@@ -86,29 +87,26 @@ exports.listOnEbay = async (req, res) => {
         console.log(`[EPS DEBUG] Starting image processing for ${imageList.length} total images.`);
 
         for (let i = 0; i < imageList.length; i++) {
-            const img = imageList[i];
-            const isBase64 = img?.startsWith('data:image') || img?.length > 2000;
-            const isUrl = img?.startsWith('http');
+            const rawImg = imageList[i];
+            const img = typeof rawImg === 'string' ? rawImg.trim() : '';
+            const isUrl = /^https?:\/\//i.test(img);
+            const isDataUri = /^data:image\/[a-z0-9.+-]+;base64,/i.test(img);
+            const looksLikeRawBase64 =
+                !isUrl &&
+                !isDataUri &&
+                img.length > 2000 &&
+                /^[a-z0-9+/=\r\n]+$/i.test(img);
+            const isBase64 = isDataUri || looksLikeRawBase64;
 
-            if (isBase64) {
-                try {
-                    console.log(`[EPS DEBUG] Image ${i+1}: Uploading Base64 image to eBay EPS...`);
-                    const ebayUrl = await ebayService.uploadPicture(token, img);
-                    console.log(`[EPS DEBUG] Image ${i+1}: EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
-                    processedImages.push(ebayUrl);
-                } catch (e) {
-                    const errMsg = e.response?.data || e.message;
-                    console.error(`[EPS DEBUG] Image ${i+1}: EPS Upload FAILED:`, errMsg);
-                    if (!firstUploadError) firstUploadError = errMsg;
-                }
-            } else if (isUrl) {
+            if (isUrl) {
                 // If the URL is too long for eBay (limit 500), we must re-upload it to EPS
                 if (img.length > 450) {
                     try {
                         console.log(`[EPS DEBUG] Image ${i+1}: URL too long (${img.length} chars). Re-uploading to eBay EPS...`);
                         const response = await axios.get(img, { responseType: 'arraybuffer' });
                         const base64 = Buffer.from(response.data, 'binary').toString('base64');
-                        const ebayUrl = await ebayService.uploadPicture(token, `data:image/jpeg;base64,${base64}`);
+                        const detectedMime = response.headers?.['content-type']?.split(';')?.[0] || 'image/jpeg';
+                        const ebayUrl = await ebayService.uploadPicture(token, `data:${detectedMime};base64,${base64}`);
                         console.log(`[EPS DEBUG] Image ${i+1}: Re-upload Success -> ${ebayUrl.substring(0, 50)}...`);
                         processedImages.push(ebayUrl);
                     } catch (e) {
@@ -119,6 +117,17 @@ exports.listOnEbay = async (req, res) => {
                 } else {
                     console.log(`[EPS DEBUG] Image ${i+1}: Short URL, keeping: ${img.substring(0, 50)}...`);
                     processedImages.push(img);
+                }
+            } else if (isBase64) {
+                try {
+                    console.log(`[EPS DEBUG] Image ${i+1}: Uploading Base64 image to eBay EPS...`);
+                    const ebayUrl = await ebayService.uploadPicture(token, img);
+                    console.log(`[EPS DEBUG] Image ${i+1}: EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
+                    processedImages.push(ebayUrl);
+                } catch (e) {
+                    const errMsg = e.response?.data || e.message;
+                    console.error(`[EPS DEBUG] Image ${i+1}: EPS Upload FAILED:`, errMsg);
+                    if (!firstUploadError) firstUploadError = errMsg;
                 }
             } else {
                 console.warn(`[EPS DEBUG] Image ${i+1}: Skipped (Invalid format or too short)`);
