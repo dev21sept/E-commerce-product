@@ -413,57 +413,70 @@ async function uploadPicture(userToken, base64Data) {
             throw new Error('Decoded image buffer is empty');
         }
 
-        // Re-encode with Sharp to ensure eBay receives a clean, standards-compliant image.
-        let normalizedBuffer;
-        try {
-            normalizedBuffer = await sharp(sourceBuffer)
-                .rotate()
-                .jpeg({ quality: 92, mozjpeg: true })
-                .toBuffer();
-        } catch (normalizeError) {
-            throw new Error(`Image normalization failed: ${normalizeError.message}`);
-        }
-        const cleanBase64 = normalizedBuffer.toString('base64');
-        
-        console.log(`[EPS] Prepared Base64 size: ${cleanBase64.length} chars (approx ${Math.round((cleanBase64.length * 3) / 4 / 1024)} KB)`);
+        const basePipeline = sharp(sourceBuffer)
+            .rotate()
+            .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true });
 
-        const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+        // Retry strategy: JPEG first, PNG fallback (helps when source decode/encode edge-cases break JPEG path).
+        const candidates = [];
+        try {
+            const jpegBuffer = await basePipeline.clone().jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+            candidates.push({ ext: 'jpg', base64: jpegBuffer.toString('base64') });
+        } catch (jpegErr) {
+            console.warn(`[EPS] JPEG normalization failed: ${jpegErr.message}`);
+        }
+        try {
+            const pngBuffer = await basePipeline.clone().png({ compressionLevel: 9 }).toBuffer();
+            candidates.push({ ext: 'png', base64: pngBuffer.toString('base64') });
+        } catch (pngErr) {
+            console.warn(`[EPS] PNG normalization failed: ${pngErr.message}`);
+        }
+
+        if (!candidates.length) {
+            throw new Error('Image normalization failed: no valid raster output generated');
+        }
+
+        let lastError = null;
+        for (const [idx, candidate] of candidates.entries()) {
+            console.log(`[EPS] Attempt ${idx + 1}/${candidates.length}: ${candidate.ext.toUpperCase()} payload size ${candidate.base64.length} chars`);
+            const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials>
     <eBayAuthToken>${userToken}</eBayAuthToken>
   </RequesterCredentials>
-  <PictureName>upload-${Date.now()}.jpg</PictureName>
-  <PictureData>${cleanBase64}</PictureData>
+  <PictureName>upload-${Date.now()}.${candidate.ext}</PictureName>
+  <PictureData>${candidate.base64}</PictureData>
   <PictureSet>Standard</PictureSet>
 </UploadSiteHostedPicturesRequest>`;
 
-        const response = await axios.post(TRADING_API_URL, xmlPayload, {
-            headers: {
-                'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
-                'X-EBAY-API-SITEID': '0',
-                'X-EBAY-API-APP-NAME': EBAY_APP_ID,
-                'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
-                'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
-                'X-EBAY-API-COMPATIBILITY-LEVEL': '1113',
-                'Content-Type': 'text/xml'
+            const response = await axios.post(TRADING_API_URL, xmlPayload, {
+                headers: {
+                    'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
+                    'X-EBAY-API-SITEID': '0',
+                    'X-EBAY-API-APP-NAME': EBAY_APP_ID,
+                    'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
+                    'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
+                    'X-EBAY-API-COMPATIBILITY-LEVEL': '1113',
+                    'X-EBAY-API-IAF-TOKEN': userToken,
+                    'Content-Type': 'text/xml'
+                }
+            });
+
+            if (response.data.includes('<Ack>Failure</Ack>') || response.data.includes('<Ack>Error</Ack>')) {
+                const errorMatch = response.data.match(/<LongMessage>(.*?)<\/LongMessage>/) || response.data.match(/<ShortMessage>(.*?)<\/ShortMessage>/);
+                const ebayError = errorMatch ? errorMatch[1] : `Unknown eBay Error. Raw: ${response.data.substring(0, 200)}`;
+                lastError = new Error(`eBay EPS Error: ${ebayError}`);
+                continue;
             }
-        });
 
-        // Check for Error in XML Response
-        if (response.data.includes('<Ack>Failure</Ack>') || response.data.includes('<Ack>Error</Ack>')) {
-            const errorMatch = response.data.match(/<LongMessage>(.*?)<\/LongMessage>/) || response.data.match(/<ShortMessage>(.*?)<\/ShortMessage>/);
-            const ebayError = errorMatch ? errorMatch[1] : `Unknown eBay Error. Raw: ${response.data.substring(0, 200)}`;
-            throw new Error(`eBay EPS Error: ${ebayError}`);
+            const match = response.data.match(/<SiteHostedPictureDetails>[\s\S]*?<FullURL>(.*?)<\/FullURL>/);
+            if (match && match[1]) {
+                return match[1];
+            }
+            lastError = new Error(`Failed to extract image URL. Response start: ${response.data.substring(0, 150)}`);
         }
 
-        // Simple regex to extract the URL from the XML response
-        const match = response.data.match(/<SiteHostedPictureDetails>[\s\S]*?<FullURL>(.*?)<\/FullURL>/);
-        if (match && match[1]) {
-            return match[1];
-        } else {
-            console.error("EPS Upload Response:", response.data);
-            throw new Error(`Failed to extract image URL. Response start: ${response.data.substring(0, 150)}`);
-        }
+        throw lastError || new Error('Unknown EPS upload failure');
     } catch (error) {
         console.error('Error uploading to eBay EPS:', error.message);
         throw error;

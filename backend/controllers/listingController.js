@@ -38,14 +38,14 @@ async function getValidToken() {
             console.error('CRITICAL: No refresh token found. User MUST login again.');
             return null;
         }
-        
+
         // Refresh 1 minute before expiry
-        if (!expiresAt || Date.now() > Number(expiresAt) - 60000) { 
+        if (!expiresAt || Date.now() > Number(expiresAt) - 60000) {
             console.log('Refreshing eBay token using refresh token...');
             const newTokenData = await ebayService.refreshUserToken(refreshToken);
             accessToken = newTokenData;
             expiresAt = Date.now() + (7200 * 1000); // 2 hours
-            
+
             await saveSetting('ebay_access_token', accessToken);
             await saveSetting('ebay_token_expiry', expiresAt.toString());
         }
@@ -62,16 +62,16 @@ async function getValidToken() {
 exports.listOnEbay = async (req, res) => {
     const { productId } = req.params;
     console.log(`\n--- [DIRECT LISTING] Starting for Product ${productId} ---`);
-    
+
     try {
         const token = await getValidToken();
         if (!token) {
-            return res.status(401).json({ 
-                error: 'Authentication Required', 
-                details: 'Your eBay session has expired or not been established. Please click "Connect eBay" again.' 
+            return res.status(401).json({
+                error: 'Authentication Required',
+                details: 'Your eBay session has expired or not been established. Please click "Connect eBay" again.'
             });
         }
-        
+
         const product = await Product.findById(productId);
         if (!product) return res.status(404).json({ error: 'Product not found' });
 
@@ -102,35 +102,35 @@ exports.listOnEbay = async (req, res) => {
                 // If the URL is too long for eBay (limit 500), we must re-upload it to EPS
                 if (img.length > 450) {
                     try {
-                        console.log(`[EPS DEBUG] Image ${i+1}: URL too long (${img.length} chars). Re-uploading to eBay EPS...`);
+                        console.log(`[EPS DEBUG] Image ${i + 1}: URL too long (${img.length} chars). Re-uploading to eBay EPS...`);
                         const response = await axios.get(img, { responseType: 'arraybuffer' });
                         const base64 = Buffer.from(response.data, 'binary').toString('base64');
                         const detectedMime = response.headers?.['content-type']?.split(';')?.[0] || 'image/jpeg';
                         const ebayUrl = await ebayService.uploadPicture(token, `data:${detectedMime};base64,${base64}`);
-                        console.log(`[EPS DEBUG] Image ${i+1}: Re-upload Success -> ${ebayUrl.substring(0, 50)}...`);
+                        console.log(`[EPS DEBUG] Image ${i + 1}: Re-upload Success -> ${ebayUrl.substring(0, 50)}...`);
                         processedImages.push(ebayUrl);
                     } catch (e) {
-                        console.error(`[EPS DEBUG] Image ${i+1}: URL re-upload FAILED:`, e.message);
+                        console.error(`[EPS DEBUG] Image ${i + 1}: URL re-upload FAILED:`, e.message);
                         // If re-upload fails, we still keep the long URL as a fallback, though eBay might reject it later
                         processedImages.push(img);
                     }
                 } else {
-                    console.log(`[EPS DEBUG] Image ${i+1}: Short URL, keeping: ${img.substring(0, 50)}...`);
+                    console.log(`[EPS DEBUG] Image ${i + 1}: Short URL, keeping: ${img.substring(0, 50)}...`);
                     processedImages.push(img);
                 }
             } else if (isBase64) {
                 try {
-                    console.log(`[EPS DEBUG] Image ${i+1}: Uploading Base64 image to eBay EPS...`);
+                    console.log(`[EPS DEBUG] Image ${i + 1}: Uploading Base64 image to eBay EPS...`);
                     const ebayUrl = await ebayService.uploadPicture(token, img);
-                    console.log(`[EPS DEBUG] Image ${i+1}: EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
+                    console.log(`[EPS DEBUG] Image ${i + 1}: EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
                     processedImages.push(ebayUrl);
                 } catch (e) {
                     const errMsg = e.response?.data || e.message;
-                    console.error(`[EPS DEBUG] Image ${i+1}: EPS Upload FAILED:`, errMsg);
+                    console.error(`[EPS DEBUG] Image ${i + 1}: EPS Upload FAILED:`, errMsg);
                     if (!firstUploadError) firstUploadError = errMsg;
                 }
             } else {
-                console.warn(`[EPS DEBUG] Image ${i+1}: Skipped (Invalid format or too short)`);
+                console.warn(`[EPS DEBUG] Image ${i + 1}: Skipped (Invalid format or too short)`);
             }
         }
 
@@ -188,7 +188,7 @@ exports.listOnEbay = async (req, res) => {
             const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : product.item_specifics;
             Object.entries(specs).forEach(([k, v]) => {
                 // eBay REST API does not allow dots (.) or special chars in aspect names
-                const cleanKey = k.replace(/[^\w\s]/gi, '').trim(); 
+                const cleanKey = k.replace(/[^\w\s]/gi, '').trim();
                 const cleanVal = Array.isArray(v) ? v[0] : String(v);
 
                 if (cleanKey && cleanVal && cleanVal.trim() !== "") {
@@ -239,7 +239,7 @@ exports.listOnEbay = async (req, res) => {
 
         if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
             if (process.env.EBAY_ENVIRONMENT === 'production') {
-                 throw new Error(`[Production] Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies on your eBay account.`);
+                throw new Error(`[Production] Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies on your eBay account.`);
             } else {
                 // Initialize defaults for Sandbox
                 if (!fulfillmentPolicyId) {
@@ -264,7 +264,7 @@ exports.listOnEbay = async (req, res) => {
             marketplaceId: 'EBAY_US',
             format: 'FIXED_PRICE',
             availableQuantity: 1,
-            categoryId: product.categoryId || product.category_id || '171228', 
+            categoryId: product.categoryId || product.category_id || '171228',
             listingDescription: (product.description || product.title),
             pricingSummary: {
                 price: {
@@ -272,7 +272,7 @@ exports.listOnEbay = async (req, res) => {
                     value: String(product.selling_price || '10.00')
                 }
             },
-            merchantLocationKey: 'default', 
+            merchantLocationKey: 'default',
             listingPolicies: {
                 fulfillmentPolicyId,
                 paymentPolicyId,
@@ -306,10 +306,10 @@ exports.listOnEbay = async (req, res) => {
         const isDraft = req.query.draft === 'true';
         if (isDraft) {
             console.log(`✅ [SUCCESS] Product ${productId} saved as DRAFT (Offer ID: ${offerId})`);
-            return res.json({ 
+            return res.json({
                 success: true,
-                message: 'SUCCESS! Saved as Draft on eBay!', 
-                sku, 
+                message: 'SUCCESS! Saved as Draft on eBay!',
+                sku,
                 offerId,
                 status: 'DRAFT'
             });
@@ -317,16 +317,16 @@ exports.listOnEbay = async (req, res) => {
 
         console.log('Step 3: Publishing Offer...');
         const publishResponse = await ebayService.publishOffer(token, offerId);
-        
+
         const isSandbox = process.env.EBAY_ENVIRONMENT === 'sandbox';
         const ebayDomain = isSandbox ? 'sandbox.ebay.com' : 'ebay.com';
-        
+
         console.log(`✅ [SUCCESS] Product ${productId} listed as ${publishResponse.listingId}`);
-        
-        res.json({ 
+
+        res.json({
             success: true,
-            message: 'SUCCESS! Listed on eBay!', 
-            sku, 
+            message: 'SUCCESS! Listed on eBay!',
+            sku,
             listingId: publishResponse.listingId,
             ebayUrl: `https://www.${ebayDomain}/itm/${publishResponse.listingId}`
         });
@@ -336,7 +336,7 @@ exports.listOnEbay = async (req, res) => {
         const ebayError = error.response?.data?.errors?.[0];
         const fullError = JSON.stringify(error.response?.data || error.message);
         console.error('Full Error Details:', fullError);
-        
+
         // 🚨 HANDLE BUSINESS POLICY ELIGIBILITY (Error 20403)
         if (ebayError?.errorId === 20403 || fullError.includes("not eligible for Business Policy")) {
             return res.status(403).json({
@@ -348,8 +348,8 @@ exports.listOnEbay = async (req, res) => {
             });
         }
 
-        res.status(500).json({ 
-            error: 'Listing failed', 
+        res.status(500).json({
+            error: 'Listing failed',
             details: ebayError?.message || error.message,
             fullError: fullError // Adding this to help debug cryptic errors like "Invalid ."
         });
