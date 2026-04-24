@@ -100,11 +100,13 @@ export const getProductById = async (id) => {
 
 export const updateProduct = async (id, productData) => {
     const response = await api.put(`/products/${id}`, productData);
+    cache.products = null; // Invalidate cache on update
     return response.data;
 };
 
 export const deleteProduct = async (id) => {
     const response = await api.delete(`/products/${id}`);
+    cache.products = null; // Invalidate cache on delete
     return response.data;
 };
 
