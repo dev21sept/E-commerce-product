@@ -1,7 +1,4 @@
-const axios = require('axios');
 const sharp = require('sharp');
-
-const LONG_URL_THRESHOLD = 450;
 
 function isHttpUrl(value) {
     return /^https?:\/\//i.test(value);
@@ -42,39 +39,12 @@ async function toNormalizedJpegDataUri(base64OrDataUri) {
     return `data:image/jpeg;base64,${normalized.toString('base64')}`;
 }
 
-async function urlToNormalizedDataUri(url) {
-    const response = await axios.get(url, {
-        responseType: 'arraybuffer',
-        timeout: 20000,
-        maxRedirects: 5,
-        headers: {
-            'User-Agent': 'Mozilla/5.0'
-        }
-    });
-
-    const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
-    if (contentType && !contentType.startsWith('image/')) {
-        throw new Error(`URL did not return image content-type (${contentType})`);
-    }
-
-    const base64 = Buffer.from(response.data).toString('base64');
-    return toNormalizedJpegDataUri(base64);
-}
-
 async function normalizeSingleImage(image) {
     if (typeof image !== 'string') return null;
     const trimmed = image.trim();
     if (!trimmed) return null;
 
     if (isHttpUrl(trimmed)) {
-        if (trimmed.length > LONG_URL_THRESHOLD) {
-            try {
-                return await urlToNormalizedDataUri(trimmed);
-            } catch (error) {
-                console.warn(`[IMAGE PROCESSOR] Long URL conversion failed. Keeping original URL. Reason: ${error.message}`);
-                return trimmed;
-            }
-        }
         return trimmed;
     }
 
@@ -106,4 +76,3 @@ async function normalizeProductImages(images = []) {
 module.exports = {
     normalizeProductImages
 };
-

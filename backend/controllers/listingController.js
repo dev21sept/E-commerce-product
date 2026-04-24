@@ -99,7 +99,17 @@ exports.listOnEbay = async (req, res) => {
             const isBase64 = isDataUri || looksLikeRawBase64;
 
             if (isUrl) {
-                // If the URL is too long for eBay (limit 500), we must re-upload it to EPS
+                try {
+                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Uploading URL to eBay Media API...`);
+                    const mediaUrl = await ebayService.createImageFromUrl(token, img);
+                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Media API Success -> ${mediaUrl.substring(0, 50)}...`);
+                    processedImages.push(mediaUrl);
+                    continue;
+                } catch (mediaErr) {
+                    console.warn(`[MEDIA DEBUG] Image ${i + 1}: Media API failed. Falling back to EPS flow. Reason: ${mediaErr.message}`);
+                }
+
+                // EPS fallback path for URL images
                 if (img.length > 450) {
                     try {
                         console.log(`[EPS DEBUG] Image ${i + 1}: URL too long (${img.length} chars). Trying EPS ExternalPictureURL...`);
@@ -130,8 +140,16 @@ exports.listOnEbay = async (req, res) => {
                         }
                     }
                 } else {
-                    console.log(`[EPS DEBUG] Image ${i + 1}: Short URL, keeping: ${img.substring(0, 50)}...`);
-                    processedImages.push(img);
+                    try {
+                        console.log(`[EPS DEBUG] Image ${i + 1}: Short URL fallback via EPS ExternalPictureURL...`);
+                        const ebayUrl = await ebayService.uploadPictureFromUrl(token, img);
+                        console.log(`[EPS DEBUG] Image ${i + 1}: Short URL EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
+                        processedImages.push(ebayUrl);
+                    } catch (epsErr) {
+                        console.error(`[EPS DEBUG] Image ${i + 1}: Short URL EPS upload FAILED:`, epsErr.message);
+                        // Keep original short URL as last fallback.
+                        processedImages.push(img);
+                    }
                 }
             } else if (isBase64) {
                 try {

@@ -11,6 +11,10 @@ const API_BASE_URL = EBAY_ENVIRONMENT === 'sandbox'
     ? 'https://api.sandbox.ebay.com' 
     : 'https://api.ebay.com';
 
+const MEDIA_API_BASE_URL = EBAY_ENVIRONMENT === 'sandbox'
+    ? 'https://apim.sandbox.ebay.com'
+    : 'https://apim.ebay.com';
+
 const TRADING_API_URL = EBAY_ENVIRONMENT === 'sandbox'
     ? 'https://api.sandbox.ebay.com/ws/api.dll'
     : 'https://api.ebay.com/ws/api.dll';
@@ -439,6 +443,38 @@ async function uploadPictureFromUrl(userToken, externalPictureUrl) {
     }
 }
 
+async function createImageFromUrl(userToken, imageUrl) {
+    try {
+        if (typeof imageUrl !== 'string' || !/^https:\/\//i.test(imageUrl.trim())) {
+            throw new Error('Media API requires a public HTTPS image URL');
+        }
+
+        const response = await axios.post(
+            `${MEDIA_API_BASE_URL}/commerce/media/v1_beta/image/create_image_from_url`,
+            { imageUrl: imageUrl.trim() },
+            {
+                headers: {
+                    'Authorization': `Bearer ${userToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const uploadedUrl = response.data?.imageUrl;
+        if (!uploadedUrl || !/^https?:\/\//i.test(uploadedUrl)) {
+            throw new Error(`Media API response missing imageUrl: ${JSON.stringify(response.data || {})}`);
+        }
+        return uploadedUrl;
+    } catch (error) {
+        const mediaError =
+            error.response?.data?.errors?.[0]?.message ||
+            error.response?.data?.errors?.[0]?.longMessage ||
+            error.message;
+        console.error('Error uploading image URL via eBay Media API:', mediaError);
+        throw new Error(`eBay Media API Error: ${mediaError}`);
+    }
+}
+
 async function uploadPicture(userToken, base64Data) {
     try {
         if (typeof base64Data !== 'string' || !base64Data.trim()) {
@@ -664,6 +700,7 @@ module.exports = {
     getUserConsentUrl,
     getUserToken,
     refreshUserToken,
+    createImageFromUrl,
     uploadPicture,
     uploadPictureFromUrl,
     createOrReplaceInventoryItem,
