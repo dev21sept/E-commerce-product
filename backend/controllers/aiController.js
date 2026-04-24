@@ -329,10 +329,25 @@ exports.saveAiListing = async (req, res) => {
     try {
         const { officialAspects, ...data } = req.body;
         const normalizedImages = await normalizeProductImages(data.images || []);
+
+        // Duplicate Detection: Check if a product with the same images already exists
+        if (normalizedImages.length > 0) {
+            const existingProduct = await Product.findOne({
+                images: { $in: normalizedImages.filter(img => img && img.length > 50) }
+            });
+
+            if (existingProduct) {
+                return res.status(400).json({ 
+                    error: 'DUPLICATE', 
+                    message: 'A product with these exact images already exists in your inventory.' 
+                });
+            }
+        }
+
         const newProduct = new Product(data);
         newProduct.images = normalizedImages;
         await newProduct.save();
-        res.json({ success: true });
+        res.json({ success: true, productId: newProduct._id });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
