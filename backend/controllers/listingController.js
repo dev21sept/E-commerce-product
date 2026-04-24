@@ -102,17 +102,32 @@ exports.listOnEbay = async (req, res) => {
                 // If the URL is too long for eBay (limit 500), we must re-upload it to EPS
                 if (img.length > 450) {
                     try {
-                        console.log(`[EPS DEBUG] Image ${i + 1}: URL too long (${img.length} chars). Re-uploading to eBay EPS...`);
-                        const response = await axios.get(img, { responseType: 'arraybuffer' });
-                        const base64 = Buffer.from(response.data, 'binary').toString('base64');
-                        const detectedMime = response.headers?.['content-type']?.split(';')?.[0] || 'image/jpeg';
-                        const ebayUrl = await ebayService.uploadPicture(token, `data:${detectedMime};base64,${base64}`);
-                        console.log(`[EPS DEBUG] Image ${i + 1}: Re-upload Success -> ${ebayUrl.substring(0, 50)}...`);
+                        console.log(`[EPS DEBUG] Image ${i + 1}: URL too long (${img.length} chars). Trying EPS ExternalPictureURL...`);
+                        const ebayUrl = await ebayService.uploadPictureFromUrl(token, img);
+                        console.log(`[EPS DEBUG] Image ${i + 1}: External URL EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
                         processedImages.push(ebayUrl);
                     } catch (e) {
-                        console.error(`[EPS DEBUG] Image ${i + 1}: URL re-upload FAILED:`, e.message);
-                        // If re-upload fails, we still keep the long URL as a fallback, though eBay might reject it later
-                        processedImages.push(img);
+                        console.warn(`[EPS DEBUG] Image ${i + 1}: External URL EPS upload failed. Falling back to binary upload. Reason: ${e.message}`);
+                        try {
+                            const response = await axios.get(img, {
+                                responseType: 'arraybuffer',
+                                timeout: 20000,
+                                maxRedirects: 5,
+                                headers: { 'User-Agent': 'Mozilla/5.0' }
+                            });
+                            const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
+                            if (contentType && !contentType.startsWith('image/')) {
+                                throw new Error(`Source URL content-type is not image: ${contentType}`);
+                            }
+                            const base64 = Buffer.from(response.data).toString('base64');
+                            const detectedMime = contentType.split(';')[0] || 'image/jpeg';
+                            const fallbackUrl = await ebayService.uploadPicture(token, `data:${detectedMime};base64,${base64}`);
+                            console.log(`[EPS DEBUG] Image ${i + 1}: Binary fallback EPS Upload Success -> ${fallbackUrl.substring(0, 50)}...`);
+                            processedImages.push(fallbackUrl);
+                        } catch (fallbackErr) {
+                            console.error(`[EPS DEBUG] Image ${i + 1}: URL binary fallback FAILED:`, fallbackErr.message);
+                            if (!firstUploadError) firstUploadError = fallbackErr.message;
+                        }
                     }
                 } else {
                     console.log(`[EPS DEBUG] Image ${i + 1}: Short URL, keeping: ${img.substring(0, 50)}...`);

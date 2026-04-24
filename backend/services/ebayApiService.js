@@ -389,6 +389,56 @@ async function getItemConditions(token, categoryId, categoryTreeId = '0') {
  * Uploads a picture to eBay Picture Services (EPS)
  * This allows using local Base64 images with the REST Inventory API.
  */
+function parseEpsError(xmlResponse = '') {
+    const shortMatch = xmlResponse.match(/<ShortMessage>([\s\S]*?)<\/ShortMessage>/);
+    const longMatch = xmlResponse.match(/<LongMessage>([\s\S]*?)<\/LongMessage>/);
+    const codeMatch = xmlResponse.match(/<ErrorCode>([\s\S]*?)<\/ErrorCode>/);
+    const shortMsg = shortMatch ? shortMatch[1] : '';
+    const longMsg = longMatch ? longMatch[1] : '';
+    const code = codeMatch ? codeMatch[1] : '';
+    const message = longMsg || shortMsg || `Unknown eBay Error. Raw: ${xmlResponse.substring(0, 200)}`;
+    return { code, message };
+}
+
+async function uploadPictureFromUrl(userToken, externalPictureUrl) {
+    try {
+        if (typeof externalPictureUrl !== 'string' || !/^https?:\/\//i.test(externalPictureUrl.trim())) {
+            throw new Error('Invalid ExternalPictureURL');
+        }
+
+        const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <ExternalPictureURL>${externalPictureUrl.trim()}</ExternalPictureURL>
+  <PictureSet>Standard</PictureSet>
+</UploadSiteHostedPicturesRequest>`;
+
+        const response = await axios.post(TRADING_API_URL, xmlPayload, {
+            headers: {
+                'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
+                'X-EBAY-API-SITEID': '0',
+                'X-EBAY-API-APP-NAME': EBAY_APP_ID,
+                'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
+                'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
+                'X-EBAY-API-COMPATIBILITY-LEVEL': '1113',
+                'X-EBAY-API-IAF-TOKEN': userToken,
+                'Content-Type': 'text/xml; charset=utf-8'
+            }
+        });
+
+        if (response.data.includes('<Ack>Failure</Ack>') || response.data.includes('<Ack>Error</Ack>')) {
+            const { code, message } = parseEpsError(response.data);
+            throw new Error(`eBay EPS Error${code ? ` (${code})` : ''}: ${message}`);
+        }
+
+        const match = response.data.match(/<SiteHostedPictureDetails>[\s\S]*?<FullURL>(.*?)<\/FullURL>/);
+        if (match && match[1]) return match[1];
+        throw new Error(`Failed to extract image URL. Response start: ${response.data.substring(0, 150)}`);
+    } catch (error) {
+        console.error('Error uploading URL to eBay EPS:', error.message);
+        throw error;
+    }
+}
+
 async function uploadPicture(userToken, base64Data) {
     try {
         if (typeof base64Data !== 'string' || !base64Data.trim()) {
@@ -441,9 +491,6 @@ async function uploadPicture(userToken, base64Data) {
             console.log(`[EPS] Attempt ${idx + 1}/${candidates.length}: ${candidate.ext.toUpperCase()} payload size ${candidate.base64.length} chars`);
             const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <RequesterCredentials>
-    <eBayAuthToken>${userToken}</eBayAuthToken>
-  </RequesterCredentials>
   <PictureName>upload-${Date.now()}.${candidate.ext}</PictureName>
   <PictureData>${candidate.base64}</PictureData>
   <PictureSet>Standard</PictureSet>
@@ -458,14 +505,13 @@ async function uploadPicture(userToken, base64Data) {
                     'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
                     'X-EBAY-API-COMPATIBILITY-LEVEL': '1113',
                     'X-EBAY-API-IAF-TOKEN': userToken,
-                    'Content-Type': 'text/xml'
+                    'Content-Type': 'text/xml; charset=utf-8'
                 }
             });
 
             if (response.data.includes('<Ack>Failure</Ack>') || response.data.includes('<Ack>Error</Ack>')) {
-                const errorMatch = response.data.match(/<LongMessage>(.*?)<\/LongMessage>/) || response.data.match(/<ShortMessage>(.*?)<\/ShortMessage>/);
-                const ebayError = errorMatch ? errorMatch[1] : `Unknown eBay Error. Raw: ${response.data.substring(0, 200)}`;
-                lastError = new Error(`eBay EPS Error: ${ebayError}`);
+                const { code, message } = parseEpsError(response.data);
+                lastError = new Error(`eBay EPS Error${code ? ` (${code})` : ''}: ${message}`);
                 continue;
             }
 
@@ -619,6 +665,7 @@ module.exports = {
     getUserToken,
     refreshUserToken,
     uploadPicture,
+    uploadPictureFromUrl,
     createOrReplaceInventoryItem,
     createOffer,
     publishOffer,
