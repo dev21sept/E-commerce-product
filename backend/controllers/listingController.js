@@ -79,6 +79,8 @@ exports.listOnEbay = async (req, res) => {
         const timestamp = Date.now().toString().substring(8);
         const sku = (product.sku || `SKU-${product._id.toString().substring(18)}`) + "-" + timestamp;
         const imageList = product.images || [];
+        const backendBaseUrl = String(process.env.BACKEND_URL || '').trim().replace(/\/$/, '');
+        const canUseBackendProxy = /^https:\/\//i.test(backendBaseUrl);
 
         // 1. Prepare Inventory Item
         // Detect and Upload Base64 images to eBay EPS if necessary
@@ -97,6 +99,21 @@ exports.listOnEbay = async (req, res) => {
                 img.length > 2000 &&
                 /^[a-z0-9+/=\r\n]+$/i.test(img);
             const isBase64 = isDataUri || looksLikeRawBase64;
+            const proxyUrl = canUseBackendProxy
+                ? `${backendBaseUrl}/api/listing/public-image/${product._id}/${i}`
+                : null;
+
+            if (proxyUrl) {
+                try {
+                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Proxy URL -> ${proxyUrl}`);
+                    const mediaUrl = await ebayService.createImageFromUrl(token, proxyUrl);
+                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Media API via proxy success -> ${mediaUrl.substring(0, 50)}...`);
+                    processedImages.push(mediaUrl);
+                    continue;
+                } catch (proxyErr) {
+                    console.warn(`[MEDIA DEBUG] Image ${i + 1}: Proxy Media API failed. Falling back to source image. Reason: ${proxyErr.message}`);
+                }
+            }
 
             if (isUrl) {
                 try {
@@ -390,5 +407,66 @@ exports.listOnEbay = async (req, res) => {
             details: ebayError?.message || error.message,
             fullError: fullError // Adding this to help debug cryptic errors like "Invalid ."
         });
+    }
+};
+
+/**
+ * Public image proxy endpoint for eBay Media API ingestion.
+ * Serves product image by index using your backend domain URL.
+ */
+exports.serveProductImage = async (req, res) => {
+    try {
+        const { productId, index } = req.params;
+        const imageIndex = Number(index);
+        if (!Number.isInteger(imageIndex) || imageIndex < 0) {
+            return res.status(400).send('Invalid image index');
+        }
+
+        const product = await Product.findById(productId).select('images');
+        if (!product || !Array.isArray(product.images) || !product.images[imageIndex]) {
+            return res.status(404).send('Image not found');
+        }
+
+        const image = String(product.images[imageIndex] || '').trim();
+        if (!image) return res.status(404).send('Image not found');
+
+        res.set('Cache-Control', 'public, max-age=86400');
+
+        if (/^https?:\/\//i.test(image)) {
+            const response = await axios.get(image, {
+                responseType: 'arraybuffer',
+                timeout: 20000,
+                maxRedirects: 5,
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
+            const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
+            if (contentType && !contentType.startsWith('image/')) {
+                return res.status(415).send(`Source content-type is not image: ${contentType}`);
+            }
+            res.set('Content-Type', contentType || 'image/jpeg');
+            return res.status(200).send(Buffer.from(response.data));
+        }
+
+        const dataUriMatch = image.match(/^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i);
+        let mimeType = 'image/jpeg';
+        let rawBase64 = image;
+        if (dataUriMatch) {
+            mimeType = dataUriMatch[1].toLowerCase();
+            rawBase64 = dataUriMatch[2];
+        }
+
+        rawBase64 = rawBase64.replace(/[\r\n\t\s]+/g, '');
+        if (!/^[a-z0-9+/=]+$/i.test(rawBase64)) {
+            return res.status(415).send('Stored image is not valid Base64');
+        }
+
+        const buf = Buffer.from(rawBase64, 'base64');
+        if (!buf.length) return res.status(415).send('Decoded image is empty');
+
+        res.set('Content-Type', mimeType);
+        return res.status(200).send(buf);
+    } catch (error) {
+        console.error('Public image proxy error:', error.message);
+        return res.status(500).send('Failed to serve image');
     }
 };

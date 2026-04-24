@@ -1,6 +1,7 @@
 const axios = require('axios');
 const qs = require('qs');
 const sharp = require('sharp');
+const FormData = require('form-data');
 
 const EBAY_APP_ID = process.env.EBAY_APP_ID;
 const EBAY_CERT_ID = process.env.EBAY_CERT_ID;
@@ -475,6 +476,42 @@ async function createImageFromUrl(userToken, imageUrl) {
     }
 }
 
+async function createImageFromFile(userToken, imageBuffer, filename = `upload-${Date.now()}.jpg`, contentType = 'image/jpeg') {
+    try {
+        if (!Buffer.isBuffer(imageBuffer) || !imageBuffer.length) {
+            throw new Error('Media API file upload requires a non-empty image buffer');
+        }
+
+        const form = new FormData();
+        form.append('image', imageBuffer, { filename, contentType });
+
+        const response = await axios.post(
+            `${MEDIA_API_BASE_URL}/commerce/media/v1_beta/image/create_image_from_file`,
+            form,
+            {
+                headers: {
+                    'Authorization': `Bearer ${userToken}`,
+                    ...form.getHeaders()
+                },
+                maxBodyLength: Infinity
+            }
+        );
+
+        const uploadedUrl = response.data?.imageUrl;
+        if (!uploadedUrl || !/^https?:\/\//i.test(uploadedUrl)) {
+            throw new Error(`Media API file response missing imageUrl: ${JSON.stringify(response.data || {})}`);
+        }
+        return uploadedUrl;
+    } catch (error) {
+        const mediaError =
+            error.response?.data?.errors?.[0]?.message ||
+            error.response?.data?.errors?.[0]?.longMessage ||
+            error.message;
+        console.error('Error uploading image file via eBay Media API:', mediaError);
+        throw new Error(`eBay Media API File Error: ${mediaError}`);
+    }
+}
+
 async function uploadPicture(userToken, base64Data) {
     try {
         if (typeof base64Data !== 'string' || !base64Data.trim()) {
@@ -503,17 +540,19 @@ async function uploadPicture(userToken, base64Data) {
             .rotate()
             .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true });
 
-        // Retry strategy: JPEG first, PNG fallback (helps when source decode/encode edge-cases break JPEG path).
+        // Retry strategy:
+        // 1) Media API createImageFromFile (preferred)
+        // 2) EPS UploadSiteHostedPictures fallback
         const candidates = [];
         try {
             const jpegBuffer = await basePipeline.clone().jpeg({ quality: 90, mozjpeg: true }).toBuffer();
-            candidates.push({ ext: 'jpg', base64: jpegBuffer.toString('base64') });
+            candidates.push({ ext: 'jpg', contentType: 'image/jpeg', buffer: jpegBuffer, base64: jpegBuffer.toString('base64') });
         } catch (jpegErr) {
             console.warn(`[EPS] JPEG normalization failed: ${jpegErr.message}`);
         }
         try {
             const pngBuffer = await basePipeline.clone().png({ compressionLevel: 9 }).toBuffer();
-            candidates.push({ ext: 'png', base64: pngBuffer.toString('base64') });
+            candidates.push({ ext: 'png', contentType: 'image/png', buffer: pngBuffer, base64: pngBuffer.toString('base64') });
         } catch (pngErr) {
             console.warn(`[EPS] PNG normalization failed: ${pngErr.message}`);
         }
@@ -523,6 +562,25 @@ async function uploadPicture(userToken, base64Data) {
         }
 
         let lastError = null;
+
+        // Preferred path: upload normalized file to Media API.
+        for (const [idx, candidate] of candidates.entries()) {
+            try {
+                console.log(`[MEDIA] Attempt ${idx + 1}/${candidates.length}: createImageFromFile (${candidate.ext.toUpperCase()})`);
+                const mediaUrl = await createImageFromFile(
+                    userToken,
+                    candidate.buffer,
+                    `upload-${Date.now()}.${candidate.ext}`,
+                    candidate.contentType
+                );
+                return mediaUrl;
+            } catch (mediaErr) {
+                lastError = mediaErr;
+                console.warn(`[MEDIA] createImageFromFile failed (${candidate.ext.toUpperCase()}): ${mediaErr.message}`);
+            }
+        }
+
+        // Fallback: legacy EPS XML upload.
         for (const [idx, candidate] of candidates.entries()) {
             console.log(`[EPS] Attempt ${idx + 1}/${candidates.length}: ${candidate.ext.toUpperCase()} payload size ${candidate.base64.length} chars`);
             const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
@@ -701,6 +759,7 @@ module.exports = {
     getUserToken,
     refreshUserToken,
     createImageFromUrl,
+    createImageFromFile,
     uploadPicture,
     uploadPictureFromUrl,
     createOrReplaceInventoryItem,
