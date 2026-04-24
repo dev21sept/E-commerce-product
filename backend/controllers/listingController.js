@@ -100,6 +100,10 @@ exports.listOnEbay = async (req, res) => {
 
             if (isUrl) {
                 try {
+                    let sourceHost = 'invalid-url';
+                    try { sourceHost = new URL(img).host; } catch (_) {}
+                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Source URL -> ${img}`);
+                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Source Host -> ${sourceHost}`);
                     console.log(`[MEDIA DEBUG] Image ${i + 1}: Uploading URL to eBay Media API...`);
                     const mediaUrl = await ebayService.createImageFromUrl(token, img);
                     console.log(`[MEDIA DEBUG] Image ${i + 1}: Media API Success -> ${mediaUrl.substring(0, 50)}...`);
