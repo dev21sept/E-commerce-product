@@ -52,9 +52,12 @@ exports.handleDeletionNotification = async (req, res) => {
     }
 };
 
+const connectMongoDB = require('../config/mongodb');
+
 // Helper to get a setting from MongoDB
 async function getSetting(key) {
     try {
+        await connectMongoDB();
         const setting = await Setting.findOne({ setting_key: key });
         return setting ? setting.setting_value : null;
     } catch (e) {
@@ -66,6 +69,7 @@ async function getSetting(key) {
 // Helper to save a setting to MongoDB
 async function saveSetting(key, value) {
     try {
+        await connectMongoDB();
         await Setting.findOneAndUpdate(
             { setting_key: key },
             { setting_value: value, updated_at: Date.now() },

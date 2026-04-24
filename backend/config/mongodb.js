@@ -3,36 +3,46 @@ const path = require('path');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
+// Serverless optimization: Cache the connection
+let cached = global.mongoose;
+
+if (!cached) {
+    cached = global.mongoose = { conn: null, promise: null };
+}
+
 const connectMongoDB = async () => {
-    // If already connected, do nothing
-    if (mongoose.connection.readyState === 1) {
-        return mongoose.connection;
+    if (cached.conn) {
+        return cached.conn;
     }
 
-    // If connecting, wait for it
-    if (mongoose.connection.readyState === 2) {
-        console.log('⏳ MongoDB is already connecting...');
-        return;
-    }
-
-    try {
+    if (!cached.promise) {
         const mongoURI = process.env.MONGODB_URI;
         if (!mongoURI) {
             throw new Error('MONGODB_URI is not defined in environment variables');
         }
 
-        console.log('⏳ Attempting to connect to MongoDB Atlas...');
+        console.log('⏳ Attempting to connect to MongoDB Atlas (Serverless)...');
         
-        await mongoose.connect(mongoURI, {
+        cached.promise = mongoose.connect(mongoURI, {
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
+            maxPoolSize: 10 // Important for serverless
+        }).then((mongooseInstance) => {
+            console.log('✅ MongoDB Connected (State: 1)');
+            return mongooseInstance;
+        }).catch(err => {
+            console.error('❌ MongoDB Connection Error:', err.message);
+            cached.promise = null;
+            throw err;
         });
-        
-        console.log('✅ MongoDB Connected (State:', mongoose.connection.readyState, ')');
-    } catch (error) {
-        console.error('❌ MongoDB Connection Error:', error.message);
-        // Important: Reset state so next call can try again
-        await mongoose.disconnect();
+    }
+
+    try {
+        cached.conn = await cached.promise;
+        return cached.conn;
+    } catch (e) {
+        cached.promise = null;
+        throw e;
     }
 };
 
