@@ -282,30 +282,6 @@ exports.listOnEbay = async (req, res) => {
         console.log('Step 1: Creating/Updating Inventory Item...');
         await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
 
-        // 2. Ensure Location exists
-        console.log('Step 1.5: Verifying Merchant Location...');
-        try {
-            const locationKey = 'default';
-            const locationInfo = {
-                location: {
-                    address: {
-                        addressLine1: '123 Main St',
-                        city: 'San Jose',
-                        stateOrProvince: 'CA',
-                        postalCode: '95131',
-                        country: 'US'
-                    }
-                },
-                locationInstructions: 'Main warehouse',
-                name: 'Main Store',
-                merchantLocationStatus: 'ENABLED',
-                locationTypes: ['STORE']
-            };
-            await ebayService.createOrUpdateLocation(token, locationKey, locationInfo);
-        } catch (locationErr) {
-            // Ignore "already exists" errors
-        }
-
         // 3. Get Business Policies
         let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
         const [fList, pList, rList] = await Promise.all([
@@ -336,7 +312,7 @@ exports.listOnEbay = async (req, res) => {
                     value: String(product.selling_price || '10.00')
                 }
             },
-            merchantLocationKey: 'default',
+            merchantLocationKey: product.inventory_location?.merchantLocationKey || 'default',
             listingPolicies: {
                 fulfillmentPolicyId,
                 paymentPolicyId,
