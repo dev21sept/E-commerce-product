@@ -141,7 +141,8 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     let width = img.width;
                     let height = img.height;
                     // Aggressive compression to avoid Vercel 413 Content Too Large Error
-                    const maxSize = 600; 
+                    // Aggressive compression for Vercel's 4.5MB payload limit
+                    const maxSize = 500; 
 
                     if (width > height && width > maxSize) {
                         height *= maxSize / width;
@@ -155,14 +156,12 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     
-                    // Fill background white in case of transparent PNGs
                     ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, width, height);
-                    
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // High compression (0.4) because AI doesn't need high-res
-                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.4); 
+                    // Very low quality (0.3) to keep Base64 payload small for Vercel
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.3); 
                     setLocalPreviews((prev) => [...prev, compressedDataUrl]);
                 };
                 img.src = String(reader.result || '');
@@ -227,9 +226,11 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
             }
         } catch (error) {
             const isPayloadTooLarge = error?.response?.status === 413;
-            if (isPayloadTooLarge && allImages.length > 12) {
+            if (isPayloadTooLarge) {
+                // If 413 happens, try again with only the first 4 images (usually enough for AI)
                 try {
-                    const retryImages = allImages.slice(0, 12);
+                    console.warn("Payload too large for Vercel. Retrying with first 4 images...");
+                    const retryImages = allImages.slice(0, 4);
                     const retryResult = await analyzeProduct({
                         images: retryImages,
                         condition: selectedCondition?.label || 'New',
@@ -248,10 +249,10 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     });
 
                     if (retryResult?.success) {
-                        setMessage({ type: '', text: '' });
+                        setMessage({ type: 'warning', text: 'Large payload detected. AI analyzed the first 4 images only.' });
                         onDataFetched({
                             ...retryResult.data,
-                            images: retryImages,
+                            images: allImages, // Still keep all images for the product record
                             source: 'ai',
                             condition_name: selectedCondition?.label || '',
                             condition_id: selectedCondition?.id || ''
@@ -259,9 +260,9 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                         return;
                     }
                 } catch (retryError) {
-                    // Fallback to user-facing error below
+                    // Fallback to error message
                 }
-                setMessage({ type: 'error', text: 'Too many images in one request. Please try with fewer images (max 15-20).' });
+                setMessage({ type: 'error', text: 'Payload too large for Vercel (Limit 4.5MB). Try uploading fewer images or lower resolution.' });
             } else {
                 setMessage({ type: 'error', text: 'Connection failed.' });
             }
