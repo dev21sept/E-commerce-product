@@ -131,12 +131,6 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
 
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files || []);
-        
-        // Prevent too many images from being uploaded at once to avoid Vercel 4.5MB limit
-        if (localPreviews.length + files.length > 10) {
-            alert('Maximum 10 images allowed for AI Analysis. Please select fewer images.');
-            return;
-        }
 
         files.forEach((file) => {
             const reader = new FileReader();
@@ -200,12 +194,23 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
         setIsAnalyzing(true);
         if (onAnalyzingStart) onAnalyzingStart();
         try {
+            const selectedRulePayload = {
+                _id: selectedRule?._id,
+                rule_name: selectedRule?.rule_name || '',
+                title_sequence: selectedRule?.title_sequence || [],
+                description_prompt: selectedRule?.description_prompt || '',
+                condition_note_mode: selectedRule?.condition_note_mode || 'fixed',
+                condition_note: selectedRule?.condition_note || '',
+                custom_title_fields: selectedRule?.custom_title_fields || [],
+                custom_condition_note: selectedRule?.custom_condition_note || ''
+            };
+
             const result = await analyzeProduct({
                 images: allImages,
                 condition: selectedCondition?.label || 'New',
                 gender,
                 platform,
-                selectedRule
+                selectedRule: selectedRulePayload
             });
 
             if (result.success) {
@@ -221,7 +226,45 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                 setMessage({ type: 'error', text: 'AI analysis failed.' });
             }
         } catch (error) {
-            setMessage({ type: 'error', text: 'Connection failed.' });
+            const isPayloadTooLarge = error?.response?.status === 413;
+            if (isPayloadTooLarge && allImages.length > 6) {
+                try {
+                    const retryImages = allImages.slice(0, 6);
+                    const retryResult = await analyzeProduct({
+                        images: retryImages,
+                        condition: selectedCondition?.label || 'New',
+                        gender,
+                        platform,
+                        selectedRule: {
+                            _id: selectedRule?._id,
+                            rule_name: selectedRule?.rule_name || '',
+                            title_sequence: selectedRule?.title_sequence || [],
+                            description_prompt: selectedRule?.description_prompt || '',
+                            condition_note_mode: selectedRule?.condition_note_mode || 'fixed',
+                            condition_note: selectedRule?.condition_note || '',
+                            custom_title_fields: selectedRule?.custom_title_fields || [],
+                            custom_condition_note: selectedRule?.custom_condition_note || ''
+                        }
+                    });
+
+                    if (retryResult?.success) {
+                        setMessage({ type: '', text: '' });
+                        onDataFetched({
+                            ...retryResult.data,
+                            images: retryImages,
+                            source: 'ai',
+                            condition_name: selectedCondition?.label || '',
+                            condition_id: selectedCondition?.id || ''
+                        });
+                        return;
+                    }
+                } catch (retryError) {
+                    // Fallback to user-facing error below
+                }
+                setMessage({ type: 'error', text: 'Too many images in one request. Please try with fewer images (max 6-8).' });
+            } else {
+                setMessage({ type: 'error', text: 'Connection failed.' });
+            }
         } finally {
             setIsAnalyzing(false);
         }
