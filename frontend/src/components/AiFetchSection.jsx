@@ -181,6 +181,7 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
             return;
         }
 
+        setMessage({ type: '', text: '' });
         setIsAnalyzing(true);
         if (onAnalyzingStart) onAnalyzingStart();
         try {
@@ -193,6 +194,7 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
             });
 
             if (result.success) {
+                setMessage({ type: '', text: '' });
                 onDataFetched({
                     ...result.data,
                     images: allImages,
