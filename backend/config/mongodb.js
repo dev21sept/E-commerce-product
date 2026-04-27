@@ -24,9 +24,9 @@ const connectMongoDB = async () => {
         console.log('⏳ Attempting to connect to MongoDB Atlas (Serverless)...');
         
         cached.promise = mongoose.connect(mongoURI, {
-            serverSelectionTimeoutMS: 5000,
+            serverSelectionTimeoutMS: 10000,
             socketTimeoutMS: 45000,
-            maxPoolSize: 10 // Important for serverless
+            maxPoolSize: 5 // Better for small serverless functions
         }).then((mongooseInstance) => {
             console.log('✅ MongoDB Connected (State: 1)');
             return mongooseInstance;
