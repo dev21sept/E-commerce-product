@@ -5,18 +5,55 @@ const { wrapInTemplate } = require('../services/descriptionService');
 const Product = require('../models/Product');
 const { normalizeProductImages } = require('../utils/imageProcessor');
 
+const DEFAULT_TITLE_SEQUENCE = ['Brand', 'Product Type', 'Model / Series', 'Material', 'Key Features', 'Size'];
+
+const normalizeStringList = (value) => {
+    if (!Array.isArray(value)) return [];
+    return value
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+};
+
+const dedupeOrdered = (items) => [...new Set(items)];
+
+const shouldApplyConditionNote = (conditionName = '') => {
+    const normalized = String(conditionName || '').trim().toLowerCase();
+    if (!normalized) return true;
+    return !normalized.includes('new');
+};
+
 exports.analyzeProductImage = async (req, res) => {
     console.log(`\n--- [AI STUDIO] New Analysis Request Received ---`);
     try {
         const {
             images,
             platform = 'ebay',
-            structure = ['Brand', 'Product Type', 'Model / Series', 'Material', 'Key Features', 'Size'],
+            structure = DEFAULT_TITLE_SEQUENCE,
             descriptionStyle = 'AI Generated',
             customTemplateText = '',
             gender = 'Unisex',
-            condition = 'New'
+            condition = 'New',
+            selectedRule = null
         } = req.body;
+
+        const ruleTitleSequence = normalizeStringList(selectedRule?.title_sequence);
+        const ruleCustomFields = normalizeStringList(selectedRule?.custom_title_fields);
+        const effectiveStructure = dedupeOrdered(
+            (ruleTitleSequence.length > 0
+                ? ruleTitleSequence
+                : normalizeStringList(structure).length > 0
+                    ? normalizeStringList(structure)
+                    : DEFAULT_TITLE_SEQUENCE
+            ).concat(ruleCustomFields)
+        );
+        const effectiveTemplateText = String(
+            customTemplateText || selectedRule?.description_prompt || ''
+        ).trim();
+        const fixedRuleConditionNote = String(
+            selectedRule?.custom_condition_note || selectedRule?.condition_note || ''
+        ).trim();
+        const appliedConditionNote = shouldApplyConditionNote(condition) ? fixedRuleConditionNote : '';
+
         console.log(`Platform: ${platform}, Images: ${images?.length || 0}`);
 
         if (!images || images.length === 0) {
@@ -29,9 +66,9 @@ exports.analyzeProductImage = async (req, res) => {
         }));
 
         let descriptionInstruction = '';
-        if (customTemplateText && customTemplateText.trim() !== '') {
+        if (effectiveTemplateText && effectiveTemplateText.trim() !== '') {
             descriptionInstruction = `Description - STRICTLY FOLLOW THE USER'S CUSTOM INSTRUCTION/TEMPLATE:
-            "${customTemplateText}"
+            "${effectiveTemplateText}"
             
             (STRICT: If the instruction contains placeholders like {Brand}, {Size}, {Material}, {Type}, etc., replace them with data from the images. 
              SMART ADAPTATION: If the user provides a fixed template (e.g., mentioning "Jeans") but the image clearly shows something else (e.g., a "T-Shirt"), adapt the template intelligently to match the physical product while maintaining the user's requested tone and structure. 
@@ -217,7 +254,7 @@ exports.analyzeProductImage = async (req, res) => {
    - YOU ARE A MARKETPLACE RESEARCHER. Imagine you are performing a reverse image search on Google Lens and eBay.
    - Identify the EXACT retail name of this product. If it's a specific limited edition or a named series (e.g., "NFL 49ers Patrick Willis St. Patricks Day Graphic Tee"), find that exact phrasing.
    - Look for keywords that top sellers use to rank higher (e.g. "Vintage", "Rare", "Authentic", "Official Licensed").
-   - Extract these precise attributes for the Title Sequence: [${structure.join(', ')}]
+   - Extract these precise attributes for the Title Sequence: [${effectiveStructure.join(', ')}]
    
    CRITICAL DEFINITIONS:
    - "Brand": (e.g., Nike, Reebok, Adidas)
@@ -236,6 +273,7 @@ exports.analyzeProductImage = async (req, res) => {
    - Output as a JSON object inside 'title_parts'.
    
 2. ${descriptionInstruction}
+${appliedConditionNote ? `   - Condition Note Rule: If item is not new, apply this note exactly: "${appliedConditionNote}"` : ''}
 3. Item Specifics - FILL EVERY FIELD: ${aspectNamesList.join(', ')}. 
    - For Clothing/Shoes: Rely strictly on visual cues, tags, material textures, and physical design to fill fields.
    - For Electronics/Other: Use your vast knowledge base to infer missing technical specifics based on visual cues.
@@ -274,13 +312,13 @@ CRITICAL: DO NOT include 'condition_name' or any related state. This will be fet
         const standardizedParts = {};
 
         // --- STANDARDIZE PARTS FOR FRONTEND ARCHITECT ---
-        structure.forEach(key => {
+        effectiveStructure.forEach(key => {
             const foundKey = Object.keys(aiResponseParts).find(k => k.toLowerCase() === key.toLowerCase());
             standardizedParts[key] = foundKey ? aiResponseParts[foundKey] : '';
         });
 
         // --- MANUALLY BUILD THE TITLE BASED ON STRUCTURE ---
-        const titleString = structure
+        const titleString = effectiveStructure
             .map(key => {
                 let val = standardizedParts[key] || '';
                 val = String(val).replace(/,/g, ''); // Remove commas
@@ -297,7 +335,11 @@ CRITICAL: DO NOT include 'condition_name' or any related state. This will be fet
             .trim();
 
         const finalTitle = titleString || finalData.title || standardizedParts['Brand'] || 'New Listing';
-        const templatedDescription = wrapInTemplate(finalData.description, titleString);
+        const descriptionHeaderTitle = titleString || standardizedParts['Brand'] || 'Product Details';
+        const templatedDescription = wrapInTemplate(finalData.description, descriptionHeaderTitle);
+        if (appliedConditionNote) {
+            finalData.condition_notes = appliedConditionNote;
+        }
 
         return res.json({
             success: true,
@@ -315,7 +357,15 @@ CRITICAL: DO NOT include 'condition_name' or any related state. This will be fet
                     id: categoryId
                 },
                 categoryId: categoryId,
-                officialAspects: officialAspects
+                officialAspects: officialAspects,
+                structure: effectiveStructure,
+                applied_rule: selectedRule ? {
+                    id: selectedRule._id || selectedRule.id || null,
+                    rule_name: selectedRule.rule_name || '',
+                    condition_note_mode: selectedRule.condition_note_mode || 'selected',
+                    resolved_condition_note: appliedConditionNote || '',
+                    title_sequence: effectiveStructure
+                } : null
             }
         });
 

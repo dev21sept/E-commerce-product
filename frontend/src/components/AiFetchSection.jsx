@@ -1,104 +1,137 @@
-import React, { useState, useRef } from 'react';
-import { Sparkles, Image as ImageIcon, Upload, Loader2, X, Plus, ExternalLink, Trash2, GripVertical, FileText, Zap, Edit3, Search, ChevronDown, Check, Layers } from 'lucide-react';
-import { Reorder, AnimatePresence, motion } from 'framer-motion';
-import { analyzeProduct } from '../services/api';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Sparkles, Image as ImageIcon, Upload, Loader2, Plus, ExternalLink, Trash2, ChevronDown, Search, Check } from 'lucide-react';
+import { analyzeProduct, getFetchRules } from '../services/api';
 import { EBAY_CONDITIONS } from '../constants/ebayConditions';
 
-// --- GENERIC SEARCHABLE DROPDOWN COMPONENT ---
-const SearchableDropdown = ({ value, onSelect, options, placeholder = "Search...", toggleEvent }) => {
-    const [isOpen, setIsOpen] = useState(false);
+const SearchableDropdown = ({ value, onSelect, options = [], placeholder = 'Select...', disabled = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef(null);
 
-    React.useEffect(() => {
-        const handleToggle = () => setIsOpen(v => !v);
-        window.addEventListener(toggleEvent, handleToggle);
+    useEffect(() => {
         const handleClickOutside = (e) => {
             if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            window.removeEventListener(toggleEvent, handleToggle);
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [toggleEvent]);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
-    const filteredOptions = options.filter(opt => 
-        opt.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (opt.description && opt.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filteredOptions = options.filter((opt) => {
+        const label = String(opt?.label || '').toLowerCase();
+        const desc = String(opt?.description || '').toLowerCase();
+        const q = searchTerm.toLowerCase();
+        return label.includes(q) || desc.includes(q);
+    });
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                    ref={wrapperRef} 
-                    className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-xl z-[3000] overflow-hidden"
-                >
-                    <div className="p-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                        <Search className="w-3.5 h-3.5 text-gray-400" />
-                        <input 
-                            autoFocus type="text" placeholder={placeholder} value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-transparent text-xs font-bold outline-none"
-                        />
+        <div className="relative w-full" ref={wrapperRef}>
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => setIsOpen((prev) => !prev)}
+                className="w-full h-10 px-3 bg-white border border-gray-200 rounded-xl text-left flex items-center justify-between text-xs font-bold text-gray-800 disabled:opacity-60"
+            >
+                <span className="truncate">{value || placeholder}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && !disabled && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[5000] overflow-hidden">
+                    <div className="p-2.5 bg-gray-50 border-b border-gray-100">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                            <input
+                                autoFocus
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search..."
+                                className="w-full h-9 pl-9 pr-3 rounded-lg border border-gray-200 text-xs font-semibold outline-none focus:border-indigo-500"
+                            />
+                        </div>
                     </div>
-                    <div className="max-h-[220px] overflow-y-auto py-1 scrollbar-thin">
-                        {filteredOptions.length > 0 ? (
-                            filteredOptions.map((opt, i) => (
-                                <div 
-                                    key={i} 
-                                    onClick={() => { onSelect(opt.label); setIsOpen(false); setSearchTerm(''); }}
-                                    className={`px-4 py-2 hover:bg-[#4F46E5] group cursor-pointer flex flex-col transition-all ${value === opt.label ? 'bg-indigo-50 border-l-4 border-indigo-600' : ''}`}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-xs font-bold group-hover:text-white ${value === opt.label ? 'text-[#4F46E5]' : 'text-gray-900'}`}>{opt.label}</span>
-                                        {value === opt.label && <Check className="w-3 h-3 text-[#4F46E5] group-hover:text-white" />}
-                                    </div>
+                    <div className="max-h-56 overflow-y-auto">
+                        {filteredOptions.length > 0 ? filteredOptions.map((opt) => (
+                            <button
+                                key={opt.id || opt.label}
+                                type="button"
+                                onClick={() => {
+                                    onSelect(opt);
+                                    setIsOpen(false);
+                                    setSearchTerm('');
+                                }}
+                                className="w-full text-left px-3 py-2.5 border-b border-gray-50 last:border-b-0 hover:bg-indigo-600 hover:text-white transition-colors"
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold">{opt.label}</span>
+                                    {value === opt.label && <Check className="w-3.5 h-3.5" />}
                                 </div>
-                            ))
-                        ) : (
-                            <div className="p-4 text-center text-xs text-gray-400">No results found</div>
+                                {opt.description && (
+                                    <p className="text-[10px] opacity-70 mt-0.5 line-clamp-1">{opt.description}</p>
+                                )}
+                            </button>
+                        )) : (
+                            <div className="p-3 text-[11px] text-gray-400 text-center">No results</div>
                         )}
                     </div>
-                </motion.div>
+                </div>
             )}
-        </AnimatePresence>
+        </div>
     );
 };
 
 const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
-    // Media states
     const [imageUrls, setImageUrls] = useState(['']);
     const [localPreviews, setLocalPreviews] = useState([]);
-    
-    // Config states
-    const [platform, setPlatform] = useState('ebay');
-    const [condition, setCondition] = useState('New');
-    const [gender, setGender] = useState('Unisex');
-    const [titleOptions, setTitleOptions] = useState([
-        'Brand', 'Product Type', 'Model / Series', 'Size', 'Color', 'Material', 'Style / Use Case', 'Key Features', 'Gender / Department'
-    ]);
-    const [titleStructure, setTitleStructure] = useState(['Brand', 'Product Type', 'Model / Series', 'Size', 'Color', 'Material', 'Style / Use Case', 'Key Features', 'Gender / Department']);
+    const [platform] = useState('ebay');
+    const [selectedCondition, setSelectedCondition] = useState(EBAY_CONDITIONS[0]);
+    const [gender] = useState('Unisex');
+    const [rules, setRules] = useState([]);
+    const [selectedRuleId, setSelectedRuleId] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [loadingRules, setLoadingRules] = useState(true);
     const [message, setMessage] = useState({ type: '', text: '' });
     const fileInputRef = useRef(null);
 
-    // Handlers
-    const handleAddUrlField = () => setImageUrls([...imageUrls, '']);
+    useEffect(() => {
+        const loadRules = async () => {
+            try {
+                const response = await getFetchRules();
+                const loadedRules = response?.data || [];
+                setRules(loadedRules);
+                if (loadedRules.length > 0) {
+                    setSelectedRuleId(loadedRules[0]._id);
+                }
+            } catch (error) {
+                setMessage({ type: 'error', text: 'Failed to load rules. Please check Settings page.' });
+            } finally {
+                setLoadingRules(false);
+            }
+        };
+        loadRules();
+    }, []);
+
+    const selectedRule = useMemo(
+        () => rules.find((rule) => rule._id === selectedRuleId) || null,
+        [rules, selectedRuleId]
+    );
+    const ruleOptions = useMemo(
+        () => rules.map((rule) => ({ id: rule._id, label: rule.rule_name, description: 'Saved AI fetch rule' })),
+        [rules]
+    );
+
+    const handleAddUrlField = () => setImageUrls((prev) => [...prev, '']);
+
     const handleUrlChange = (index, value) => {
-        const newUrls = [...imageUrls];
-        newUrls[index] = value;
-        setImageUrls(newUrls);
+        setImageUrls((prev) => {
+            const copy = [...prev];
+            copy[index] = value;
+            return copy;
+        });
     };
-    const handleRemoveUrl = (index) => {
-        const newUrls = imageUrls.filter((_, i) => i !== index);
-        setImageUrls(newUrls.length ? newUrls : ['']);
-    };
+
     const handleFileChange = (e) => {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
+        const files = Array.from(e.target.files || []);
+        files.forEach((file) => {
             const reader = new FileReader();
             reader.onloadend = () => {
                 const img = new Image();
@@ -106,54 +139,67 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const MAX_SIZE = 1200; // Best balance for AI quality and speed
+                    const maxSize = 1200;
 
-                    if (width > height) {
-                        if (width > MAX_SIZE) {
-                            height *= MAX_SIZE / width;
-                            width = MAX_SIZE;
-                        }
-                    } else {
-                        if (height > MAX_SIZE) {
-                            width *= MAX_SIZE / height;
-                            height = MAX_SIZE;
-                        }
+                    if (width > height && width > maxSize) {
+                        height *= maxSize / width;
+                        width = maxSize;
+                    } else if (height > width && height > maxSize) {
+                        width *= maxSize / height;
+                        height = maxSize;
                     }
 
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // Compress to 70% JPEG quality for ultimate speed
                     const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    setLocalPreviews(prev => [...prev, compressedDataUrl]);
+                    setLocalPreviews((prev) => [...prev, compressedDataUrl]);
                 };
-                img.src = reader.result;
+                img.src = String(reader.result || '');
             };
             reader.readAsDataURL(file);
         });
     };
-    const handleRemoveLocal = (index) => setLocalPreviews(prev => prev.filter((_, i) => i !== index));
-    const handleClearAll = () => { setImageUrls(['']); setLocalPreviews([]); setMessage({ type: '', text: '' }); };
+
+    const handleRemoveLocal = (index) => setLocalPreviews((prev) => prev.filter((_, i) => i !== index));
+
+    const handleClearAll = () => {
+        setImageUrls(['']);
+        setLocalPreviews([]);
+        setMessage({ type: '', text: '' });
+    };
 
     const handleAnalyze = async () => {
-        const allImages = [...imageUrls.filter(u => u.trim() !== ''), ...localPreviews];
-        if (allImages.length === 0) { setMessage({ type: 'error', text: 'Select images first.' }); return; }
+        const allImages = [...imageUrls.filter((u) => u.trim() !== ''), ...localPreviews];
+        if (allImages.length === 0) {
+            setMessage({ type: 'error', text: 'Select images first.' });
+            return;
+        }
+        if (!selectedRule) {
+            setMessage({ type: 'error', text: 'Select a rule before starting analysis.' });
+            return;
+        }
 
         setIsAnalyzing(true);
         if (onAnalyzingStart) onAnalyzingStart();
         try {
             const result = await analyzeProduct({
                 images: allImages,
-                condition,
+                condition: selectedCondition?.label || 'New',
                 gender,
-                structure: titleStructure,
-                platform
+                platform,
+                selectedRule
             });
 
             if (result.success) {
-                onDataFetched({ ...result.data, images: allImages, source: 'ai' });
+                onDataFetched({
+                    ...result.data,
+                    images: allImages,
+                    source: 'ai',
+                    condition_name: selectedCondition?.label || '',
+                    condition_id: selectedCondition?.id || ''
+                });
             } else {
                 setMessage({ type: 'error', text: 'AI analysis failed.' });
             }
@@ -164,22 +210,59 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
         }
     };
 
-    const toggleTitleOption = (opt) => {
-        if (titleStructure.includes(opt)) setTitleStructure(titleStructure.filter(i => i !== opt));
-        else setTitleStructure([...titleStructure, opt]);
-    };
-
     return (
-        <div className="card p-6 md:p-8 space-y-6 animate-in slide-in-from-top-4 duration-500 max-w-7xl mx-auto bg-white border border-gray-100 shadow-sm rounded-3xl">
-            {/* COMPACT IMAGE SOURCE SECTION */}
+        <div className="card p-6 md:p-8 space-y-6 max-w-7xl mx-auto bg-white border border-gray-100 shadow-sm rounded-3xl">
+            <div className="border border-indigo-100 bg-indigo-50/40 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-[11px] font-black text-indigo-900 uppercase tracking-[0.2em]">AI Rule Setup</h3>
+                    <span className="text-[10px] text-indigo-600 font-bold">{loadingRules ? 'Loading...' : `${rules.length} rules`}</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Select Rule</label>
+                        <SearchableDropdown
+                            value={selectedRule?.rule_name || ''}
+                            onSelect={(opt) => setSelectedRuleId(opt.id)}
+                            options={ruleOptions}
+                            placeholder={rules.length ? 'Choose rule' : 'No rules found in Settings'}
+                            disabled={loadingRules || rules.length === 0}
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Condition</label>
+                        <SearchableDropdown
+                            value={selectedCondition?.label || ''}
+                            onSelect={(opt) => setSelectedCondition(opt)}
+                            options={EBAY_CONDITIONS}
+                            placeholder="Select condition"
+                        />
+                    </div>
+                </div>
+
+                {selectedRule && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                        <span className="px-2.5 py-1 bg-white border border-indigo-100 rounded-lg text-[10px] font-bold text-indigo-700">
+                            Sequence: {(selectedRule.title_sequence || []).slice(0, 3).join(' | ')}
+                            {(selectedRule.title_sequence || []).length > 3 ? ' ...' : ''}
+                        </span>
+                        <span className="px-2.5 py-1 bg-white border border-indigo-100 rounded-lg text-[10px] font-bold text-indigo-700">
+                            Note: {(selectedRule.custom_condition_note || selectedRule.condition_note || '-').slice(0, 40)}
+                            {((selectedRule.custom_condition_note || selectedRule.condition_note || '').length > 40) ? '...' : ''}
+                        </span>
+                    </div>
+                )}
+            </div>
+
             <div className="space-y-4">
-                {/* 1. IMAGE URL BAR (TOP) */}
                 <div className="flex gap-2">
                     {imageUrls.map((url, index) => (
                         <div key={index} className="flex-1 relative group">
                             <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
-                                type="text" value={url} onChange={(e) => handleUrlChange(index, e.target.value)}
+                                type="text"
+                                value={url}
+                                onChange={(e) => handleUrlChange(index, e.target.value)}
                                 placeholder="Paste Image Link Here..."
                                 className="w-full h-10 pl-9 pr-4 bg-gray-50 border border-gray-100 focus:border-indigo-600 rounded-xl text-xs font-bold outline-none transition-all"
                             />
@@ -189,17 +272,15 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                         <Plus className="w-5 h-5" />
                     </button>
                     {localPreviews.length > 0 && (
-                         <button onClick={handleClearAll} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
+                        <button onClick={handleClearAll} className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
                             <Trash2 className="w-5 h-5" />
                         </button>
                     )}
                 </div>
 
-                {/* 2. SIDE-BY-SIDE UPLOAD & ANALYZE (BOTTOM ROW) */}
                 <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-                    {/* LEFT: UPLOAD BOX */}
-                    <div 
-                        onClick={() => fileInputRef.current.click()}
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
                         className="lg:w-1/3 flex-shrink-0 border-2 border-dashed border-gray-100 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/20 transition-all bg-gray-50/30 group"
                     >
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" multiple />
@@ -208,9 +289,8 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                         <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">Or Drag Photos</p>
                     </div>
 
-                    {/* RIGHT: PREVIEWS & BUTTON */}
                     <div className="flex-1 min-w-0">
-                        <div className="flex gap-4 items-center overflow-x-auto min-h-[140px] bg-gray-50/50 p-4 rounded-2xl border border-gray-100/50 scrollbar-hide relative group/gallery">
+                        <div className="flex gap-4 items-center overflow-x-auto min-h-[140px] bg-gray-50/50 p-4 rounded-2xl border border-gray-100/50">
                             {localPreviews.length === 0 ? (
                                 <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40">
                                     <ImageIcon className="w-6 h-6 text-gray-400 mb-1" />
@@ -219,12 +299,17 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                             ) : (
                                 <div className="flex gap-3">
                                     {localPreviews.map((src, idx) => (
-                                        <div key={idx} className="relative group w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border-2 border-white shadow-md">
-                                            <img src={src} className="w-full h-full object-cover" />
-                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveLocal(idx); }} className="absolute inset-0 bg-rose-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <div key={`${src.slice(0, 40)}-${idx}`} className="relative group w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border-2 border-white shadow-md">
+                                            <img src={src} alt={`upload-${idx + 1}`} className="w-full h-full object-cover" />
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRemoveLocal(idx);
+                                                }}
+                                                className="absolute inset-0 bg-rose-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                            >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
-                                            <div className="absolute top-1 left-1 bg-black/40 text-[8px] text-white px-1.5 rounded-md font-black">{idx + 1}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -237,8 +322,9 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{localPreviews.length} images added</span>
                                     <button onClick={handleClearAll} className="text-[9px] font-black text-rose-500 uppercase hover:underline">Clear All</button>
                                 </div>
-                                <button 
-                                    onClick={handleAnalyze} disabled={isAnalyzing}
+                                <button
+                                    onClick={handleAnalyze}
+                                    disabled={isAnalyzing}
                                     className={`px-12 h-14 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transition-all shadow-xl active:scale-95 ${
                                         isAnalyzing ? 'bg-gray-100 text-gray-400' : 'bg-gray-900 text-white hover:bg-black'
                                     }`}

@@ -130,3 +130,28 @@ export const searchCategories = async (query) => {
     const response = await api.get(`/ai/search-categories?query=${query}`);
     return response.data;
 };
+
+export const getFetchRules = async () => {
+    const response = await api.get('/fetch-rules');
+    return response.data;
+};
+
+export const createFetchRule = async (data) => {
+    const response = await api.post('/fetch-rules', data);
+    return response.data;
+};
+
+export const updateFetchRule = async (id, data) => {
+    const response = await api.put(`/fetch-rules/${id}`, data);
+    return response.data;
+};
+
+export const deleteFetchRule = async (id) => {
+    const response = await api.delete(`/fetch-rules/${id}`);
+    return response.data;
+};
+
+export const getSavedConditionNotes = async () => {
+    const response = await api.get('/fetch-rules/condition-notes');
+    return response.data;
+};

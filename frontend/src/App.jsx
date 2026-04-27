@@ -8,6 +8,7 @@ import EditProduct from './pages/EditProduct';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import AiFetching from './pages/AiFetching';
 import AdminLogin from './pages/AdminLogin';
+import Settings from './pages/Settings';
 
 import { ToastProvider } from './components/Toast';
 
@@ -51,6 +52,7 @@ function App() {
                         <Route path="/ebay-import" element={<EbayImport />} />
                         <Route path="/products/edit/:id" element={<EditProduct />} />
                         <Route path="/ai-fetching" element={<AiFetching />} />
+                        <Route path="/settings" element={<Settings />} />
                         <Route path="/privacy" element={<PrivacyPolicy />} />
                         <Route path="/list/extension" element={<ExtensionPage />} />
                         <Route path="/list/single" element={<SingleListingPage />} />

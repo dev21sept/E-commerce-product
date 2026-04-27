@@ -5,8 +5,6 @@ import {
     LayoutDashboard, 
     ShoppingBag, 
     PlusCircle, 
-    Search, 
-    Bell, 
     User, 
     Menu, 
     X, 
@@ -82,6 +80,13 @@ const Layout = ({ children, onLogout, user }) => {
                 { name: 'AI Fetch', path: '/ai-fetching', icon: Sparkles },
             ]
         },
+        {
+            id: 'settings',
+            title: 'SETTINGS',
+            items: [
+                { name: 'Rule Management', path: '/settings', icon: Settings }
+            ]
+        },
     ];
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -103,7 +108,7 @@ const Layout = ({ children, onLogout, user }) => {
                 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:static lg:inset-auto'}
             `}>
                 {/* Logo Section */}
-                <div className="h-20 flex items-center px-6 border-b border-gray-50 flex-shrink-0">
+                <div className="h-20 flex items-center justify-between px-4 border-b border-gray-50 flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-[#4F46E5] rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 flex-shrink-0">
                             <ShoppingBag className="text-white w-6 h-6" />
@@ -114,6 +119,13 @@ const Layout = ({ children, onLogout, user }) => {
                             </span>
                         )}
                     </div>
+                    <button 
+                        onClick={toggleSidebar}
+                        className="hidden lg:flex w-8 h-8 bg-white border border-gray-100 rounded-full shadow-sm items-center justify-center text-gray-400 hover:text-[#4F46E5] transition-all hover:scale-110"
+                        title="Toggle Sidebar"
+                    >
+                        <Menu className={`w-4 h-4 transition-transform ${isSidebarOpen ? 'rotate-180' : ''}`} />
+                    </button>
                 </div>
 
                 {/* eBay Connection Card */}
@@ -252,14 +264,6 @@ const Layout = ({ children, onLogout, user }) => {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden w-full relative">
-                {/* Toggle Sidebar Button (Desktop) */}
-                <button 
-                    onClick={toggleSidebar}
-                    className="hidden lg:flex absolute left-0 top-20 -ml-3 w-6 h-6 bg-white border border-gray-100 rounded-full shadow-sm items-center justify-center text-gray-400 hover:text-[#4F46E5] z-50 transition-all hover:scale-110"
-                >
-                    <Menu className={`w-3.5 h-3.5 transition-transform ${isSidebarOpen ? 'rotate-180' : ''}`} />
-                </button>
-
                 {/* Top Navbar */}
                 <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-4 lg:px-10 z-30 shrink-0">
                     <div className="flex items-center gap-4">
@@ -269,23 +273,9 @@ const Layout = ({ children, onLogout, user }) => {
                         >
                             <Menu className="w-6 h-6" />
                         </button>
-                        
-                        <div className="relative w-48 md:w-64 lg:w-96 hidden sm:block">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                className="w-full bg-gray-50/50 border border-transparent rounded-xl pl-11 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5]/20 focus:bg-white transition-all outline-none"
-                            />
-                        </div>
                     </div>
 
                     <div className="flex items-center gap-2 lg:gap-5">
-                        <button className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-all relative">
-                            <Bell className="w-5.5 h-5.5" />
-                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-                        </button>
-                        <div className="h-8 w-[1px] bg-gray-100 mx-1"></div>
                         <div className="flex items-center gap-3 pl-1">
                             <div className="flex flex-col items-end hidden md:block">
                                 <p className="text-sm font-bold text-gray-900 leading-tight">Admin</p>

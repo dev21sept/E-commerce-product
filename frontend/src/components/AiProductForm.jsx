@@ -3,7 +3,7 @@ import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, C
 import { EBAY_CONDITIONS } from '../constants/ebayConditions';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { searchCategories, analyzeProduct, getCategoryAspects, getEbayPolicies, getEbayLocations } from '../services/api';
+import { searchCategories, getCategoryAspects, getEbayPolicies, getEbayLocations } from '../services/api';
 import { useToast } from './Toast';
 import { Reorder } from 'framer-motion';
 
@@ -363,7 +363,8 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
         title_parts: {},
         structure: initialData?.structure || ['Brand', 'Product Type', 'Model / Series', 'Material', 'Key Features', 'Size'],
         title_sequence: ['Brand', 'Product Type', 'Model / Series', 'Material', 'Key Features', 'Size', 'Color', 'Style / Use Case', 'Gender / Department'],
-        lastAutoTitle: ''
+        lastAutoTitle: '',
+        applied_rule: null
     });
 
     const [categoryConditions, setCategoryConditions] = useState(EBAY_CONDITIONS);
@@ -389,8 +390,8 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
     const [locations, setLocations] = useState([]);
     const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
     const [aspectsLoading, setAspectsLoading] = useState(false);
-    const [isMagicLoading, setIsMagicLoading] = useState(false);
     const [authStatus, setAuthStatus] = useState(null);
+    const isRuleLocked = Boolean(formData.applied_rule?.id);
 
     useEffect(() => {
         const fetchEbaySettings = async () => {
@@ -473,7 +474,16 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
             };
 
             setFormData(prev => {
-                const isSameProduct = prev.id === initialData.id || prev._id === initialData._id;
+                const incomingTitleParts = typeof initialData.title_parts === 'object' && initialData.title_parts !== null
+                    ? initialData.title_parts
+                    : {};
+                const mergedTitleParts = { ...parts, ...incomingTitleParts };
+                const incomingStructure = Array.isArray(initialData.structure) && initialData.structure.length > 0
+                    ? initialData.structure
+                    : prev.structure;
+                const incomingTitleSequence = Array.isArray(initialData.title_sequence) && initialData.title_sequence.length > 0
+                    ? initialData.title_sequence
+                    : incomingStructure;
 
                 // Critical: Stable SKU logic
                 let finalSku = initialData.sku || prev.sku;
@@ -485,14 +495,23 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                 return {
                     ...prev,
                     ...initialData,
-                    title_parts: parts,
+                    title_parts: mergedTitleParts,
+                    structure: incomingStructure,
+                    title_sequence: [...new Set([...(incomingTitleSequence || []), ...Object.keys(mergedTitleParts)])],
                     selling_price: initialData.selling_price || '0.00',
                     sku: finalSku,
                     item_specifics: typeof initialData.item_specifics === 'string' ? JSON.parse(initialData.item_specifics) : initialData.item_specifics || {},
+                    applied_rule: initialData.applied_rule || null
                 };
             });
         }
     }, [initialData]);
+
+    useEffect(() => {
+        if (isRuleLocked && isArchitectOpen) {
+            setIsArchitectOpen(false);
+        }
+    }, [isRuleLocked, isArchitectOpen]);
 
     // Live Title Construction (CONTROLLED BY STRUCTURE)
     useEffect(() => {
@@ -536,64 +555,6 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
     };
 
     const handleChange = (e) => { const { name, value } = e.target; setFormData(p => ({ ...p, [name]: value })); };
-    const handleMagicAnalyze = async () => {
-        if (!formData.images || formData.images.length === 0) return;
-        setIsMagicLoading(true);
-        try {
-            const result = await analyzeProduct({
-                images: formData.images,
-                platform: formData.target_platform || 'ebay',
-                structure: ['Brand', 'Product Type', 'Model / Series', 'Size', 'Color', 'Material', 'Style / Use Case', 'Key Features', 'Gender / Department']
-            });
-            if (result.success) {
-                // Map AI result to our preferred architect keys with aliases
-                const ai = result.data.title_parts || {};
-                const resData = result.data || {};
-                const getAiVal = (key, aliases = []) => {
-                    const found = [key, ...aliases].find(alt => 
-                        ai[alt] || ai[alt.toLowerCase()] || ai[alt.toUpperCase()] || 
-                        resData[alt.toLowerCase()] || resData[alt]
-                    );
-                    return found ? (ai[found] || ai[found.toLowerCase()] || ai[found.toUpperCase()] || resData[found.toLowerCase()] || resData[found]) : '';
-                };
-
-                const mappedParts = {
-                    'Brand': getAiVal('Brand', ['brand']),
-                    'Product Type': getAiVal('Product Type', ['product_type', 'Type', 'category_name']),
-                    'Model / Series': getAiVal('Model', ['model', 'Model / Series']),
-                    'Size': getAiVal('Size', ['size']),
-                    'Color': getAiVal('Color', ['color', 'Main Color']),
-                    'Material': getAiVal('Material', ['material', 'Fabric Type']),
-                    'Style / Use Case': getAiVal('Style', ['style', 'Occasion']),
-                    'Gender / Department': getAiVal('Department', ['gender', 'Gender', 'department'])
-                };
-
-                // AUTO-ARCHITECT: Enable all parts that have values
-                const foundParts = Object.keys(mappedParts).filter(k => mappedParts[k] && mappedParts[k].trim() !== '' && mappedParts[k] !== 'null');
-                const currentStructure = formData.structure || [];
-                const newStructure = [...new Set([...currentStructure, ...foundParts])];
-                
-                // Maintain a clean title_sequence order for the UI
-                const currentSequence = formData.title_sequence || [];
-                const newSequence = [...new Set([...currentSequence, ...Object.keys(mappedParts)])];
-
-                setFormData(prev => ({
-                    ...prev,
-                    ...result.data,
-                    sku: prev.sku || result.data.sku,
-                    title: result.data.title || prev.title,
-                    title_parts: { ...prev.title_parts, ...mappedParts },
-                    structure: newStructure,
-                    title_sequence: newSequence
-                }));
-            }
-        } catch (error) {
-            console.error('Magic re-analysis failed:', error);
-        } finally {
-            setIsMagicLoading(false);
-        }
-    };
-
     const handleCategoryChange = async (cat) => {
         setFormData(prev => ({ ...prev, category: cat.fullName || cat.name, categoryId: cat.id }));
         setAspectsLoading(true);
@@ -667,17 +628,23 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                 <div className="space-y-2 relative">
                                     <div className="flex items-center justify-between">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Product Title</label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsArchitectOpen(!isArchitectOpen)}
-                                            className={`text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg border transition-all flex items-center gap-2 ${isArchitectOpen ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}
-                                        >
-                                            <Layers className="w-3 h-3" /> Architect Sequence
-                                        </button>
+                                        {isRuleLocked ? (
+                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg border bg-emerald-50 text-emerald-700 border-emerald-100">
+                                                Rule Sequence Locked
+                                            </span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsArchitectOpen(!isArchitectOpen)}
+                                                className={`text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg border transition-all flex items-center gap-2 ${isArchitectOpen ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'}`}
+                                            >
+                                                <Layers className="w-3 h-3" /> Architect Sequence
+                                            </button>
+                                        )}
                                     </div>
 
                                     <AnimatePresence>
-                                        {isArchitectOpen && (
+                                        {!isRuleLocked && isArchitectOpen && (
                                             <motion.div
                                                 ref={architectRef}
                                                 initial={{ opacity: 0, scale: 0.95 }}
@@ -889,10 +856,16 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                                     <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest pl-1 flex items-center gap-2">
                                                         <AlertCircle className="w-3 h-3" /> Condition Details (Visible to buyers)
                                                     </label>
-                                                    <ConditionNotesSection
-                                                        value={formData.condition_notes}
-                                                        onChange={(val) => setFormData({ ...formData, condition_notes: val })}
-                                                    />
+                                                    {formData.applied_rule?.condition_note_mode === 'fixed' ? (
+                                                        <div className="w-full p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-xs font-bold text-emerald-700">
+                                                            {formData.condition_notes || formData.applied_rule?.resolved_condition_note || 'Fixed condition note is applied by rule.'}
+                                                        </div>
+                                                    ) : (
+                                                        <ConditionNotesSection
+                                                            value={formData.condition_notes}
+                                                            onChange={(val) => setFormData({ ...formData, condition_notes: val })}
+                                                        />
+                                                    )}
                                                 </motion.div>
                                             );
                                         }
@@ -1023,17 +996,6 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                 </div>
                                 <h3 className="text-xl font-black text-gray-900 tracking-tight">Gallery Sequence</h3>
                             </div>
-                            {formData.images.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={handleMagicAnalyze}
-                                    disabled={isMagicLoading}
-                                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-200 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    {isMagicLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                    {isMagicLoading ? 'AI IS SCANNING...' : 'Magic Auto-Fill'}
-                                </button>
-                            )}
                         </div>
 
                         {/* IMAGE REORDER GALLERY */}
