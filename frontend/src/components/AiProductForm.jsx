@@ -1236,14 +1236,24 @@ const SearchableCategory = ({ value, onChange }) => {
         <div className="relative" ref={wrapperRef}>
             <div
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full min-h-[48px] h-auto px-4 py-2.5 bg-gray-50 border border-transparent focus:border-indigo-600 rounded-xl flex items-center justify-between cursor-pointer group transition-all"
+                className={`w-full min-h-[48px] h-auto px-4 py-2.5 bg-gray-50 border-2 rounded-xl flex items-center justify-between cursor-pointer group transition-all ${
+                    !value?.id && !value?.categoryId ? 'border-rose-300 bg-rose-50/30' : 'border-transparent focus:border-indigo-600'
+                }`}
             >
                 <div className="flex-1 pr-4">
-                    <span className="text-[10px] font-black text-gray-900 leading-normal break-words">
-                        {typeof value === 'object' ? (value.fullName || value.name) : (value || 'Select Category...')}
+                    <span className={`text-[10px] font-black leading-normal break-words ${
+                        !value?.id && !value?.categoryId ? 'text-rose-600' : 'text-gray-900'
+                    }`}>
+                        {typeof value === 'object' ? (value.fullName || value.name) : (value || (
+                            <span className="flex items-center gap-2">
+                                <AlertCircle className="w-3 h-3" /> Select Category (REQUIRED)
+                            </span>
+                        ))}
                     </span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''} ${
+                    !value?.id && !value?.categoryId ? 'text-rose-400' : 'text-gray-400'
+                }`} />
             </div>
             {isOpen && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[5000] overflow-hidden">

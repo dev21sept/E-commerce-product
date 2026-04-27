@@ -157,18 +157,19 @@ exports.analyzeProductImage = async (req, res) => {
                 const appToken = await ebayApiService.getAppToken();
                 const suggestions = await ebayApiService.getCategorySuggestions(appToken, query);
                 if (suggestions && suggestions.length > 0) {
-                    // Find the best suggestion (eBay usually sorts by relevance, but we want to ensure it has a valid ID)
                     const bestSuggest = suggestions[0];
                     categoryId = bestSuggest.category.categoryId;
-
                     let ancestors = bestSuggest.categoryTreeNodeAncestors || [];
-                    // Ensure ancestors are sorted by level
                     ancestors.sort((a, b) => a.categoryTreeNodeLevel - b.categoryTreeNodeLevel);
                     categoryPath = ancestors.map(a => a.categoryName).concat(bestSuggest.category.categoryName).join(' > ');
-                    
-                    console.log(`[AI] Suggestion: ${categoryPath} (Leaf ID: ${categoryId})`);
                 } else {
                     categoryPath = query;
+                    // 🚨 FALLBACK: If no official ID found but it's clearly shoes
+                    if (query.toLowerCase().includes('shoe') || query.toLowerCase().includes('sneaker')) {
+                        categoryId = '15709'; // Clothing, Shoes & Accessories > Kids > Boys > Boys' Shoes (Common fallback)
+                        if (query.toLowerCase().includes('girl')) categoryId = '15712';
+                        if (query.toLowerCase().includes('unisex')) categoryId = '155202';
+                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch official category suggestions:", err.message);
