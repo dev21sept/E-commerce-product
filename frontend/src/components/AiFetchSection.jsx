@@ -131,6 +131,13 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
 
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files || []);
+        
+        // Prevent too many images from being uploaded at once to avoid Vercel 4.5MB limit
+        if (localPreviews.length + files.length > 10) {
+            alert('Maximum 10 images allowed for AI Analysis. Please select fewer images.');
+            return;
+        }
+
         files.forEach((file) => {
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -139,7 +146,8 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const maxSize = 1200;
+                    // Aggressive compression to avoid Vercel 413 Content Too Large Error
+                    const maxSize = 800; 
 
                     if (width > height && width > maxSize) {
                         height *= maxSize / width;
@@ -152,8 +160,15 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
+                    
+                    // Fill background white in case of transparent PNGs
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, width, height);
+                    
                     ctx.drawImage(img, 0, 0, width, height);
-                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    
+                    // High compression (0.5) because AI doesn't need high-res
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.5); 
                     setLocalPreviews((prev) => [...prev, compressedDataUrl]);
                 };
                 img.src = String(reader.result || '');
