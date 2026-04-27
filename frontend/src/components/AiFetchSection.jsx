@@ -227,9 +227,9 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
             }
         } catch (error) {
             const isPayloadTooLarge = error?.response?.status === 413;
-            if (isPayloadTooLarge && allImages.length > 6) {
+            if (isPayloadTooLarge && allImages.length > 12) {
                 try {
-                    const retryImages = allImages.slice(0, 6);
+                    const retryImages = allImages.slice(0, 12);
                     const retryResult = await analyzeProduct({
                         images: retryImages,
                         condition: selectedCondition?.label || 'New',
@@ -261,7 +261,7 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                 } catch (retryError) {
                     // Fallback to user-facing error below
                 }
-                setMessage({ type: 'error', text: 'Too many images in one request. Please try with fewer images (max 6-8).' });
+                setMessage({ type: 'error', text: 'Too many images in one request. Please try with fewer images (max 15-20).' });
             } else {
                 setMessage({ type: 'error', text: 'Connection failed.' });
             }

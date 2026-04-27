@@ -192,7 +192,7 @@ exports.listOnEbay = async (req, res) => {
         const validImages = processedImages
             .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')))
             .filter(url => !url.includes('localhost') && !url.includes('127.0.0.1'))
-            .slice(0, 12);
+            .slice(0, 24);
 
         console.log(`[EPS DEBUG] Final count of valid images for eBay: ${validImages.length}`);
 
@@ -249,6 +249,21 @@ exports.listOnEbay = async (req, res) => {
                     inventoryItem.product.aspects[cleanKey] = [cleanVal.trim().substring(0, 50)];
                 }
             });
+        }
+
+        // 🚨 CRITICAL FIX: Ensure 'Author' is present if required (especially for Books)
+        const currentAspects = inventoryItem.product.aspects;
+        if (!currentAspects.Author) {
+            // Check for common variations in original specs
+            const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : (product.item_specifics || {});
+            const authorValue = specs.Author || specs.author || specs.Authors || specs.authors || specs.Writer || specs.writer;
+            
+            if (authorValue) {
+                currentAspects.Author = [String(Array.isArray(authorValue) ? authorValue[0] : authorValue).trim().substring(0, 50)];
+            } else if (['267', '171228', '26105', '11104'].includes(String(product.categoryId || product.category_id))) {
+                // Fallback for known book/media categories
+                currentAspects.Author = ['Various'];
+            }
         }
 
         console.log(`[DEBUG] Final Inventory Item Payload:`, JSON.stringify(inventoryItem, null, 2));
