@@ -277,6 +277,7 @@ exports.syncInventory = async (providedToken = null) => {
                     ? { sku: item.sku } 
                     : { title: item.product.title, source: 'ebay' };
                 
+                await Product.findOneAndUpdate(
                     searchCriteria,
                     { ...product, updated_at: Date.now() },
                     { upsert: true, returnDocument: 'after' }
