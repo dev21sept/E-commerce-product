@@ -65,7 +65,7 @@ async function performProInjection(silent = false) {
     if (finalPrice) {
         body.price = {
             value: String(finalPrice).replace(/[^0-9.]/g, ''),
-            currency: "USD"
+            currency: "INR"
         };
     }
 
@@ -105,7 +105,7 @@ async function performProInjection(silent = false) {
 
         console.log("[eBay AutoLister] 🚀 Performance PUT Save with SRT...");
 
-        const response = await fetch(`https://www.ebay.com/lstng/api/listing_draft/${draftId}?mode=AddItem`, {
+        const response = await fetch(`https://www.ebay.in/lstng/api/listing_draft/${draftId}?mode=AddItem`, {
             method: "PUT",
             headers: headers,
             body: JSON.stringify(payload),

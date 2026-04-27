@@ -438,9 +438,9 @@ const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-8 border-t border-gray-100">
                             <div>
-                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Price ($)</label>
+                                <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Price (₹)</label>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-3xl font-black text-slate-300">$</span>
+                                    <span className="text-3xl font-black text-slate-300">₹</span>
                                     <input type="number" name="selling_price" value={formData.selling_price} onChange={handleChange} className="text-4xl font-black text-emerald-600 bg-transparent border-none outline-none w-full" />
                                 </div>
                             </div>

@@ -262,7 +262,7 @@ async function createOrUpdateLocation(token, locationKey, locationData) {
 /**
  * Get Business Policies (Needed for Offers)
  */
-async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_US') {
+async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_IN') {
     const response = await axios.get(`${API_BASE_URL}/sell/account/v1/fulfillment_policy?marketplace_id=${marketplaceId}`, {
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -272,7 +272,7 @@ async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_US') {
     return response.data.fulfillmentPolicies || [];
 }
 
-async function getPaymentPolicies(token, marketplaceId = 'EBAY_US') {
+async function getPaymentPolicies(token, marketplaceId = 'EBAY_IN') {
     const response = await axios.get(`${API_BASE_URL}/sell/account/v1/payment_policy?marketplace_id=${marketplaceId}`, {
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -282,7 +282,7 @@ async function getPaymentPolicies(token, marketplaceId = 'EBAY_US') {
     return response.data.paymentPolicies || [];
 }
 
-async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
+async function getReturnPolicies(token, marketplaceId = 'EBAY_IN') {
     const response = await axios.get(`${API_BASE_URL}/sell/account/v1/return_policy?marketplace_id=${marketplaceId}`, {
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -295,20 +295,20 @@ async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
 async function initDefaultFulfillmentPolicy(token) {
     const policy = {
         name: 'Automation_Ship_' + Date.now(),
-        description: 'Automated shipping policy for US production',
-        marketplaceId: 'EBAY_US',
+        description: 'Automated shipping policy for India production',
+        marketplaceId: 'EBAY_IN',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         handlingTime: { value: 1, unit: 'DAY' },
         shippingOptions: [{
             optionType: 'DOMESTIC',
             costType: 'FLAT_RATE',
             shippingServices: [{
-                shippingServiceCode: 'USPSPriority',
-                shippingCost: { value: '0.00', currency: 'USD' }
+                shippingServiceCode: 'IN_DomesticRegular',
+                shippingCost: { value: '0.00', currency: 'INR' }
             }]
         }],
         shipToLocations: {
-            regionIncluded: [{ regionName: 'US' }]
+            regionIncluded: [{ regionName: 'IN' }]
         }
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/fulfillment_policy`, policy, {
@@ -325,7 +325,7 @@ async function initDefaultPaymentPolicy(token) {
     const policy = {
         name: 'Automation_Pay_' + Date.now(),
         description: 'Automated payment policy',
-        marketplaceId: 'EBAY_US',
+        marketplaceId: 'EBAY_IN',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         paymentMethods: [{ paymentMethodType: 'INTEGRATED_MERCHANT_PAYMENTS' }]
     };
@@ -343,7 +343,7 @@ async function initDefaultReturnPolicy(token) {
     const policy = {
         name: 'Automation_Ret_' + Date.now(),
         description: 'Automated return policy',
-        marketplaceId: 'EBAY_US',
+        marketplaceId: 'EBAY_IN',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         returnsAccepted: true,
         returnPeriod: { value: 30, unit: 'DAY' },
@@ -360,12 +360,35 @@ async function initDefaultReturnPolicy(token) {
 }
 
 /**
+ * Step 5: Initialize Bhopal Location
+ */
+async function initDefaultBhopalLocation(token) {
+    const locationKey = 'BHOPAL_MAIN';
+    const locationData = {
+        location: {
+            address: {
+                addressLine1: "Arera Colony",
+                city: "Bhopal",
+                stateOrProvince: "Madhya Pradesh",
+                postalCode: "462016",
+                country: "IN"
+            }
+        },
+        locationInstructions: "Items are shipped from Bhopal warehouse",
+        name: "Bhopal Main Warehouse",
+        merchantLocationKey: locationKey,
+        locationTypes: ["WAREHOUSE"]
+    };
+    return await createOrUpdateLocation(token, locationKey, locationData);
+}
+
+/**
  * Gets Item Aspects for a specific Category from Taxonomy API
  */
 /**
  * Gets category suggestions for a keyword from Taxonomy API
  */
-async function getCategorySuggestions(token, query, categoryTreeId = '0') {
+async function getCategorySuggestions(token, query, categoryTreeId = '203') {
     try {
         const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_category_suggestions?q=${encodeURIComponent(query)}`, {
             headers: {
@@ -379,7 +402,7 @@ async function getCategorySuggestions(token, query, categoryTreeId = '0') {
     }
 }
 
-async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0') {
+async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '203') {
     try {
         const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_aspects_for_category?category_id=${categoryId}`, {
             headers: {
@@ -397,7 +420,7 @@ async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0'
 /**
  * Gets valid Item Conditions for a specific Category from Taxonomy API
  */
-async function getItemConditions(token, categoryId, categoryTreeId = '0') {
+async function getItemConditions(token, categoryId, categoryTreeId = '203') {
     try {
         const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_conditions?category_id=${categoryId}`, {
             headers: {
@@ -441,7 +464,7 @@ async function uploadPictureFromUrl(userToken, externalPictureUrl) {
         const response = await axios.post(TRADING_API_URL, xmlPayload, {
             headers: {
                 'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
-                'X-EBAY-API-SITEID': '0',
+                'X-EBAY-API-SITEID': '203',
                 'X-EBAY-API-APP-NAME': EBAY_APP_ID,
                 'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
                 'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
@@ -614,7 +637,7 @@ async function uploadPicture(userToken, base64Data) {
             const response = await axios.post(TRADING_API_URL, xmlPayload, {
                 headers: {
                     'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
-                    'X-EBAY-API-SITEID': '0',
+                    'X-EBAY-API-SITEID': '203',
                     'X-EBAY-API-APP-NAME': EBAY_APP_ID,
                     'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
                     'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
@@ -794,6 +817,7 @@ module.exports = {
     initDefaultFulfillmentPolicy,
     initDefaultPaymentPolicy,
     initDefaultReturnPolicy,
+    initDefaultBhopalLocation,
     getItemAspectsForCategory,
     getItemConditions,
     getCategorySuggestions,

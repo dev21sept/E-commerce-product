@@ -301,14 +301,14 @@ exports.listOnEbay = async (req, res) => {
         // 4. Create Offer
         const offer = {
             sku: sku,
-            marketplaceId: 'EBAY_US',
+            marketplaceId: 'EBAY_IN',
             format: 'FIXED_PRICE',
             availableQuantity: 1,
             categoryId: product.categoryId || product.category_id,
             listingDescription: (product.description || product.title),
             pricingSummary: {
                 price: {
-                    currency: 'USD',
+                    currency: 'INR',
                     value: String(product.selling_price || '10.00')
                 }
             },
@@ -321,7 +321,14 @@ exports.listOnEbay = async (req, res) => {
         };
 
         if (!offer.merchantLocationKey) {
-            throw new Error("Inventory Location is missing! Please select a location in the 'Policies & Location' section before listing.");
+            console.log('[RECOVERY] merchantLocationKey missing. Attempting to use and initialize default BHOPAL_MAIN location...');
+            try {
+                await ebayService.initDefaultBhopalLocation(token);
+                offer.merchantLocationKey = 'BHOPAL_MAIN';
+            } catch (locErr) {
+                console.error('Failed to initialize default Bhopal location:', locErr.message);
+                throw new Error("Inventory Location is missing and default initialization failed! Please create a location in the 'Policies & Location' section.");
+            }
         }
 
         if (!offer.categoryId) {
@@ -380,7 +387,7 @@ exports.listOnEbay = async (req, res) => {
             sku,
             ebayOfferId: offerId,
             ebayListingId: publishResponse.listingId,
-            ebay_url: `https://www.ebay.com/itm/${publishResponse.listingId}`,
+            ebay_url: `https://www.ebay.in/itm/${publishResponse.listingId}`, // Using ebay.in for India fix
             updated_at: Date.now()
         });
 
@@ -391,7 +398,7 @@ exports.listOnEbay = async (req, res) => {
             message: 'SUCCESS! Listed on eBay!',
             sku,
             listingId: publishResponse.listingId,
-            ebayUrl: `https://www.ebay.com/itm/${publishResponse.listingId}`
+            ebayUrl: `https://www.ebay.in/itm/${publishResponse.listingId}`
         });
 
     } catch (error) {
