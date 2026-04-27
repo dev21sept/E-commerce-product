@@ -147,7 +147,7 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     let width = img.width;
                     let height = img.height;
                     // Aggressive compression to avoid Vercel 413 Content Too Large Error
-                    const maxSize = 800; 
+                    const maxSize = 600; 
 
                     if (width > height && width > maxSize) {
                         height *= maxSize / width;
@@ -167,8 +167,8 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // High compression (0.5) because AI doesn't need high-res
-                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.5); 
+                    // High compression (0.4) because AI doesn't need high-res
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.4); 
                     setLocalPreviews((prev) => [...prev, compressedDataUrl]);
                 };
                 img.src = String(reader.result || '');

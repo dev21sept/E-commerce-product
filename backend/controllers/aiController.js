@@ -117,7 +117,7 @@ exports.analyzeProductImage = async (req, res) => {
         // --- PHASE 1: CATEGORY IDENTIFICATION ---
         console.log(`--- Phase 1: Identifying ${platform} Category ---`);
         const categoryResponse = await openai.chat.completions.create({
-            model: "gpt-4.1",
+            model: "gpt-4o",
             temperature: 0, // Make it deterministic so the same image gives the same category every time
             messages: [
                 {
