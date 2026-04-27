@@ -312,13 +312,17 @@ exports.listOnEbay = async (req, res) => {
                     value: String(product.selling_price || '10.00')
                 }
             },
-            merchantLocationKey: product.inventory_location?.merchantLocationKey || 'default',
+            merchantLocationKey: product.inventory_location?.merchantLocationKey || product.merchantLocationKey,
             listingPolicies: {
                 fulfillmentPolicyId,
                 paymentPolicyId,
                 returnPolicyId
             }
         };
+
+        if (!offer.merchantLocationKey) {
+            throw new Error("Inventory Location is missing! Please select a location in the 'Policies & Location' section before listing.");
+        }
 
         if (!offer.categoryId) {
             throw new Error("Category ID is missing! Please select a category in the product form before listing.");
