@@ -216,7 +216,7 @@ exports.syncOrders = async (providedToken = null) => {
             await Order.findOneAndUpdate(
                 { orderId: o.orderId },
                 orderData,
-                { upsert: true, new: true }
+                { upsert: true, returnDocument: 'after' }
             );
             syncedCount++;
         }
@@ -277,10 +277,9 @@ exports.syncInventory = async (providedToken = null) => {
                     ? { sku: item.sku } 
                     : { title: item.product.title, source: 'ebay' };
                 
-                await Product.findOneAndUpdate(
                     searchCriteria,
                     { ...product, updated_at: Date.now() },
-                    { upsert: true, new: true }
+                    { upsert: true, returnDocument: 'after' }
                 );
                 totalSynced++;
             }

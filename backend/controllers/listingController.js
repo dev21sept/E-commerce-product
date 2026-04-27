@@ -251,18 +251,30 @@ exports.listOnEbay = async (req, res) => {
             });
         }
 
-        // 🚨 CRITICAL FIX: Ensure 'Author' is present if required (especially for Books)
+        // 🚨 CRITICAL FIX: Ensure 'Author' and 'Book Title' are present if required (especially for Books)
         const currentAspects = inventoryItem.product.aspects;
+        const isBookCategory = ['267', '171228', '26105', '11104'].includes(String(product.categoryId || product.category_id));
+
         if (!currentAspects.Author) {
-            // Check for common variations in original specs
             const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : (product.item_specifics || {});
             const authorValue = specs.Author || specs.author || specs.Authors || specs.authors || specs.Writer || specs.writer;
             
             if (authorValue) {
                 currentAspects.Author = [String(Array.isArray(authorValue) ? authorValue[0] : authorValue).trim().substring(0, 50)];
-            } else if (['267', '171228', '26105', '11104'].includes(String(product.categoryId || product.category_id))) {
-                // Fallback for known book/media categories
+            } else if (isBookCategory) {
                 currentAspects.Author = ['Various'];
+            }
+        }
+
+        if (!currentAspects['Book Title']) {
+            const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : (product.item_specifics || {});
+            const bookTitleValue = specs['Book Title'] || specs['book title'] || specs['Title'] || specs['title'];
+            
+            if (bookTitleValue) {
+                currentAspects['Book Title'] = [String(Array.isArray(bookTitleValue) ? bookTitleValue[0] : bookTitleValue).trim().substring(0, 50)];
+            } else if (isBookCategory) {
+                // Fallback: Use the listing title itself as the Book Title
+                currentAspects['Book Title'] = [product.title.trim().substring(0, 50)];
             }
         }
 
@@ -316,7 +328,7 @@ exports.listOnEbay = async (req, res) => {
             marketplaceId: 'EBAY_US',
             format: 'FIXED_PRICE',
             availableQuantity: 1,
-            categoryId: product.categoryId || product.category_id || '171228',
+            categoryId: product.categoryId || product.category_id,
             listingDescription: (product.description || product.title),
             pricingSummary: {
                 price: {
@@ -331,6 +343,10 @@ exports.listOnEbay = async (req, res) => {
                 returnPolicyId
             }
         };
+
+        if (!offer.categoryId) {
+            throw new Error("Category ID is missing! Please select a category in the product form before listing.");
+        }
 
         console.log(`[DEBUG] Final Offer Payload:`, JSON.stringify(offer, null, 2));
         console.log('Step 2: Creating Offer...');

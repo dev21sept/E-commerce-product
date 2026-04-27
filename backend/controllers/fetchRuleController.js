@@ -71,7 +71,7 @@ exports.updateRule = async (req, res) => {
         const updated = await FetchRule.findByIdAndUpdate(
             req.params.id,
             payload,
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         );
 
         if (!updated) {

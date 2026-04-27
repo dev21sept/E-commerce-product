@@ -56,7 +56,7 @@ async function recordDeletionTombstone(product) {
                 ebayListingId: product.ebayListingId || null,
                 deleted_at: Date.now()
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
         );
     } catch (error) {
         console.error('Failed to create deletion tombstone:', error.message);
@@ -128,7 +128,7 @@ exports.createProduct = async (req, res) => {
                     const updated = await Product.findByIdAndUpdate(existingProduct._id, {
                         ...req.body,
                         updated_at: new Date()
-                    }, { new: true });
+                    }, { returnDocument: 'after' });
                     return res.status(200).json({ message: 'Product updated successfully', productId: updated._id });
                 }
             }
@@ -295,7 +295,7 @@ exports.updateProduct = async (req, res) => {
                 variations: formattedVariations, video_url,
                 updated_at: Date.now()
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!updatedProduct) return res.status(404).json({ error: 'Product not found' });
