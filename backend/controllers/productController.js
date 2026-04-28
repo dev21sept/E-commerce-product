@@ -200,7 +200,7 @@ exports.getAllProducts = async (req, res) => {
         // Speed Optimization: Only fetch fields needed for the table/list
         // This avoids loading heavy descriptions and all images for every record
         const products = await Product.find({})
-            .select('title sku selling_price images category created_at updated_at source ai_generated brand condition_name condition_notes gender item_specifics variations description')
+            .select('title sku selling_price images category created_at updated_at source ai_generated brand condition_name condition_notes gender item_specifics variations description status')
             .sort({ updated_at: -1 })
             .maxTimeMS(10000)
             .lean();

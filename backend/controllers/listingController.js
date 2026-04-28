@@ -356,6 +356,7 @@ exports.listOnEbay = async (req, res) => {
             await Product.findByIdAndUpdate(productId, {
                 sku,
                 ebayOfferId: offerId,
+                status: 'draft',
                 updated_at: Date.now()
             });
             console.log(`✅ [SUCCESS] Product ${productId} saved as DRAFT (Offer ID: ${offerId})`);
@@ -381,6 +382,7 @@ exports.listOnEbay = async (req, res) => {
             ebayOfferId: offerId,
             ebayListingId: publishResponse.listingId,
             ebay_url: `https://www.ebay.com/itm/${publishResponse.listingId}`,
+            status: 'listed',
             updated_at: Date.now()
         });
 

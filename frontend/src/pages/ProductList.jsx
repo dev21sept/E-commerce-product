@@ -10,7 +10,8 @@ const ProductList = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'ai', 'ebay'
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'listed', 'draft', 'extension'
+    const [subFilter, setSubFilter] = useState('all'); // 'all', 'ai', 'ebay'
     const [authStatus, setAuthStatus] = useState(null);
 
     useEffect(() => {
@@ -62,9 +63,17 @@ const ProductList = () => {
         setPreviewProduct(product);
     };
 
-    const handleSendToEbay = (product) => {
+    const handleSendToEbay = async (product) => {
         addToast("Sending data to eBay Extension...", 'info');
         window.postMessage({ type: 'EbayAutoLister_SendData', payload: product }, '*');
+        
+        // Update status to extension in DB
+        try {
+            await updateProduct(product.id, { ...product, status: 'extension' });
+            loadProducts(); // Refresh list
+        } catch (err) {
+            console.error("Failed to update status to extension:", err);
+        }
     };
 
     const handleSendToPoshmark = (product) => {
@@ -82,11 +91,16 @@ const ProductList = () => {
             p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.category?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesSource = sourceFilter === 'all' ||
-            (sourceFilter === 'ai' && p.source === 'ai') ||
-            (sourceFilter === 'ebay' && (p.source === 'ebay' || p.source === 'scraper'));
+        const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+        
+        let matchesSub = true;
+        if (statusFilter === 'all') {
+            matchesSub = subFilter === 'all' || 
+                (subFilter === 'ai' && p.source === 'ai') ||
+                (subFilter === 'ebay' && (p.source === 'ebay' || p.source === 'scraper'));
+        }
 
-        return matchesSearch && matchesSource;
+        return matchesSearch && matchesStatus && matchesSub;
     });
 
     return (
@@ -114,47 +128,71 @@ const ProductList = () => {
 
             <div className="card overflow-hidden">
                 <div className="p-4 md:p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
-                    <div className="relative flex-1 w-full md:max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search by title, brand, or category..."
-                            className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5]/40 outline-none transition-all"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
+                        <div className="relative flex-1 w-full md:max-w-md">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by title, brand, or category..."
+                                className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5]/40 outline-none transition-all"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Sub-Filters (AI/eBay) - Only show when statusFilter is 'all' */}
+                        {statusFilter === 'all' && (
+                            <div className="flex p-1 bg-indigo-50/50 border border-indigo-100 rounded-xl w-fit">
+                                <button
+                                    onClick={() => setSubFilter('all')}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${subFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-400 hover:text-indigo-600'}`}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setSubFilter('ai')}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${subFilter === 'ai' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                                >
+                                    <Sparkles className="w-3 h-3" /> AI
+                                </button>
+                                <button
+                                    onClick={() => setSubFilter('ebay')}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${subFilter === 'ebay' ? 'bg-blue-600 text-white shadow-sm' : 'text-blue-500 hover:bg-blue-50'}`}
+                                >
+                                    <Link2 className="w-3 h-3" /> eBay
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Source Filter Buttons */}
-                    <div className="flex p-1 bg-gray-100 rounded-xl w-full md:w-fit overflow-x-auto no-scrollbar">
+                    {/* Main Status Filters */}
+                    <div className="flex p-1 bg-gray-100 rounded-xl w-full md:w-fit overflow-x-auto no-scrollbar shrink-0">
                         <button
-                            onClick={() => setSourceFilter('all')}
-                            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === 'all'
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
-                                }`}
+                            onClick={() => { setStatusFilter('all'); setSubFilter('all'); }}
+                            className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${statusFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
                         >
-                            All
+                            All Products
                         </button>
                         <button
-                            onClick={() => setSourceFilter('ebay')}
-                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === 'ebay'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
-                                }`}
+                            onClick={() => setStatusFilter('listed')}
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${statusFilter === 'listed' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}
                         >
-                            <Link2 className="w-3.5 h-3.5" />
-                            eBay
+                            <Zap className="w-3.5 h-3.5" />
+                            Live on eBay
                         </button>
                         <button
-                            onClick={() => setSourceFilter('ai')}
-                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === 'ai'
-                                    ? 'bg-white text-emerald-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
-                                }`}
+                            onClick={() => setStatusFilter('draft')}
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${statusFilter === 'draft' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500'}`}
                         >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            AI
+                            <FileText className="w-3.5 h-3.5" />
+                            Drafts
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('extension')}
+                            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${statusFilter === 'extension' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+                        >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Extension
                         </button>
                     </div>
                 </div>
@@ -225,13 +263,21 @@ const ProductList = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {product.source === 'ai' ? (
+                                            {product.status === 'listed' ? (
                                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider border border-emerald-100">
-                                                    <Sparkles className="w-3 h-3" /> AI Fetch
+                                                    <Zap className="w-3 h-3" /> Live (API)
+                                                </div>
+                                            ) : product.status === 'draft' ? (
+                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 text-[10px] font-black uppercase tracking-wider border border-orange-100">
+                                                    <FileText className="w-3 h-3" /> Draft (API)
+                                                </div>
+                                            ) : product.status === 'extension' ? (
+                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-100">
+                                                    <ExternalLink className="w-3 h-3" /> Extension
                                                 </div>
                                             ) : (
-                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-wider border border-blue-100">
-                                                    <Link2 className="w-3 h-3" /> {product.source === 'scraper' ? 'Scraped Link' : 'eBay Import'}
+                                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-wider border border-gray-100">
+                                                    <Sparkles className="w-3 h-3" /> AI Fetched
                                                 </div>
                                             )}
                                         </td>

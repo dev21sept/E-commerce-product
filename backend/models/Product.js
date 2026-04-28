@@ -37,6 +37,11 @@ const productSchema = new mongoose.Schema({
     inventory_location: mongoose.Schema.Types.Mixed,
     applied_rule: mongoose.Schema.Types.Mixed,
     sql_id: Number, // Temporary for migration
+    status: { 
+        type: String, 
+        enum: ['pending', 'draft', 'listed', 'extension'], 
+        default: 'pending' 
+    },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now }
 });
