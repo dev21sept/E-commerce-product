@@ -5,7 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 
 const ProductList = () => {
-    const { showConfirm } = useToast();
+    const { addToast, showConfirm } = useToast();
     const location = useLocation();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -17,7 +17,7 @@ const ProductList = () => {
         // Check for eBay auth status in URL
         const params = new URLSearchParams(location.search);
         if (params.get('ebay_auth') === 'success') {
-            setAuthStatus('Successfully connected to eBay!');
+            addToast('Successfully connected to eBay!', 'success');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
         loadProducts();
@@ -25,12 +25,12 @@ const ProductList = () => {
 
     const handleEbayConnect = async () => {
         try {
-            setAuthStatus("Connecting to eBay...");
+            addToast("Connecting to eBay...", 'info');
             const { url } = await getEbayAuthUrl('products');
             window.location.href = url;
         } catch (error) {
             console.error('Failed to get eBay Auth URL:', error);
-            setAuthStatus("Error: Could not connect to eBay. Check server console.");
+            addToast("Error: Could not connect to eBay.", 'error');
         }
     };
 
@@ -63,9 +63,8 @@ const ProductList = () => {
     };
 
     const handleSendToEbay = (product) => {
-        setAuthStatus("Sending data to eBay Extension...");
+        addToast("Sending data to eBay Extension...", 'info');
         window.postMessage({ type: 'EbayAutoLister_SendData', payload: product }, '*');
-        setTimeout(() => setAuthStatus(null), 3000);
     };
 
     const handleSendToPoshmark = (product) => {
@@ -92,15 +91,6 @@ const ProductList = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {authStatus && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-sm font-medium">{authStatus}</span>
-                    </div>
-                    <button onClick={() => setAuthStatus(null)} className="text-green-700 font-bold">×</button>
-                </div>
-            )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -511,13 +501,12 @@ const ProductList = () => {
                                         <button
                                             onClick={async () => {
                                                 try {
-                                                    setAuthStatus("Listing directly on eBay API...");
+                                                    addToast("Listing directly on eBay API...", 'info');
                                                     const res = await listProduct(previewProduct.id);
-                                                    setAuthStatus(`✅ ${res.message} ID: ${res.listingId}`);
+                                                    addToast(`✅ ${res.message} ID: ${res.listingId}`, 'success');
                                                     setPreviewProduct(null);
                                                 } catch (err) {
-                                                    alert('Listing failed: ' + (err.response?.data?.details || err.message));
-                                                    setAuthStatus(null);
+                                                    addToast('Listing failed: ' + (err.response?.data?.details || err.message), 'error');
                                                 }
                                             }}
                                             className="px-2 py-2 rounded-xl bg-emerald-600 font-bold text-white hover:bg-emerald-700 transition-all active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5 text-[8px]"
@@ -530,13 +519,12 @@ const ProductList = () => {
                                         <button
                                             onClick={async () => {
                                                 try {
-                                                    setAuthStatus("Saving as Draft on eBay API...");
+                                                    addToast("Saving as Draft on eBay API...", 'info');
                                                     const res = await listProduct(previewProduct.id, true);
-                                                    setAuthStatus(`✅ ${res.message}`);
+                                                    addToast(`✅ ${res.message}`, 'success');
                                                     setPreviewProduct(null);
                                                 } catch (err) {
-                                                    alert('Draft failed: ' + (err.response?.data?.details || err.message));
-                                                    setAuthStatus(null);
+                                                    addToast('Draft failed: ' + (err.response?.data?.details || err.message), 'error');
                                                 }
                                             }}
                                             className="px-2 py-2 rounded-xl bg-orange-500 font-bold text-white hover:bg-orange-600 transition-all active:scale-95 shadow-md flex flex-col items-center justify-center gap-0.5 text-[8px]"

@@ -343,7 +343,7 @@ const ConditionNotesSection = ({ value = "", onChange }) => {
     );
 };
 
-const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
+const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate }) => {
 
     const [formData, setFormData] = useState({
         title: '',
@@ -533,6 +533,13 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
             setFormData(prev => ({ ...prev, title: newTitle, lastAutoTitle: newTitle }));
         }
     }, [formData.title_parts, formData.structure]);
+
+    // Notify parent of live changes (Title, SKU)
+    useEffect(() => {
+        if (onUpdate) {
+            onUpdate({ title: formData.title, sku: formData.sku });
+        }
+    }, [formData.title, formData.sku]);
 
     const fetchCategoryConditions = async (cid) => {
         if (!cid) return;

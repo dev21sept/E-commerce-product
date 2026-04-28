@@ -27,30 +27,28 @@ const EditProduct = () => {
         loadProduct();
     }, [id]);
 
+    const { addToast } = useToast();
     const handleUpdate = async (formData, isListing = false, isDraft = false) => {
         try {
             setLoading(true);
-            // 1. Always sync changes to DB first
             await updateProduct(id, formData);
             
-            // 2. If it's just a regular record update, go back
             if (!isListing && !isDraft) {
+                addToast('Product updated successfully', 'success');
                 navigate('/products');
                 return;
             }
 
-            // 3. If Listing or Draft, call the Marketplace API
             try {
-                const action = isDraft ? "Saving Draft..." : "Publishing Listing...";
-                console.log(action); 
+                addToast(isDraft ? "Saving Draft..." : "Publishing Listing...", 'info');
                 const res = await listProduct(id, isDraft);
-                alert(`✅ Successfully ${isDraft ? 'saved as Draft' : 'Published to eBay'}: ${res.message}`);
+                addToast(`✅ ${isDraft ? 'Saved as Draft' : 'Published to eBay'}: ${res.message}`, 'success');
                 navigate('/products');
             } catch (err) {
-                alert('Marketplace Action Failed: ' + (err.response?.data?.details || err.message));
+                addToast('Marketplace Action Failed: ' + (err.response?.data?.details || err.message), 'error');
             }
         } catch (err) {
-            alert('Failed to update record in Database');
+            addToast('Failed to update record in Database', 'error');
         } finally {
             setLoading(false);
         }
@@ -122,6 +120,7 @@ const EditProduct = () => {
                     initialData={product}
                     onSubmit={handleUpdate}
                     onReset={() => navigate('/products')}
+                    onUpdate={(liveData) => setProduct(prev => ({ ...prev, ...liveData }))}
                 />
             ) : product?.source === 'scraped' || product?.source === 'ebay' ? (
                 <ImportProductForm
