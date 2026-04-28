@@ -280,7 +280,7 @@ ${appliedConditionNote ? `   - Condition Note Rule: If item is not new, apply th
    - For Electronics/Other: Use your vast knowledge base to infer missing technical specifics based on visual cues.
    
     
-4. Pricing: Estimate a realistic 'selling_price' in INR.
+4. Pricing: Estimate a realistic 'selling_price' in USD.
 
 Context: Gender: ${gender}, Category: ${categoryPath}.
 

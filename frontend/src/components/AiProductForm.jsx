@@ -143,7 +143,7 @@ const ListingSidebarPreview = React.memo(({ formData }) => {
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Current Price</span>
-                            <span className="text-2xl font-black text-indigo-600">₹{formData.selling_price || '0.00'}</span>
+                            <span className="text-2xl font-black text-indigo-600">${formData.selling_price || '0.00'}</span>
                         </div>
                         <div className="flex flex-col items-end">
                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Condition</span>
@@ -823,7 +823,7 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Listing Price</label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-300 text-lg">₹</span>
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-gray-300 text-lg">$</span>
                                         <input
                                             type="number" name="selling_price" value={formData.selling_price} onChange={handleChange}
                                             className="w-full h-11 pl-10 pr-4 bg-gray-50 border border-transparent focus:border-indigo-600 focus:bg-white rounded-xl text-lg font-black text-gray-900 transition-all outline-none"

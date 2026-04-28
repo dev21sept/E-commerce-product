@@ -307,14 +307,14 @@ exports.listOnEbay = async (req, res) => {
         // 4. Create Offer
         const offer = {
             sku: sku,
-            marketplaceId: 'EBAY_IN',
+            marketplaceId: 'EBAY_US',
             format: 'FIXED_PRICE',
             availableQuantity: 1,
             categoryId: product.categoryId || product.category_id,
             listingDescription: (product.description || product.title),
             pricingSummary: {
                 price: {
-                    currency: 'INR',
+                    currency: 'USD',
                     value: String(product.selling_price || '10.00')
                 }
             },

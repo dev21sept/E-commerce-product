@@ -264,7 +264,7 @@ async function createOrUpdateLocation(token, locationKey, locationData) {
 /**
  * Get Business Policies (Needed for Offers)
  */
-async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_IN') {
+async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_US') {
     const response = await axios.get(`${API_BASE_URL}/sell/account/v1/fulfillment_policy?marketplace_id=${marketplaceId}`, {
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -274,7 +274,7 @@ async function getFulfillmentPolicies(token, marketplaceId = 'EBAY_IN') {
     return response.data.fulfillmentPolicies || [];
 }
 
-async function getPaymentPolicies(token, marketplaceId = 'EBAY_IN') {
+async function getPaymentPolicies(token, marketplaceId = 'EBAY_US') {
     const response = await axios.get(`${API_BASE_URL}/sell/account/v1/payment_policy?marketplace_id=${marketplaceId}`, {
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -284,7 +284,7 @@ async function getPaymentPolicies(token, marketplaceId = 'EBAY_IN') {
     return response.data.paymentPolicies || [];
 }
 
-async function getReturnPolicies(token, marketplaceId = 'EBAY_IN') {
+async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
     const response = await axios.get(`${API_BASE_URL}/sell/account/v1/return_policy?marketplace_id=${marketplaceId}`, {
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -298,7 +298,7 @@ async function initDefaultFulfillmentPolicy(token) {
     const policy = {
         name: 'Automation_Ship_' + Date.now(),
         description: 'Automated shipping policy for India production',
-        marketplaceId: 'EBAY_IN',
+        marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         handlingTime: { value: 1, unit: 'DAY' },
         shippingOptions: [{
@@ -306,7 +306,7 @@ async function initDefaultFulfillmentPolicy(token) {
             costType: 'FLAT_RATE',
             shippingServices: [{
                 shippingServiceCode: 'IN_DomesticRegular',
-                shippingCost: { value: '0.00', currency: 'INR' }
+                shippingCost: { value: '0.00', currency: 'USD' }
             }]
         }],
         shipToLocations: {
@@ -327,7 +327,7 @@ async function initDefaultPaymentPolicy(token) {
     const policy = {
         name: 'Automation_Pay_' + Date.now(),
         description: 'Automated payment policy',
-        marketplaceId: 'EBAY_IN',
+        marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         paymentMethods: [{ paymentMethodType: 'INTEGRATED_MERCHANT_PAYMENTS' }]
     };
@@ -345,7 +345,7 @@ async function initDefaultReturnPolicy(token) {
     const policy = {
         name: 'Automation_Ret_' + Date.now(),
         description: 'Automated return policy',
-        marketplaceId: 'EBAY_IN',
+        marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         returnsAccepted: true,
         returnPeriod: { value: 30, unit: 'DAY' },
@@ -618,7 +618,7 @@ async function uploadPicture(userToken, base64Data) {
             const response = await axios.post(TRADING_API_URL, xmlPayload, {
                 headers: {
                     'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
-                    'X-EBAY-API-SITEID': '203',
+                    'X-EBAY-API-SITEID': '0',
                     'X-EBAY-API-APP-NAME': EBAY_APP_ID,
                     'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
                     'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
