@@ -63,8 +63,7 @@ function getUserConsentUrl(ruName, state = 'dashboard') {
         'https://api.ebay.com/oauth/api_scope/sell.inventory',
         'https://api.ebay.com/oauth/api_scope/sell.marketing',
         'https://api.ebay.com/oauth/api_scope/sell.account',
-        'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-        'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
+        'https://api.ebay.com/oauth/api_scope/sell.fulfillment'
     ].join(' ');
 
     return `${AUTH_BASE_URL}/oauth2/authorize?client_id=${EBAY_APP_ID}&response_type=code&redirect_uri=${encodeURIComponent(ruName)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
@@ -108,8 +107,7 @@ async function refreshUserToken(refreshToken) {
         'https://api.ebay.com/oauth/api_scope/sell.inventory',
         'https://api.ebay.com/oauth/api_scope/sell.marketing',
         'https://api.ebay.com/oauth/api_scope/sell.account',
-        'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-        'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
+        'https://api.ebay.com/oauth/api_scope/sell.fulfillment'
     ].join(' ');
 
     try {
@@ -297,7 +295,7 @@ async function getReturnPolicies(token, marketplaceId = 'EBAY_US') {
 async function initDefaultFulfillmentPolicy(token) {
     const policy = {
         name: 'Automation_Ship_' + Date.now(),
-        description: 'Automated shipping policy for India production',
+        description: 'Automated shipping policy for US production',
         marketplaceId: 'EBAY_US',
         categoryTypes: [{ name: 'ALL_EXCLUDING_MOTORS_VEHICLES' }],
         handlingTime: { value: 1, unit: 'DAY' },
@@ -305,12 +303,12 @@ async function initDefaultFulfillmentPolicy(token) {
             optionType: 'DOMESTIC',
             costType: 'FLAT_RATE',
             shippingServices: [{
-                shippingServiceCode: 'IN_DomesticRegular',
+                shippingServiceCode: 'USPSPriority',
                 shippingCost: { value: '0.00', currency: 'USD' }
             }]
         }],
         shipToLocations: {
-            regionIncluded: [{ regionName: 'IN' }]
+            regionIncluded: [{ regionName: 'US' }]
         }
     };
     const res = await axios.post(`${API_BASE_URL}/sell/account/v1/fulfillment_policy`, policy, {
@@ -361,15 +359,13 @@ async function initDefaultReturnPolicy(token) {
     return res.data;
 }
 
-
-
 /**
  * Gets Item Aspects for a specific Category from Taxonomy API
  */
 /**
  * Gets category suggestions for a keyword from Taxonomy API
  */
-async function getCategorySuggestions(token, query, categoryTreeId = '203') {
+async function getCategorySuggestions(token, query, categoryTreeId = '0') {
     try {
         const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_category_suggestions?q=${encodeURIComponent(query)}`, {
             headers: {
@@ -383,7 +379,7 @@ async function getCategorySuggestions(token, query, categoryTreeId = '203') {
     }
 }
 
-async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '203') {
+async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '0') {
     try {
         const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_aspects_for_category?category_id=${categoryId}`, {
             headers: {
@@ -401,7 +397,7 @@ async function getItemAspectsForCategory(token, categoryId, categoryTreeId = '20
 /**
  * Gets valid Item Conditions for a specific Category from Taxonomy API
  */
-async function getItemConditions(token, categoryId, categoryTreeId = '203') {
+async function getItemConditions(token, categoryId, categoryTreeId = '0') {
     try {
         const response = await axios.get(`${API_BASE_URL}/commerce/taxonomy/v1/category_tree/${categoryTreeId}/get_item_conditions?category_id=${categoryId}`, {
             headers: {
@@ -445,7 +441,7 @@ async function uploadPictureFromUrl(userToken, externalPictureUrl) {
         const response = await axios.post(TRADING_API_URL, xmlPayload, {
             headers: {
                 'X-EBAY-API-CALL-NAME': 'UploadSiteHostedPictures',
-                'X-EBAY-API-SITEID': '203',
+                'X-EBAY-API-SITEID': '0',
                 'X-EBAY-API-APP-NAME': EBAY_APP_ID,
                 'X-EBAY-API-DEV-NAME': EBAY_DEV_ID,
                 'X-EBAY-API-CERT-NAME': EBAY_CERT_ID,
@@ -776,23 +772,6 @@ async function getCategoryConditions(token, categoryId) {
         return [];
     }
 }
-/**
- * Gets eBay Inventory Locations
- */
-async function getInventoryLocations(token) {
-    try {
-        const response = await axios.get(`${API_BASE_URL}/sell/inventory/v1/location`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        return response.data.locations || [];
-    } catch (error) {
-        console.error('Error fetching eBay inventory locations:', error.response?.data || error.message);
-        throw error;
-    }
-}
 
 module.exports = {
     getAppToken,
@@ -815,7 +794,6 @@ module.exports = {
     initDefaultFulfillmentPolicy,
     initDefaultPaymentPolicy,
     initDefaultReturnPolicy,
-
     getItemAspectsForCategory,
     getItemConditions,
     getCategorySuggestions,
@@ -824,6 +802,5 @@ module.exports = {
     getInventoryItems,
     getCategoryConditions,
     updateShippingFulfillment,
-    getUserProfile,
-    getInventoryLocations
+    getUserProfile
 };

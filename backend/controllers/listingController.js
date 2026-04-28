@@ -282,26 +282,20 @@ exports.listOnEbay = async (req, res) => {
         console.log('Step 1: Creating/Updating Inventory Item...');
         await ebayService.createOrReplaceInventoryItem(token, sku, inventoryItem);
 
-        // 3. Get Business Policies & Locations
-        let fulfillmentPolicyId, paymentPolicyId, returnPolicyId, merchantLocationKey;
-        const [fList, pList, rList, lList] = await Promise.all([
+        // 3. Get Business Policies
+        let fulfillmentPolicyId, paymentPolicyId, returnPolicyId;
+        const [fList, pList, rList] = await Promise.all([
             ebayService.getFulfillmentPolicies(token),
             ebayService.getPaymentPolicies(token),
-            ebayService.getReturnPolicies(token),
-            ebayService.getInventoryLocations(token)
+            ebayService.getReturnPolicies(token)
         ]);
 
         fulfillmentPolicyId = fList[0]?.fulfillmentPolicyId;
         paymentPolicyId = pList[0]?.paymentPolicyId;
         returnPolicyId = rList[0]?.returnPolicyId;
-        merchantLocationKey = product.inventory_location?.merchantLocationKey || product.merchantLocationKey || lList[0]?.merchantLocationKey;
 
         if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
             throw new Error(`[Production] Missing Business Policies. Please ensure you have Shipping, Payment, and Return policies on your eBay account.`);
-        }
-
-        if (!merchantLocationKey) {
-            throw new Error(`Inventory Location is missing! Please create at least one location in your eBay account.`);
         }
 
         // 4. Create Offer
@@ -318,7 +312,7 @@ exports.listOnEbay = async (req, res) => {
                     value: String(product.selling_price || '10.00')
                 }
             },
-            merchantLocationKey: merchantLocationKey,
+            merchantLocationKey: product.inventory_location?.merchantLocationKey || product.merchantLocationKey,
             listingPolicies: {
                 fulfillmentPolicyId,
                 paymentPolicyId,
@@ -326,6 +320,9 @@ exports.listOnEbay = async (req, res) => {
             }
         };
 
+        if (!offer.merchantLocationKey) {
+            throw new Error("Inventory Location is missing! Please select a location in the 'Policies & Location' section before listing.");
+        }
 
         if (!offer.categoryId) {
             throw new Error("Category ID is missing! Please select a category in the product form before listing.");
@@ -383,7 +380,7 @@ exports.listOnEbay = async (req, res) => {
             sku,
             ebayOfferId: offerId,
             ebayListingId: publishResponse.listingId,
-            ebay_url: `https://www.ebay.in/itm/${publishResponse.listingId}`, // Using ebay.in for India fix
+            ebay_url: `https://www.ebay.com/itm/${publishResponse.listingId}`,
             updated_at: Date.now()
         });
 
@@ -394,7 +391,7 @@ exports.listOnEbay = async (req, res) => {
             message: 'SUCCESS! Listed on eBay!',
             sku,
             listingId: publishResponse.listingId,
-            ebayUrl: `https://www.ebay.in/itm/${publishResponse.listingId}`
+            ebayUrl: `https://www.ebay.com/itm/${publishResponse.listingId}`
         });
 
     } catch (error) {
