@@ -57,6 +57,7 @@ const SearchableDropdown = ({ options = [], value, onSelect, placeholder = 'Sele
                                 <input
                                     autoFocus type="text" placeholder="Search..." value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                                     className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-indigo-600 shadow-inner"
                                 />
                             </div>
@@ -239,12 +240,14 @@ const SearchableSelect = ({ label, value, options = [], onChange, metrics }) => 
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && searchTerm.trim()) {
+                                            if (e.key === 'Enter') {
                                                 e.preventDefault();
-                                                e.stopPropagation();
-                                                onChange(searchTerm);
-                                                setIsOpen(false);
-                                                setSearchTerm('');
+                                                if (searchTerm.trim()) {
+                                                    e.stopPropagation();
+                                                    onChange(searchTerm);
+                                                    setIsOpen(false);
+                                                    setSearchTerm('');
+                                                }
                                             }
                                         }}
                                         className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-indigo-600 shadow-inner"
@@ -555,6 +558,15 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
     };
 
     const handleChange = (e) => { const { name, value } = e.target; setFormData(p => ({ ...p, [name]: value })); };
+    const handleItemSpecificsChange = (name, value) => {
+        setFormData(prev => ({
+            ...prev,
+            item_specifics: {
+                ...prev.item_specifics,
+                [name]: value
+            }
+        }));
+    };
     const handleCategoryChange = async (cat) => {
         setFormData(prev => ({ ...prev, category: cat.fullName || cat.name, categoryId: cat.id }));
         setAspectsLoading(true);
@@ -591,7 +603,15 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset }) => {
     const { showConfirm } = useToast();
 
     return (
-        <form onSubmit={(e) => handlePreSubmit(e, false)} className="max-w-[1400px] mx-auto pb-20 mt-8">
+        <form 
+            onSubmit={(e) => handlePreSubmit(e, false)} 
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                    e.preventDefault();
+                }
+            }}
+            className="max-w-[1400px] mx-auto pb-20 mt-8"
+        >
             <div className="space-y-8">
                 <div className="space-y-8">
 
@@ -1261,6 +1281,7 @@ const SearchableCategory = ({ value, onChange }) => {
                         <input
                             autoFocus type="text" placeholder="Search categories..." value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                             className="w-full px-4 py-2 bg-white border border-gray-100 rounded-xl text-xs font-bold font-mono outline-none"
                         />
                     </div>
