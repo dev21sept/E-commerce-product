@@ -58,13 +58,13 @@ async function getAppToken() {
  * Generates the User Consent URL
  */
 function getUserConsentUrl(ruName, state = 'dashboard') {
-    const scope = [
         'https://api.ebay.com/oauth/api_scope',
         'https://api.ebay.com/oauth/api_scope/sell.inventory',
         'https://api.ebay.com/oauth/api_scope/sell.marketing',
         'https://api.ebay.com/oauth/api_scope/sell.account',
-        'https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-    ].join(' ');
+        'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+        'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
+    .join(' ');
 
     return `${AUTH_BASE_URL}/oauth2/authorize?client_id=${EBAY_APP_ID}&response_type=code&redirect_uri=${encodeURIComponent(ruName)}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
 }
@@ -102,13 +102,13 @@ async function getUserToken(code, ruName) {
 async function refreshUserToken(refreshToken) {
     const authHeader = Buffer.from(`${EBAY_APP_ID}:${EBAY_CERT_ID}`).toString('base64');
 
-    const scope = [
         'https://api.ebay.com/oauth/api_scope',
         'https://api.ebay.com/oauth/api_scope/sell.inventory',
         'https://api.ebay.com/oauth/api_scope/sell.marketing',
         'https://api.ebay.com/oauth/api_scope/sell.account',
-        'https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-    ].join(' ');
+        'https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+        'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
+    .join(' ');
 
     try {
         const response = await axios.post(`${API_BASE_URL}/identity/v1/oauth2/token`,
@@ -359,28 +359,7 @@ async function initDefaultReturnPolicy(token) {
     return res.data;
 }
 
-/**
- * Step 5: Initialize Bhopal Location
- */
-async function initDefaultBhopalLocation(token) {
-    const locationKey = 'BHOPAL_MAIN';
-    const locationData = {
-        location: {
-            address: {
-                addressLine1: "Arera Colony",
-                city: "Bhopal",
-                stateOrProvince: "Madhya Pradesh",
-                postalCode: "462016",
-                country: "IN"
-            }
-        },
-        locationInstructions: "Items are shipped from Bhopal warehouse",
-        name: "Bhopal Main Warehouse",
-        merchantLocationKey: locationKey,
-        locationTypes: ["WAREHOUSE"]
-    };
-    return await createOrUpdateLocation(token, locationKey, locationData);
-}
+
 
 /**
  * Gets Item Aspects for a specific Category from Taxonomy API
@@ -795,6 +774,23 @@ async function getCategoryConditions(token, categoryId) {
         return [];
     }
 }
+/**
+ * Gets eBay Inventory Locations
+ */
+async function getInventoryLocations(token) {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/inventory/v1/location`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        return response.data.locations || [];
+    } catch (error) {
+        console.error('Error fetching eBay inventory locations:', error.response?.data || error.message);
+        throw error;
+    }
+}
 
 module.exports = {
     getAppToken,
@@ -817,7 +813,7 @@ module.exports = {
     initDefaultFulfillmentPolicy,
     initDefaultPaymentPolicy,
     initDefaultReturnPolicy,
-    initDefaultBhopalLocation,
+
     getItemAspectsForCategory,
     getItemConditions,
     getCategorySuggestions,
@@ -826,5 +822,6 @@ module.exports = {
     getInventoryItems,
     getCategoryConditions,
     updateShippingFulfillment,
-    getUserProfile
+    getUserProfile,
+    getInventoryLocations
 };
