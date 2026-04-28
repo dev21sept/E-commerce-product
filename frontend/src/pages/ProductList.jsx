@@ -59,6 +59,17 @@ const ProductList = () => {
 
     const [previewProduct, setPreviewProduct] = useState(null);
 
+    const handleQuickPublish = async (id) => {
+        try {
+            addToast("Publishing Draft to eBay API...", 'info');
+            const res = await listProduct(id);
+            addToast(`✅ Successfully Published! ID: ${res.listingId}`, 'success');
+            loadProducts();
+        } catch (err) {
+            addToast('Listing failed: ' + (err.response?.data?.details || err.message), 'error');
+        }
+    };
+
     const handlePreviewListing = (product) => {
         setPreviewProduct(product);
     };
@@ -296,6 +307,15 @@ const ProductList = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2.5">
+                                                 {product.status === 'draft' && (
+                                                    <button
+                                                        onClick={() => handleQuickPublish(product.id)}
+                                                        className="w-9 h-9 flex items-center justify-center text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-100 shadow-sm"
+                                                        title="Quick Publish Draft to eBay"
+                                                    >
+                                                        <Zap className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handlePreviewListing(product)}
                                                     className="w-9 h-9 flex items-center justify-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-100 shadow-sm"
