@@ -4,6 +4,7 @@ import AiProductForm from '../components/AiProductForm';
 import ImportProductForm from '../components/ImportProductForm';
 import ProductForm from '../components/ProductForm';
 import { getProductById, updateProduct, listProduct } from '../services/api';
+import { useToast } from '../components/Toast';
 import { ChevronLeft, ExternalLink, Sparkles, Globe } from 'lucide-react';
 
 const EditProduct = () => {
