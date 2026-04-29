@@ -465,7 +465,10 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate })
             const currentId = initialData.id || initialData.temp_id || initialData._id;
             const currentTitle = initialData.title;
 
-            if (lastInitializedId.current === currentId && (currentTitle === formData.title || lastInitializedTitle.current === currentTitle) && formData.title !== '') {
+            // 🚨 CRITICAL: ONLY reset if the product ID has changed. 
+            // Do NOT reset if we are just receiving a title update back from the parent 
+            // that we ourselves just sent. This prevents the infinite 'hanging' loop.
+            if (lastInitializedId.current === currentId && formData.title !== '') {
                 return;
             }
 
@@ -549,11 +552,14 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate })
         }
     }, [formData.title_parts, formData.structure]);
 
-    // Notify parent of live changes (Title, SKU)
+    // Notify parent of live changes (Title, SKU) - DEBOUNCED to prevent hang
     useEffect(() => {
-        if (onUpdate) {
-            onUpdate({ title: formData.title, sku: formData.sku });
-        }
+        const timer = setTimeout(() => {
+            if (onUpdate && formData.title && formData.title.trim() !== '') {
+                onUpdate({ title: formData.title, sku: formData.sku });
+            }
+        }, 500); // 500ms delay
+        return () => clearTimeout(timer);
     }, [formData.title, formData.sku]);
 
     const fetchCategoryConditions = async (cid) => {
