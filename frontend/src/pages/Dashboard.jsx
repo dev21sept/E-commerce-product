@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingBag, DollarSign, Package, Tag, ArrowUpRight, Link2, Sparkles, Plus, ExternalLink, Clock } from 'lucide-react';
 import { getProducts, getOrders, getEbayAuthUrl } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 
 const Dashboard = () => {
+    const { addToast } = useToast();
     const location = useLocation();
     const [stats, setStats] = useState({
         totalProducts: 0,
@@ -13,13 +15,12 @@ const Dashboard = () => {
         ebayCount: 0
     });
     const [recentProducts, setRecentProducts] = useState([]);
-    const [authStatus, setAuthStatus] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         if (params.get('ebay_auth') === 'success') {
-            setAuthStatus('Successfully connected to eBay!');
+            addToast('Successfully connected to eBay!', 'success');
             window.history.replaceState({}, document.title, "/");
         }
 
@@ -56,11 +57,12 @@ const Dashboard = () => {
 
     const handleEbayConnect = async () => {
         try {
-            const url = await getEbayAuthUrl();
+            addToast("Connecting to eBay...", 'info');
+            const { url } = await getEbayAuthUrl();
             if (url) window.location.href = url;
         } catch (error) {
             console.error('Error getting eBay auth URL:', error);
-            alert('Failed to get eBay connection link. Check backend status.');
+            addToast('Failed to get eBay connection link. Check backend status.', 'error');
         }
     };
 

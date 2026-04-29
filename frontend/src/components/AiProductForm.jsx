@@ -1178,7 +1178,11 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate })
                     <div className="flex items-center gap-3">
                         {/* 1. SAVE ITEM */}
                         <button
-                            type="submit" disabled={isFetching}
+                            type="button" disabled={isFetching}
+                            onClick={async (e) => {
+                                const ok = await showConfirm("Are you sure you want to SAVE this product to your inventory?");
+                                if (ok) handlePreSubmit(e, false, false);
+                            }}
                             className="px-6 py-3 bg-gray-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all shadow-lg active:scale-95"
                         >
                             <Save className="w-4 h-4" /> Save Item
@@ -1187,8 +1191,9 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate })
                         {/* 2. EXTENSION */}
                         <button
                             type="button" disabled={isFetching}
-                            onClick={() => {
-                                window.postMessage({ type: 'EbayAutoLister_SendData', payload: formData }, "*");
+                            onClick={async () => {
+                                const ok = await showConfirm("Send this product data to eBay Extension?");
+                                if (ok) window.postMessage({ type: 'EbayAutoLister_SendData', payload: formData }, "*");
                             }}
                             className="px-6 py-3 bg-orange-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-orange-600 transition-all shadow-lg active:scale-95"
                         >
@@ -1198,7 +1203,10 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate })
                         {/* 3. API LIST */}
                         <button
                             type="button" disabled={isFetching}
-                            onClick={(e) => handlePreSubmit(e, true, false)}
+                            onClick={async (e) => {
+                                const ok = await showConfirm("Are you sure you want to LIST this product directly to eBay via API?");
+                                if (ok) handlePreSubmit(e, true, false);
+                            }}
                             className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg active:scale-95"
                         >
                             <Zap className="w-4 h-4 fill-yellow-300 text-yellow-300" /> API List
@@ -1207,7 +1215,10 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate })
                         {/* 4. SAVE DRAFT */}
                         <button
                             type="button" disabled={isFetching}
-                            onClick={(e) => handlePreSubmit(e, false, true)}
+                            onClick={async (e) => {
+                                const ok = await showConfirm("Are you sure you want to save this as a DRAFT on eBay?");
+                                if (ok) handlePreSubmit(e, false, true);
+                            }}
                             className="px-6 py-3 bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg active:scale-95"
                         >
                             <FileText className="w-4 h-4" /> Save Draft

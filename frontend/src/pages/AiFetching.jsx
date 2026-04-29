@@ -10,7 +10,7 @@ import { useToast } from '../components/Toast';
 
 const AiFetching = () => {
     const navigate = useNavigate();
-    const { showConfirm } = useToast();
+    const { showConfirm, addToast } = useToast();
     const [isFetching, setIsFetching] = useState(false);
     const [scrapedData, setScrapedData] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -51,19 +51,21 @@ const AiFetching = () => {
             if (isDirectList || isDraft) {
                 setAuthStatus(isDraft ? "Saving as Draft on eBay API..." : "Listing directly on eBay API...");
                 const listRes = await listProduct(targetId, isDraft);
-                alert(`✅ ${listRes.message}${listRes.listingId ? '\nListing ID: ' + listRes.listingId : ''}`);
-                navigate('/products');
-            } else {
-                navigate('/products');
-            }
+                addToast(`${listRes.message}${listRes.listingId ? ' (ID: ' + listRes.listingId + ')' : ''}`, 'success');
+            } 
+            
+            // Stay on page and clear data for next scan
+            setScrapedData(null); 
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            addToast("Product Saved Successfully! You can now scan the next item.", 'success');
         } catch (err) {
             console.error('Save/List error:', err);
             const isAuthError = err.response?.status === 401 || (err.response?.data?.details && err.response.data.details.includes('401'));
             
             if (isAuthError) {
-                alert('⚠️ EBAY SESSION EXPIRED! \n\nYour eBay connection is no longer valid. Please click "CONNECT EBAY" in the sidebar to re-login.');
+                addToast('EBAY SESSION EXPIRED! Please re-login in sidebar.', 'error');
             } else {
-                alert('Failed: ' + (err.response?.data?.details || err.message));
+                addToast('Failed: ' + (err.response?.data?.details || err.message), 'error');
             }
         } finally {
             setIsFetching(false);

@@ -22,7 +22,10 @@ import {
     LogOut
 } from 'lucide-react';
 
+import { useToast } from '../components/Toast';
+
 const Layout = ({ children, onLogout, user }) => {
+    const { addToast, showConfirm } = useToast();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [ebayStatus, setEbayStatus] = useState({ connected: false, sellerName: '' });
@@ -54,12 +57,15 @@ const Layout = ({ children, onLogout, user }) => {
     }, []);
 
     const handleEbayDisconnect = async () => {
-        if (!window.confirm('Are you sure you want to disconnect this eBay account? You will need to login again to list products.')) return;
+        const ok = await showConfirm('Are you sure you want to disconnect this eBay account? You will need to login again to list products.');
+        if (!ok) return;
         try {
             await disconnectEbay();
             setEbayStatus({ connected: false, sellerName: '', sellerEmail: '', environment: 'PRODUCTION' });
+            addToast('Disconnected successfully', 'success');
         } catch (err) {
             console.error('Failed to disconnect eBay:', err);
+            addToast('Disconnect failed', 'error');
         }
     };
 
@@ -168,18 +174,19 @@ const Layout = ({ children, onLogout, user }) => {
                             onClick={async () => {
                                 if (ebayStatus.connected) {
                                     try {
-                                        alert('Sync started in background...');
+                                        addToast('Sync started in background...', 'info');
                                         await syncEbayData();
                                         window.location.reload();
                                     } catch (err) {
-                                        alert('Sync failed. Please check connection.');
+                                        addToast('Sync failed. Please check connection.', 'error');
                                     }
                                 } else {
                                     try {
+                                        addToast('Connecting to eBay...', 'info');
                                         const { url } = await getEbayAuthUrl('dashboard');
                                         if (url) window.location.href = url;
                                     } catch (err) {
-                                        alert('Failed to connect. Check backend.');
+                                        addToast('Failed to connect. Check backend.', 'error');
                                     }
                                 }
                             }}
@@ -191,6 +198,7 @@ const Layout = ({ children, onLogout, user }) => {
                         >
                             {ebayStatus.connected ? 'SYNC DATA NOW' : 'CONNECT EBAY'}
                         </button>
+
 
 
                     </div>

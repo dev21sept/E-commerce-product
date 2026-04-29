@@ -6,8 +6,11 @@ import ImportProductForm from '../components/ImportProductForm';
 import { fetchEbayProduct, createProduct, listProduct, scrapeEbayDescription } from '../services/api';
 import { Card, Button } from '../components/ui';
 
+import { useToast } from '../components/Toast';
+
 const EbayImport = () => {
     const navigate = useNavigate();
+    const { addToast } = useToast();
     const [ebayUrl, setEbayUrl] = useState('');
     const [isFetching, setIsFetching] = useState(false);
     const [error, setError] = useState('');
@@ -66,14 +69,17 @@ const EbayImport = () => {
 
             if (isDirectList || isDraft) {
                 const listRes = await listProduct(targetId, isDraft);
-                alert(`✅ ${listRes.message}${listRes.listingId ? '\nListing ID: ' + listRes.listingId : ''}`);
-                navigate('/products');
-            } else {
-                navigate('/products');
-            }
+                addToast(`${listRes.message}${listRes.listingId ? ' (ID: ' + listRes.listingId + ')' : ''}`, 'success');
+            } 
+            
+            // Stay on page and clear data for next scan
+            setScrapedData(null); 
+            setEbayUrl('');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            addToast("Product imported successfully!", 'success');
         } catch (err) {
             console.error(err);
-            alert('Operation failed: ' + (err.response?.data?.details || err.message));
+            addToast('Operation failed: ' + (err.response?.data?.details || err.message), 'error');
         } finally {
             setIsFetching(false);
         }

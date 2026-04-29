@@ -52,6 +52,7 @@ cat .env
 
 *Note: You must restart the backend after changing the .env file for changes to take effect:*
 `pm2 restart valisting-backend`
+`sudo systemctl restart nginx`
 
 ---
 

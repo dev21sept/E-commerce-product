@@ -47,12 +47,14 @@ const ProductList = () => {
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this product?')) {
+        const ok = await showConfirm('Are you sure you want to delete this product?');
+        if (ok) {
             try {
                 await deleteProduct(id);
                 setProducts(products.filter(p => p.id !== id));
+                addToast('Product deleted successfully', 'success');
             } catch (error) {
-                alert('Failed to delete product');
+                addToast('Failed to delete product', 'error');
             }
         }
     };
@@ -63,7 +65,7 @@ const ProductList = () => {
         try {
             addToast("Publishing Draft to eBay API...", 'info');
             const res = await listProduct(id);
-            addToast(`✅ Successfully Published! ID: ${res.listingId}`, 'success');
+            addToast(`Successfully Published! ID: ${res.listingId}`, 'success');
             loadProducts();
         } catch (err) {
             addToast('Listing failed: ' + (err.response?.data?.details || err.message), 'error');
@@ -89,12 +91,12 @@ const ProductList = () => {
 
     const handleSendToPoshmark = (product) => {
         window.postMessage({ type: 'PoshmarkAutoLister_SendData', payload: product }, '*');
-        alert('Listing data sent to Poshmark Extension! 🚀 Opening Poshmark...');
+        addToast('Listing data sent to Poshmark Extension!  Opening Poshmark...', 'success');
     };
 
     const handleSendToVinted = (product) => {
         window.postMessage({ type: 'VintedAutoLister_SendData', payload: product }, '*');
-        alert('Listing data sent to Vinted Extension! 🚀 Opening Vinted...');
+        addToast('Listing data sent to Vinted Extension!  Opening Vinted...', 'success');
     };
 
     const filteredProducts = products.filter(p => {

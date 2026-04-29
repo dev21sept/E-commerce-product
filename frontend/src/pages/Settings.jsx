@@ -279,8 +279,9 @@ const Settings = () => {
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [savedNotes, setSavedNotes] = useState(DEFAULT_CONDITION_NOTES);
-    const [editingId, setEditingId] = useState(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const { addToast, showConfirm } = useToast();
 
     const refreshRules = async () => {
         const [ruleRes, notesRes] = await Promise.all([getFetchRules(), getSavedConditionNotes()]);
@@ -319,8 +320,9 @@ const Settings = () => {
             await createFetchRule(payload);
             await refreshRules();
             setIsAddModalOpen(false);
+            addToast('Rule created successfully!', 'success');
         } catch (error) {
-            alert(error?.response?.data?.error || 'Failed to create rule');
+            addToast(error?.response?.data?.error || 'Failed to create rule', 'error');
         } finally {
             setSaving(false);
         }
@@ -332,21 +334,24 @@ const Settings = () => {
             await updateFetchRule(id, payload);
             await refreshRules();
             setEditingId(null);
+            addToast('Rule updated successfully!', 'success');
         } catch (error) {
-            alert(error?.response?.data?.error || 'Failed to update rule');
+            addToast(error?.response?.data?.error || 'Failed to update rule', 'error');
         } finally {
             setSaving(false);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Delete this rule?')) return;
+        const ok = await showConfirm('Are you sure you want to delete this rule?');
+        if (!ok) return;
         try {
             await deleteFetchRule(id);
             await refreshRules();
             if (editingId === id) setEditingId(null);
+            addToast('Rule deleted successfully!', 'success');
         } catch (error) {
-            alert(error?.response?.data?.error || 'Failed to delete rule');
+            addToast(error?.response?.data?.error || 'Failed to delete rule', 'error');
         }
     };
 

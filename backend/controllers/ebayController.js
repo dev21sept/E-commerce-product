@@ -169,7 +169,7 @@ exports.handleCallback = async (req, res) => {
         // exports.syncInventory(tokens.access_token).catch(err => console.error('Initial inventory sync error:', err));
         // exports.syncOrders(tokens.access_token).catch(err => console.error('Initial orders sync error:', err));
 
-        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').trim().replace(/\/$/, '');
+        const frontendUrl = (process.env.FRONTEND_URL ).trim().replace(/\/$/, '');
         const redirectPath = state === 'products' ? '/products' : '/';
         res.redirect(`${frontendUrl}${redirectPath}?ebay_auth=success`);
     } catch (error) {
