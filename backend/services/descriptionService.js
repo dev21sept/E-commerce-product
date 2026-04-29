@@ -1,4 +1,11 @@
-const puppeteer = require('puppeteer');
+let puppeteer;
+if (process.env.NODE_ENV === 'production') {
+    puppeteer = require('puppeteer-core');
+} else {
+    puppeteer = require('puppeteer');
+}
+const chromium = process.env.NODE_ENV === 'production' ? require('@sparticuz/chromium') : null;
+
 const cheerio = require('cheerio');
 const sanitizeHtml = require('sanitize-html');
 
@@ -9,10 +16,22 @@ const sanitizeHtml = require('sanitize-html');
 const fetchDescriptionOnly = async (url, providedIframeSrc = null) => {
     let browser;
     try {
-        browser = await puppeteer.launch({
+        let launchOptions = {
             headless: "new",
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-        });
+        };
+
+        if (process.env.NODE_ENV === 'production') {
+            launchOptions = {
+                args: chromium.args,
+                defaultViewport: chromium.defaultViewport,
+                executablePath: await chromium.executablePath(),
+                headless: chromium.headless,
+                ignoreHTTPSErrors: true,
+            };
+        }
+
+        browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 

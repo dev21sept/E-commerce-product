@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Trash2, Edit, ShoppingBag, Package, User, ExternalLink, Link2, Eye, CheckCircle2, Sparkles, Zap, FileText, Tag, TrendingUp } from 'lucide-react';
-import { getProducts, deleteProduct, getEbayAuthUrl, listProduct } from '../services/api';
+import { getProducts, deleteProduct, getEbayAuthUrl, listProduct, updateProduct } from '../services/api';
 import { Link, useLocation } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 
