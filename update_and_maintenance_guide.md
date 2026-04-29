@@ -17,7 +17,7 @@ git pull origin main
 
 # 3. Update Backend
 cd backend
-npm install
+npm install  # agar koi new library install krni ho toh
 pm2 restart valisting-backend
 
 # 4. Update Frontend (If hosted on this server)

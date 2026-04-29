@@ -140,9 +140,8 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    // Aggressive compression to avoid Vercel 413 Content Too Large Error
-                    // Aggressive compression for Vercel's 4.5MB payload limit
-                    const maxSize = 500; 
+                    // Standard normalization for high-quality analysis
+                    const maxSize = 1600; 
 
                     if (width > height && width > maxSize) {
                         height *= maxSize / width;
@@ -160,8 +159,8 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
                     ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // Very low quality (0.3) to keep Base64 payload small for Vercel
-                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.3); 
+                    // Better quality (0.7) for clearer AI analysis
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); 
                     setLocalPreviews((prev) => [...prev, compressedDataUrl]);
                 };
                 img.src = String(reader.result || '');
@@ -229,8 +228,8 @@ const AiFetchSection = ({ onDataFetched, onAnalyzingStart }) => {
             if (isPayloadTooLarge) {
                 // If 413 happens, try again with only the first 4 images (usually enough for AI)
                 try {
-                    console.warn("Payload too large for Vercel. Retrying with first 4 images...");
-                    const retryImages = allImages.slice(0, 4);
+                    console.warn("Payload too large. Retrying with first 16 images...");
+                    const retryImages = allImages.slice(0, 16);
                     const retryResult = await analyzeProduct({
                         images: retryImages,
                         condition: selectedCondition?.label || 'New',
