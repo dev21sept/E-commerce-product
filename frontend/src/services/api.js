@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const isProduction = import.meta.env.MODE === 'production' || window.location.hostname.includes('hostingersite.com');
+const isProduction = import.meta.env.MODE === 'production' || window.location.hostname.includes('ajxlubricant.co.in');
 
 const api = axios.create({
     baseURL: isProduction
-        ? 'https://e-commerce-product-vasq.vercel.app/api'
+        ? 'https://apivalisting.ajxlubricant.co.in/api'
         : 'http://localhost:5000/api',
     timeout: 120000
 });

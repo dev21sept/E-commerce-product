@@ -1,0 +1,71 @@
+# Frontend Deployment Guide (EC2)
+
+This guide covers how to deploy your React/Vite frontend on the same EC2 instance.
+
+---
+
+## Step 1: Build the Frontend
+
+Connect to your EC2 and run these commands:
+
+```bash
+# Go to the frontend directory
+cd ~/E-commerce-product/frontend
+
+# Install dependencies
+npm install
+
+# Build the project (This creates the 'dist' or 'build' folder)
+npm run build
+```
+
+---
+
+## Step 2: Configure Nginx to serve Frontend
+
+You have two choices:
+1. **Option A**: Serve Frontend on the Main Domain (`ajxlubricant.co.in`)
+2. **Option B**: Serve Frontend on a Subdomain (`listing.ajxlubricant.co.in`)
+
+### Nginx Configuration Code:
+Edit your Nginx file: `sudo nano /etc/nginx/sites-available/default`
+
+Add this block (or update the existing one):
+
+```nginx
+server {
+    listen 80;
+    server_name your_frontend_domain.com; # Change this to your domain
+
+    root /home/ubuntu/E-commerce-product/frontend/dist; # Path to your build folder
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html; # Essential for React Routing
+    }
+}
+```
+
+---
+
+## Step 3: Deployment Checklist
+
+1.  **Permissions**: Make sure Nginx can read the folder:
+    ```bash
+    chmod -R 755 /home/ubuntu/E-commerce-product/frontend/dist
+    ```
+2.  **Restart Nginx**:
+    ```bash
+    sudo systemctl restart nginx
+    ```
+3.  **SSL**: Run Certbot for the frontend domain as well:
+    ```bash
+    sudo certbot --nginx -d your_frontend_domain.com
+    ```
+
+---
+
+## Important Tip for API Calls
+Make sure your Frontend's `.env` or API config points to your new backend URL:
+`https://valisting.ajxlubricant.co.in/api`
+(Otherwise, it will try to connect to localhost and fail).
