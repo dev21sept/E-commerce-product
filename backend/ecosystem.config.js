@@ -1,8 +1,8 @@
 module.exports = {
   apps: [
     {
-      name: 'ebay-backend',
-      script: './backend/index.js', // Updated to match your entry point
+      name: 'valisting-backend',
+      script: 'index.js', // Updated to match your entry point
       instances: 1,
       autorestart: true,
       watch: false,
@@ -15,8 +15,8 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 5000
       },
-      error_file: './backend/logs/err.log',
-      out_file: './backend/logs/out.log',
+      error_file: './logs/err.log',
+      out_file: './logs/out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss'
     }
   ]
