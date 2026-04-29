@@ -13,7 +13,8 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 5000
+        PORT: 5000,
+        MONGODB_URI: 'mongodb://127.0.0.1:27017/ebay_db'
       },
       error_file: './logs/err.log',
       out_file: './logs/out.log',
