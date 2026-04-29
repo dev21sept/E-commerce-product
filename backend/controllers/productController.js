@@ -99,7 +99,8 @@ exports.createProduct = async (req, res) => {
             title, description, category, category_id, categoryId, brand, sku,
             condition_name, condition_notes, condition_id, gender, retail_price, selling_price, 
             discount_percentage, seller_name, seller_feedback, ebay_url, about_item, 
-            item_specifics, officialAspects, images, variations, video_url, overwrite
+            item_specifics, officialAspects, images, variations, video_url, overwrite,
+            inventory_location, fulfillment_policy, payment_policy, return_policy, applied_rule, status
         } = req.body;
         const normalizedImages = await normalizeProductImages(images || []);
 
@@ -172,7 +173,13 @@ exports.createProduct = async (req, res) => {
             variations: formattedVariations,
             video_url,
             ai_generated: req.body.ai_generated || false,
-            source: req.body.source || 'ebay'
+            source: req.body.source || 'ebay',
+            inventory_location,
+            fulfillment_policy,
+            payment_policy,
+            return_policy,
+            applied_rule,
+            status: status || 'pending'
         });
 
         await newProduct.save();
@@ -267,7 +274,8 @@ exports.updateProduct = async (req, res) => {
             title, description, category, categoryId, brand, sku,
             condition_name, condition_notes, condition_id, gender, retail_price, selling_price,
             discount_percentage, seller_name, seller_feedback,
-            ebay_url, about_item, item_specifics, officialAspects, images, variations, video_url
+            ebay_url, about_item, item_specifics, officialAspects, images, variations, video_url,
+            inventory_location, fulfillment_policy, payment_policy, return_policy, applied_rule, status
         } = req.body;
         const normalizedImages = await normalizeProductImages(images || []);
 
@@ -293,6 +301,7 @@ exports.updateProduct = async (req, res) => {
                 discount_percentage, seller_name, seller_feedback,
                 ebay_url, about_item, item_specifics, officialAspects, images: normalizedImages,
                 variations: formattedVariations, video_url,
+                inventory_location, fulfillment_policy, payment_policy, return_policy, applied_rule, status,
                 updated_at: Date.now()
             },
             { returnDocument: 'after' }

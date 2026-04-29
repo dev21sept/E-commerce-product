@@ -35,6 +35,9 @@ const productSchema = new mongoose.Schema({
     source: { type: String, enum: ['ai', 'ebay', 'scraper'], default: 'ebay' },
     target_platform: { type: String, enum: ['ebay', 'poshmark', 'vinted'], default: 'ebay' },
     inventory_location: mongoose.Schema.Types.Mixed,
+    fulfillment_policy: mongoose.Schema.Types.Mixed,
+    payment_policy: mongoose.Schema.Types.Mixed,
+    return_policy: mongoose.Schema.Types.Mixed,
     applied_rule: mongoose.Schema.Types.Mixed,
     sql_id: Number, // Temporary for migration
     status: { 

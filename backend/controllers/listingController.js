@@ -320,6 +320,20 @@ exports.listOnEbay = async (req, res) => {
             }
         };
 
+        // 🚨 FALLBACK: If merchantLocationKey is missing, try to fetch from eBay and use the first one
+        if (!offer.merchantLocationKey) {
+            console.log('[RECOVERY] merchantLocationKey missing in product, fetching from eBay...');
+            try {
+                const locations = await ebayService.getLocations(token);
+                if (locations && locations.length > 0) {
+                    offer.merchantLocationKey = locations[0].merchantLocationKey;
+                    console.log(`[RECOVERY] Using first available location: ${offer.merchantLocationKey}`);
+                }
+            } catch (locErr) {
+                console.error('[RECOVERY] Failed to fetch locations:', locErr.message);
+            }
+        }
+
         if (!offer.merchantLocationKey) {
             throw new Error("Inventory Location is missing! Please select a location in the 'Policies & Location' section before listing.");
         }

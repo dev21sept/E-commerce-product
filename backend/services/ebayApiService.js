@@ -261,6 +261,21 @@ async function createOrUpdateLocation(token, locationKey, locationData) {
     }
 }
 
+async function getLocations(token) {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/sell/inventory/v1/location`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Language': 'en-US'
+            }
+        });
+        return response.data.locations || [];
+    } catch (error) {
+        console.error('Error fetching eBay locations:', error.response?.data || error.message);
+        return [];
+    }
+}
+
 /**
  * Get Business Policies (Needed for Offers)
  */
@@ -804,5 +819,6 @@ module.exports = {
     getInventoryItems,
     getCategoryConditions,
     updateShippingFulfillment,
-    getUserProfile
+    getUserProfile,
+    getLocations
 };
