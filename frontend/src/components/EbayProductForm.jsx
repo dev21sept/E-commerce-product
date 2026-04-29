@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, User, ExternalLink, Tag, Upload, Search, Check, TrendingUp, FileText, Save, Layers, Zap, Globe } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { searchCategories, getCategoryAspects } from '../services/api';
+import { useToast } from './Toast';
 
 // --- SHARED DROPDOWNS ---
 const EBAY_CONDITION_NOTES = [
@@ -183,6 +184,7 @@ const SearchableCategory = ({ value, onChange }) => {
 
 // --- EBAY PRODUCT FORM COMPONENT (STANDALONE) ---
 const EbayProductForm = ({ initialData, onSubmit, isFetching }) => {
+    const { addToast } = useToast();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -346,7 +348,7 @@ const EbayProductForm = ({ initialData, onSubmit, isFetching }) => {
                         <button type="submit" disabled={isFetching} className="w-full py-6 bg-emerald-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200">
                             {isFetching ? <Loader2 className="w-5 h-5 animate-spin"/> : <Zap className="w-5 h-5"/>} {initialData?.id ? 'Update Record' : 'Save Imported Product'}
                         </button>
-                        <button type="button" onClick={() => { window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); alert("DATA SYNCED!"); }} className="w-full py-6 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-blue-700 transition-all">
+                        <button type="button" onClick={() => { window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); addToast("DATA SYNCED!", "success"); }} className="w-full py-6 bg-blue-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-blue-700 transition-all">
                             <ExternalLink className="w-5 h-5" /> Push To eBay (Ext)
                         </button>
                          <button type="button" disabled={isFetching} onClick={() => onSubmit(formData, true)} className="w-full py-6 bg-emerald-600 text-white rounded-full font-black text-sm uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200">

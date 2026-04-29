@@ -3,6 +3,7 @@ import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, C
 import { AnimatePresence, motion } from 'framer-motion';
 import { searchCategories, analyzeProduct, getCategoryAspects } from '../services/api';
 import { EBAY_CONDITIONS } from '../constants/ebayConditions';
+import { useToast } from './Toast';
 
 const EBAY_CONDITION_NOTES = [
     "Pre-Owned In Excellent Condition.",
@@ -332,6 +333,7 @@ const ConditionNotesSection = ({ value = "", onChange }) => {
 
 // --- UNIVERSAL PRODUCT FORM ---
 const ProductForm = ({ initialData, onSubmit, isFetching }) => {
+    const { addToast } = useToast();
     const [formData, setFormData] = useState({
         title: '',
         brand: '',
@@ -593,7 +595,7 @@ const ProductForm = ({ initialData, onSubmit, isFetching }) => {
                                 <button type="submit" disabled={isFetching} className="py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:shadow-lg transition-all">
                                     {isFetching ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} {initialData?.id ? 'Update' : 'Save'}
                                 </button>
-                                <button type="button" onClick={() => { window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); alert("DATA SYNCED!"); }} className="py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all">
+                                <button type="button" onClick={() => { window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); addToast("DATA SYNCED!", "success"); }} className="py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all">
                                     <ExternalLink className="w-4 h-4" /> Push (Ext)
                                 </button>
                                 <button type="button" disabled={isFetching} onClick={() => onSubmit(formData, true)} className="py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all">

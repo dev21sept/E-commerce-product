@@ -455,8 +455,23 @@ const AiProductForm = ({ initialData, onSubmit, isFetching, onReset, onUpdate })
         }
     }, [formData.categoryId]);
 
+    // Prevent re-initialization loop if initialData is updated by parent
+    const lastInitializedId = useRef(null);
+    const lastInitializedTitle = useRef(null);
+
     useEffect(() => {
         if (initialData) {
+            // Only re-initialize if it's a DIFFERENT product or if we haven't initialized yet
+            const currentId = initialData.id || initialData.temp_id || initialData._id;
+            const currentTitle = initialData.title;
+
+            if (lastInitializedId.current === currentId && (currentTitle === formData.title || lastInitializedTitle.current === currentTitle) && formData.title !== '') {
+                return;
+            }
+
+            lastInitializedId.current = currentId;
+            lastInitializedTitle.current = currentTitle;
+
             // Map initial data to our preferred architect keys with item_specifics fallback
             const specs = typeof initialData.item_specifics === 'string' ? JSON.parse(initialData.item_specifics) : (initialData.item_specifics || {});
             const getVal = (key, aliases = []) => {

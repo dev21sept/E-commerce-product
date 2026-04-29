@@ -20,7 +20,7 @@ const EditProduct = () => {
                 setProduct(data);
             } catch (err) {
                 console.error(err);
-                alert('Failed to load product');
+                addToast('Failed to load product', 'error');
             } finally {
                 setLoading(false);
             }

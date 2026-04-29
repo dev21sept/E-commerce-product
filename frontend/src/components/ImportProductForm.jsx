@@ -3,6 +3,7 @@ import { Package, Image as ImageIcon, Plus, X, Loader2, Sparkles, AlertCircle, C
 import { AnimatePresence, motion } from 'framer-motion';
 import { searchCategories, getCategoryAspects } from '../services/api';
 import { EBAY_CONDITIONS } from '../constants/ebayConditions';
+import { useToast } from './Toast';
 
 // --- SHARED DROPDOWNS ---
 const EBAY_CONDITION_NOTES = [
@@ -353,6 +354,7 @@ const SearchableCategory = ({ value, onChange }) => {
 };
 
 const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
+    const { addToast } = useToast();
     const [formData, setFormData] = useState({ title: '', description: '', category: '', categoryId: '', brand: '', condition_name: '', retail_price: '', selling_price: '', ebay_url: '', item_specifics: {}, officialAspects: [], images: [], variations: [] });
     const [aspectsLoading, setAspectsLoading] = useState(false);
     const descriptionRef = useRef(null);
@@ -604,7 +606,7 @@ const ImportProductForm = ({ initialData, onSubmit, isFetching }) => {
                                 onClick={() => { 
                                     console.log("%c [Frontend]  Pushing Data TO EXTENSION:", "color: #10B981; font-weight: bold;", formData);
                                     window.postMessage({ type: "EbayAutoLister_SendData", payload: formData }, "*"); 
-                                    alert("DATA SYNCED TO EXTENSION!"); 
+                                    addToast("DATA SYNCED TO EXTENSION!", "success"); 
                                 }} 
                                 className="py-5 bg-blue-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
                             >
