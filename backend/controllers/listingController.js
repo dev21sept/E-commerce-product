@@ -83,115 +83,73 @@ exports.listOnEbay = async (req, res) => {
         const canUseBackendProxy = /^https:\/\//i.test(backendBaseUrl);
 
         // 1. Prepare Inventory Item
-        // Detect and Upload Base64 images to eBay EPS if necessary
-        const processedImages = [];
-        let firstUploadError = null;
-        console.log(`[EPS DEBUG] Starting image processing for ${imageList.length} total images.`);
-
-        for (let i = 0; i < imageList.length; i++) {
-            const rawImg = imageList[i];
+        // Parallelize image processing for significant speed boost
+        console.log(`[EPS DEBUG] Starting parallel image processing for ${imageList.length} total images.`);
+        
+        const imagePromises = imageList.map(async (rawImg, i) => {
             const img = typeof rawImg === 'string' ? rawImg.trim() : '';
+            if (!img) return null;
+
             const isUrl = /^https?:\/\//i.test(img);
             const isDataUri = /^data:image\/[a-z0-9.+-]+;base64,/i.test(img);
-            const looksLikeRawBase64 =
-                !isUrl &&
-                !isDataUri &&
-                img.length > 2000 &&
-                /^[a-z0-9+/=\r\n]+$/i.test(img);
+            const looksLikeRawBase64 = !isUrl && !isDataUri && img.length > 2000 && /^[a-z0-9+/=\r\n]+$/i.test(img);
             const isBase64 = isDataUri || looksLikeRawBase64;
-            const proxyUrl = canUseBackendProxy
-                ? `${backendBaseUrl}/api/listing/public-image/${product._id}/${i}`
-                : null;
+            const proxyUrl = canUseBackendProxy ? `${backendBaseUrl}/api/listing/public-image/${product._id}/${i}` : null;
 
+            // Strategy 1: Media API via Proxy
             if (proxyUrl) {
                 try {
-                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Proxy URL -> ${proxyUrl}`);
                     const mediaUrl = await ebayService.createImageFromUrl(token, proxyUrl);
-                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Media API via proxy success -> ${mediaUrl.substring(0, 50)}...`);
-                    processedImages.push(mediaUrl);
-                    continue;
+                    return mediaUrl;
                 } catch (proxyErr) {
-                    console.warn(`[MEDIA DEBUG] Image ${i + 1}: Proxy Media API failed. Falling back to source image. Reason: ${proxyErr.message}`);
+                    console.warn(`[MEDIA DEBUG] Image ${i + 1}: Proxy Media API failed. Falling back.`);
                 }
             }
 
+            // Strategy 2: Direct URL processing
             if (isUrl) {
                 try {
-                    let sourceHost = 'invalid-url';
-                    try { sourceHost = new URL(img).host; } catch (_) {}
-                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Source URL -> ${img}`);
-                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Source Host -> ${sourceHost}`);
-                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Uploading URL to eBay Media API...`);
                     const mediaUrl = await ebayService.createImageFromUrl(token, img);
-                    console.log(`[MEDIA DEBUG] Image ${i + 1}: Media API Success -> ${mediaUrl.substring(0, 50)}...`);
-                    processedImages.push(mediaUrl);
-                    continue;
+                    return mediaUrl;
                 } catch (mediaErr) {
-                    console.warn(`[MEDIA DEBUG] Image ${i + 1}: Media API failed. Falling back to EPS flow. Reason: ${mediaErr.message}`);
+                    console.warn(`[MEDIA DEBUG] Image ${i + 1}: Media API failed. Falling back to EPS.`);
                 }
 
-                // EPS fallback path for URL images
-                if (img.length > 450) {
-                    try {
-                        console.log(`[EPS DEBUG] Image ${i + 1}: URL too long (${img.length} chars). Trying EPS ExternalPictureURL...`);
-                        const ebayUrl = await ebayService.uploadPictureFromUrl(token, img);
-                        console.log(`[EPS DEBUG] Image ${i + 1}: External URL EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
-                        processedImages.push(ebayUrl);
-                    } catch (e) {
-                        console.warn(`[EPS DEBUG] Image ${i + 1}: External URL EPS upload failed. Falling back to binary upload. Reason: ${e.message}`);
-                        try {
-                            const response = await axios.get(img, {
-                                responseType: 'arraybuffer',
-                                timeout: 20000,
-                                maxRedirects: 5,
-                                headers: { 'User-Agent': 'Mozilla/5.0' }
-                            });
-                            const contentType = String(response.headers?.['content-type'] || '').toLowerCase();
-                            if (contentType && !contentType.startsWith('image/')) {
-                                throw new Error(`Source URL content-type is not image: ${contentType}`);
-                            }
-                            const base64 = Buffer.from(response.data).toString('base64');
-                            const detectedMime = contentType.split(';')[0] || 'image/jpeg';
-                            const fallbackUrl = await ebayService.uploadPicture(token, `data:${detectedMime};base64,${base64}`);
-                            console.log(`[EPS DEBUG] Image ${i + 1}: Binary fallback EPS Upload Success -> ${fallbackUrl.substring(0, 50)}...`);
-                            processedImages.push(fallbackUrl);
-                        } catch (fallbackErr) {
-                            console.error(`[EPS DEBUG] Image ${i + 1}: URL binary fallback FAILED:`, fallbackErr.message);
-                            if (!firstUploadError) firstUploadError = fallbackErr.message;
-                        }
-                    }
-                } else {
-                    try {
-                        console.log(`[EPS DEBUG] Image ${i + 1}: Short URL fallback via EPS ExternalPictureURL...`);
-                        const ebayUrl = await ebayService.uploadPictureFromUrl(token, img);
-                        console.log(`[EPS DEBUG] Image ${i + 1}: Short URL EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
-                        processedImages.push(ebayUrl);
-                    } catch (epsErr) {
-                        console.error(`[EPS DEBUG] Image ${i + 1}: Short URL EPS upload FAILED:`, epsErr.message);
-                        // Keep original short URL as last fallback.
-                        processedImages.push(img);
-                    }
-                }
-            } else if (isBase64) {
+                // EPS fallback for URL
                 try {
-                    console.log(`[EPS DEBUG] Image ${i + 1}: Uploading Base64 image to eBay EPS...`);
-                    const ebayUrl = await ebayService.uploadPicture(token, img);
-                    console.log(`[EPS DEBUG] Image ${i + 1}: EPS Upload Success -> ${ebayUrl.substring(0, 50)}...`);
-                    processedImages.push(ebayUrl);
-                } catch (e) {
-                    const errMsg = e.response?.data || e.message;
-                    console.error(`[EPS DEBUG] Image ${i + 1}: EPS Upload FAILED:`, errMsg);
-                    if (!firstUploadError) firstUploadError = errMsg;
+                    const ebayUrl = await ebayService.uploadPictureFromUrl(token, img);
+                    return ebayUrl;
+                } catch (epsErr) {
+                    // Final binary fallback for URL
+                    try {
+                        const response = await axios.get(img, { responseType: 'arraybuffer', timeout: 15000 });
+                        const base64 = Buffer.from(response.data).toString('base64');
+                        const contentType = response.headers?.['content-type'] || 'image/jpeg';
+                        return await ebayService.uploadPicture(token, `data:${contentType};base64,${base64}`);
+                    } catch (finalErr) {
+                        console.error(`[EPS ERROR] Image ${i + 1} FAILED:`, finalErr.message);
+                        return isUrl && img.length < 500 ? img : null; // Keep short URLs as last resort
+                    }
                 }
-            } else {
-                console.warn(`[EPS DEBUG] Image ${i + 1}: Skipped (Invalid format or too short)`);
+            } 
+            
+            // Strategy 3: Base64 Upload
+            if (isBase64) {
+                try {
+                    return await ebayService.uploadPicture(token, img);
+                } catch (e) {
+                    console.error(`[EPS ERROR] Base64 upload FAILED for image ${i + 1}`);
+                    return null;
+                }
             }
-        }
 
-        // Filter out invalid/local URLs that eBay API will reject
-        const validImages = processedImages
+            return null;
+        });
+
+        const processedImagesResults = await Promise.all(imagePromises);
+        const validImages = processedImagesResults
             .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')))
-            .filter(url => !url.includes('localhost') && !url.includes('127.0.0.1'))
+            .filter(url => !url.includes('localhost'))
             .slice(0, 24);
 
         console.log(`[EPS DEBUG] Final count of valid images for eBay: ${validImages.length}`);
