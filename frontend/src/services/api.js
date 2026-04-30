@@ -24,6 +24,7 @@ export const getEbayAuthUrl = async (state = 'dashboard') => {
 
 export const syncEbayData = async () => {
     const response = await api.get('/ebay/sync');
+    cache.products = null; // Clear cache to show newly synced products
     return response.data;
 };
 
@@ -57,8 +58,8 @@ export const getCategoryConditions = async (categoryId) => {
 };
 
 export const listProduct = async (productId, isDraft = false) => {
-
     const response = await api.post(`/listing/ebay/${productId}${isDraft ? '?draft=true' : ''}`);
+    cache.products = null; // Invalidate cache so status (Listed/Draft) updates in UI
     return response.data;
 };
 
@@ -119,6 +120,7 @@ export const saveAiListing = async (data) => {
     const response = await api.post('/ai/save-listing', data);
     return response.data;
 };
+
 
 export const getOrders = async () => {
     const response = await api.get('/orders');

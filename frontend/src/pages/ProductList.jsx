@@ -37,7 +37,8 @@ const ProductList = () => {
 
     const loadProducts = async () => {
         try {
-            const data = await getProducts();
+            // Force refresh to always get the latest list from the database
+            const data = await getProducts(true);
             setProducts(data);
         } catch (error) {
             console.error('Error loading products:', error);
