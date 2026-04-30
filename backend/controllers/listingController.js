@@ -237,6 +237,11 @@ exports.listOnEbay = async (req, res) => {
             inventoryItem.condition = 'NEW'; // Default fallback
         }
 
+        // 🚨 ADDED: Map Condition Notes (Description)
+        if (product.condition_notes) {
+            inventoryItem.conditionDescription = product.condition_notes.substring(0, 1000);
+        }
+
         // Map Item Specifics
         if (product.item_specifics) {
             const specs = typeof product.item_specifics === 'string' ? JSON.parse(product.item_specifics) : product.item_specifics;
@@ -304,7 +309,7 @@ exports.listOnEbay = async (req, res) => {
             marketplaceId: 'EBAY_US',
             format: 'FIXED_PRICE',
             availableQuantity: 1,
-            categoryId: product.categoryId || product.category_id,
+            categoryId: product.categoryId || product.category_id || product.categoryId,
             listingDescription: (product.description || product.title),
             pricingSummary: {
                 price: {

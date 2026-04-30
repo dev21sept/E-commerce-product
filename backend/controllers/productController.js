@@ -154,6 +154,7 @@ exports.createProduct = async (req, res) => {
             description,
             category,
             category_id: finalCategoryId,
+            categoryId: finalCategoryId,
             brand,
             sku,
             condition_name,
