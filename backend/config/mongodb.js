@@ -22,13 +22,14 @@ const connectMongoDB = async () => {
         }
 
         console.log('⏳ Attempting to connect to MongoDB Atlas (Serverless)...');
-        
+
         cached.promise = mongoose.connect(mongoURI, {
             serverSelectionTimeoutMS: 10000,
             socketTimeoutMS: 45000,
             maxPoolSize: 5 // Better for small serverless functions
         }).then((mongooseInstance) => {
             console.log('✅ MongoDB Connected (State: 1)');
+            console.log(`📡 Active Database: ${mongooseInstance.connection.name}`);
             return mongooseInstance;
         }).catch(err => {
             console.error('❌ MongoDB Connection Error:', err.message);
