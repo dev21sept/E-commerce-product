@@ -8,6 +8,8 @@ import {
     getSavedConditionNotes,
     updateFetchRule
 } from '../services/api';
+import { useToast } from '../components/Toast';
+
 
 const BASE_TITLE_FIELDS = [
     'Brand',
