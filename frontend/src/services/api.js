@@ -4,7 +4,7 @@ const isProduction = import.meta.env.MODE === 'production' || window.location.ho
 
 const api = axios.create({
     baseURL: isProduction
-        ? 'https://agant-client-valisting-m52l.vercel.app/api'
+        ? 'https://apivalisting.ajxlubricant.co.in/api'
         : 'http://localhost:5000/api',
     timeout: 120000
 });

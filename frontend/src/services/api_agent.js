@@ -4,7 +4,7 @@ const isProduction = import.meta.env.MODE === 'production' || window.location.ho
 
 const api = axios.create({
     baseURL: isProduction
-        ? 'https://agant-client-valisting-m52l.vercel.app/api/agent-tools'
+        ? 'https://apivalisting.ajxlubricant.co.in/api/agent-tools'
         : 'http://localhost:5000/api/agent-tools',
     timeout: 120000,
 });
@@ -12,7 +12,7 @@ const api = axios.create({
 // Helper for other modules (AI, Scraper) that might not be under /agent-tools yet
 const mainApi = axios.create({
     baseURL: isProduction
-        ? 'https://agant-client-valisting-m52l.vercel.app/api'
+        ? 'https://apivalisting.ajxlubricant.co.in/api'
         : 'http://localhost:5000/api',
     timeout: 120000,
 });
