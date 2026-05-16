@@ -19,6 +19,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const fetchRuleRoutes = require('./routes/fetchRuleRoutes');
 const agentRoutes = require('./routes/agent_client_routes');
 const agentToolsRoutes = require('./routes/agent_tools_routes');
+const ebayController = require('./controllers/ebayController');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -46,7 +47,10 @@ app.use('/api', productRoutes);
 console.log(`✅ [INIT] Product CRUD Routes Active`);
 
 app.use('/api/ebay', ebayRoutes);
-console.log(`✅ [INIT] eBay Auth & OAuth Routes Active`);
+app.get('/api/callback', ebayController.handleCallback);
+app.get('/api/deletion', ebayController.handleDeletionNotification);
+app.post('/api/deletion', ebayController.handleDeletionNotification);
+console.log(`✅ [INIT] eBay Auth & OAuth Routes Active (including /api/callback fallback)`);
 
 app.use('/api/ai', aiRoutes);
 console.log(`✅ [INIT] AI Vision & Analysis Routes Active`);
