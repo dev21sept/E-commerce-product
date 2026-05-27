@@ -148,11 +148,16 @@ exports.handleCallback = async (req, res) => {
         if (isClientAuth) {
             const clientId = state.split('_')[1];
             const Client = require('../models/Client');
-            targetClient = await Client.findById(clientId);
-            if (targetClient) {
-                targetClient.ebayToken = tokens.access_token;
-                targetClient.ebayRefreshToken = tokens.refresh_token;
-                targetClient.ebayTokenExpiry = new Date(Date.now() + (tokens.expires_in * 1000));
+            try {
+                targetClient = await Client.findById(clientId);
+                if (targetClient) {
+                    targetClient.ebayToken = tokens.access_token;
+                    targetClient.ebayRefreshToken = tokens.refresh_token;
+                    targetClient.ebayTokenExpiry = new Date(Date.now() + (tokens.expires_in * 1000));
+                    await targetClient.save();
+                }
+            } catch (err) {
+                console.error('Error finding or saving client during callback:', err.message);
             }
         } else {
             await saveSetting('ebay_access_token', tokens.access_token);
@@ -187,9 +192,9 @@ exports.handleCallback = async (req, res) => {
         // exports.syncInventory(tokens.access_token).catch(err => console.error('Initial inventory sync error:', err));
         // exports.syncOrders(tokens.access_token).catch(err => console.error('Initial orders sync error:', err));
 
-        const frontendUrl = (process.env.FRONTEND_URL).trim().replace(/\/$/, '');
-        const redirectPath = isClientAuth ? '/clients' : (state === 'products' ? '/products' : '/');
-        res.redirect(`${frontendUrl}${redirectPath}?ebay_auth=success`);
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').trim().replace(/\/$/, '');
+        const redirectPath = isClientAuth ? '/clients' : (state === 'products' ? '/products' : '/ebay-accounts');
+        res.redirect(`${frontendUrl}${redirectPath}?success=true`);
     } catch (error) {
         console.error('Callback Error:', error.response?.data || error.message);
         const ebayError = error.response?.data;
@@ -287,6 +292,7 @@ exports.syncInventory = async (providedToken = null) => {
                     images: item.product.imageUrls || [],
                     selling_price: item.price?.value,
                     source: 'ebay',
+                    status: 'listed',
                     updated_at: Date.now()
                 };
 

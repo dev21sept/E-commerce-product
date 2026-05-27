@@ -149,6 +149,15 @@ exports.createProduct = async (req, res) => {
             });
         }
 
+        const Client = require('../models/Client');
+        let clientId = req.body.clientId || null;
+        if (req.user?.role === 'agent') {
+            const client = await Client.findOne({ assignedAgents: req.user.id });
+            if (client) {
+                clientId = client._id;
+            }
+        }
+
         const newProduct = new Product({
             title,
             description,
@@ -181,7 +190,8 @@ exports.createProduct = async (req, res) => {
             return_policy,
             applied_rule,
             status: status || 'pending',
-            agentId: req.user?.role === 'agent' ? req.user.id : (req.body.agentId || null)
+            agentId: req.user?.role === 'agent' ? req.user.id : (req.body.agentId || null),
+            clientId
         });
 
         await newProduct.save();
@@ -298,6 +308,15 @@ exports.updateProduct = async (req, res) => {
             });
         }
 
+        const Client = require('../models/Client');
+        let clientId = req.body.clientId;
+        if (req.user?.role === 'agent' && !clientId) {
+            const client = await Client.findOne({ assignedAgents: req.user.id });
+            if (client) {
+                clientId = client._id;
+            }
+        }
+
         const updatedProduct = await Product.findByIdAndUpdate(
             req.params.id,
             {
@@ -308,6 +327,7 @@ exports.updateProduct = async (req, res) => {
                 ebay_url, about_item, item_specifics, officialAspects, images: normalizedImages,
                 variations: formattedVariations, video_url,
                 inventory_location, fulfillment_policy, payment_policy, return_policy, applied_rule, status,
+                clientId,
                 updated_at: Date.now()
             },
             { returnDocument: 'after' }

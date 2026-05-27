@@ -102,8 +102,12 @@ const ProductList = ({ user, scopedAgentId, viewOnly }) => {
     };
 
     const filteredProducts = products.filter(p => {
-        // Agent Isolation: Only show products for assigned client
-        if (user?.role === 'agent' && p.clientId !== user.clientId) return false;
+        // Agent Isolation: Only show products for assigned client or created by this agent
+        if (user?.role === 'agent') {
+            const belongsToClient = p.clientId && p.clientId === user.clientId;
+            const createdByAgent = p.agentId === user.id || (p.agentId && (p.agentId === user.id || p.agentId._id === user.id));
+            if (!belongsToClient && !createdByAgent) return false;
+        }
 
         const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
